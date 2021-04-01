@@ -9,6 +9,3 @@ edition = "2018"
 [dependencies]
 rand = "0.5.5"
 serenity = "0.10"
-
-[dependencies.serenity]
-features = ["framework", "standard_framework"]
