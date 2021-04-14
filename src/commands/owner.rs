@@ -1,13 +1,13 @@
 use crate::ShardManagerContainer;
-use serenity::prelude::*;
-use serenity::model::prelude::*;
-use serenity::framework::standard::{
-    CommandResult,
-    macros::command,
+use serenity::{
+    framework::standard::{macros::command, CommandResult},
+    model::prelude::*,
+    prelude::*,
 };
 
 #[command]
 #[owners_only]
+// TODO: consider persisting memory contents (picks, joins, etc.)
 async fn quit(ctx: &Context, msg: &Message) -> CommandResult {
     let data = ctx.data.read().await;
 
@@ -15,12 +15,11 @@ async fn quit(ctx: &Context, msg: &Message) -> CommandResult {
         msg.reply(ctx, "Shutting down!").await?;
         manager.lock().await.shutdown_all().await;
     } else {
-        msg.reply(ctx, "There was a problem getting the shard manager").await?;
+        msg.reply(ctx, "There was a problem getting the shard manager")
+            .await?;
 
         return Ok(());
     }
-
-
 
     Ok(())
 }

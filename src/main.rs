@@ -28,7 +28,7 @@ use tokio::sync::RwLock;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-use commands::{math::*, meta::*, owner::*};
+use commands::{ join::*,  leave::*, list::*, meta::*,  owner::*, pick::*, promote::* };
 
 pub struct ShardManagerContainer;
 
@@ -91,8 +91,7 @@ async fn dispatch_error_hook(context: &Context, msg: &Message, error: DispatchEr
     if let DispatchError::CheckFailed(_, reason) = error {
         match reason {
             Reason::User(info) => {
-                msg.channel_id
-                    .say(&context.http, &info)
+                msg.reply(&context.http, &info)
                     .await
                     .expect("Expected informational string about the failed check");
                 return;
@@ -177,9 +176,8 @@ async fn my_help(
     Ok(())
 }
 
-// Test command set
 #[group]
-#[commands(multiply, ping, quit)]
+#[commands(join, ping, leave, leave_all, list, list_all,  pick, promote, quit)]
 #[checks(PugChannel)]
 struct General;
 
