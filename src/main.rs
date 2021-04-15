@@ -118,7 +118,7 @@ async fn is_pug_channel_check(
         };
 
         // TODO: try to narrow this body as much as possible
-        // to reduce time spent holding the RWLock in read mode
+        // to reduce time spent holding the RwLock in read mode
         let fail: Option<String> = {
             let data_read = context.data.read().await;
             // Then we obtain the value we need from data, in this case, we want the desginated pug channels.
@@ -141,20 +141,21 @@ async fn is_pug_channel_check(
                             .push(" channel to use this command")
                             .build())
                     }
-                    else {None} 
+                    else {None}
                 },
                 None => {
                     Some(MessageBuilder::new()
-                    .push("No pug channel set. Contact admins to type `.setpugchannel` in the channel destined for pugs.")
+                    .push("No pug channel set.")
+                    .push("Contact admins to type `.setpugchannel` in the channel destined for pugs.")
                     .build())
                 },
             }
         };
         if let Some(response) = fail {
             Err(Reason::User(response))
+        } else {
+            Ok(())
         }
-        else{Ok(())}
-        
     } else {
         panic!("No GuildId in received message - Is client running without gateway?");
     }
@@ -177,7 +178,7 @@ async fn my_help(
 }
 
 #[group]
-#[commands(join, ping, leave, leave_all, list, list_all,  pick, promote, quit)]
+#[commands(join, ping, leave, leave_all, list, list_all, pick, promote, quit)]
 #[checks(PugChannel)]
 struct General;
 
