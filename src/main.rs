@@ -1,4 +1,9 @@
 mod commands;
+mod pug;
+mod validation;
+#[macro_use]
+extern crate maplit;
+use pug::{GameMode, PickingSession, Pug};
 
 use serenity::{
     async_trait,
@@ -20,7 +25,7 @@ use serenity::{
     utils::MessageBuilder,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     env,
     sync::Arc,
 };
@@ -28,7 +33,7 @@ use tokio::sync::RwLock;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-use commands::{ join::*,  leave::*, list::*, meta::*,  owner::*, pick::*, promote::* };
+use commands::{join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*};
 
 pub struct ShardManagerContainer;
 
@@ -37,12 +42,34 @@ impl TypeMapKey for ShardManagerContainer {
 }
 
 struct DesignatedPugChannel;
-
 impl TypeMapKey for DesignatedPugChannel {
     type Value = Arc<RwLock<HashMap<GuildId, GuildChannel>>>;
 }
 
-// TODO - represent pug queue similarly ^
+pub struct RegisteredGameModes;
+impl TypeMapKey for RegisteredGameModes {
+    type Value = Arc<RwLock<HashMap<GuildId, HashSet<GameMode>>>>;
+}
+
+pub struct PugsWaitingToFill;
+impl TypeMapKey for PugsWaitingToFill {
+    type Value = Arc<
+        RwLock<
+            HashMap<
+                GuildId,
+                HashMap<
+                    GameMode,
+                    Vec<Pug>, // manipulate as stack - should never have more than 2 items
+                >,
+            >,
+        >,
+    >;
+}
+
+struct FilledPug;
+impl TypeMapKey for FilledPug {
+    type Value = Arc<RwLock<HashMap<GuildId, VecDeque<PickingSession>>>>;
+}
 
 struct Handler;
 const DEFAULT_PUG_CHANNEL_NAME: &str = "pugs-test";
@@ -52,10 +79,16 @@ impl EventHandler for Handler {
     async fn ready(&self, _: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
     }
+
     async fn cache_ready(&self, context: Context, guild_ids: Vec<GuildId>) {
-        // load into global storage the designated pug channel for each guild
         let mut designated_pug_channels = HashMap::default();
+        let mut registered_game_modes: HashMap<GuildId, HashSet<GameMode>> = HashMap::default();
+        let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Vec<Pug>>> =
+            HashMap::default();
+        let filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
+
         for guild_id in guild_ids.iter() {
+            // default pug channels
             match context.cache.guild_channels(guild_id).await {
                 Some(guild_channels) => {
                     for (_channel_id, channel) in guild_channels {
@@ -71,11 +104,31 @@ impl EventHandler for Handler {
                 // TODO: report that somehow a guild returned ... no channels ???
                 None => continue,
             };
+
+            // initialize pug state data
+            // TODO: pull these game modes from persistent storage
+
+            registered_game_modes.insert(
+                *guild_id,
+                hashset! {
+                    GameMode::new("duel".to_string(), 2),
+                    GameMode::new("2elim".to_string(), 4),
+                    GameMode::new("3elim".to_string(), 6),
+                    GameMode::new("4elim".to_string(), 8),
+                    GameMode::new("blitz".to_string(), 10),
+                    GameMode::new("ctf".to_string(), 10),
+                },
+            );
+            let potential_pugs: HashMap<GameMode, Vec<Pug>> = HashMap::default();
+            pugs_waiting_to_fill.insert(*guild_id, potential_pugs);
         }
 
         {
             let mut data = context.data.write().await;
             data.insert::<DesignatedPugChannel>(Arc::new(RwLock::new(designated_pug_channels)));
+            data.insert::<RegisteredGameModes>(Arc::new(RwLock::new(registered_game_modes)));
+            data.insert::<PugsWaitingToFill>(Arc::new(RwLock::new(pugs_waiting_to_fill)));
+            data.insert::<FilledPug>(Arc::new(RwLock::new(filled_pugs)));
         }
     }
 
