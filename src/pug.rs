@@ -1,9 +1,13 @@
 use chrono::prelude::*;
 use linked_hash_set::LinkedHashSet;
 use serenity::model::id::UserId;
-use std::{convert::TryInto, fmt};
+use std::{
+    convert::TryInto,
+    fmt,
+    hash::{Hash, Hasher},
+};
 
-#[derive(Eq, Hash, Debug)]
+#[derive(Eq, Hash, Debug, Clone)]
 pub struct GameMode {
     key: String,
     pub label: String,
@@ -46,7 +50,7 @@ impl GameMode {
     }
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, Debug)]
 pub struct PugParticipant {
     // TODO: `join_datetime` field might interfer with comparison
     // consider manually implementing comparison of UserId's
@@ -54,6 +58,28 @@ pub struct PugParticipant {
     join_datetime: DateTime<Utc>,
 }
 
+impl PartialEq for PugParticipant {
+    fn eq(&self, other: &Self) -> bool {
+        self.user_id == other.user_id
+    }
+}
+
+impl Hash for PugParticipant {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.user_id.hash(state);
+    }
+}
+
+impl PugParticipant {
+    pub fn new(user_id: UserId) -> Self {
+        PugParticipant {
+            user_id: user_id,
+            join_datetime: Utc::now(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Pug {
     Empty,
     // using hashset to guard from duplicates
@@ -70,7 +96,7 @@ pub struct PickingSession {
 }
 
 impl PickingSession {
-    pub fn new(self, records: LinkedHashSet<PugParticipant>) -> Self {
+    pub fn new(records: LinkedHashSet<PugParticipant>) -> Self {
         // TODO - start auto captain timer
         let mut enumerated_players: Vec<(u8, UserId)> = Vec::new();
         for (index, player) in records.iter().enumerate() {
