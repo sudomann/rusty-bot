@@ -32,9 +32,10 @@ pub async fn is_filling_more_than_one_pug_check(
                 .clone();
             let registered_game_modes = lock_for_registered_game_modes.read().await;
 
-            let mut game_modes: HashSet<&GameMode> = HashSet::default();
+            let mut game_modes: HashSet<&GameMode> = HashSet::new();
             if let Some(game_modes_in_guild) = registered_game_modes.get(&guild_id) {
                 let game_modes_to_join = args
+                    .clone()
                     .iter::<String>()
                     .filter(|arg| arg.is_ok())
                     // coerce the user's game mode argument(s) to lowercase,

@@ -32,6 +32,7 @@ pub async fn is_registered_game_mode_check(
             .map(|game_mode| game_mode.to_string())
             .collect::<HashSet<String>>();
           let game_modes_to_join = args
+                            .clone()
             .iter::<String>()
             .filter_map(|arg| arg.ok())
             .collect::<HashSet<String>>();
