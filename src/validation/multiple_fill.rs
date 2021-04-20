@@ -1,7 +1,4 @@
-use crate::{
-    pug::{GameMode, Pug},
-    PugsWaitingToFill, RegisteredGameModes,
-};
+use crate::{pug::GameMode, PugsWaitingToFill, RegisteredGameModes};
 use serenity::{
     framework::standard::{macros::check, Args, CommandOptions, Reason},
     model::prelude::*,
@@ -58,19 +55,14 @@ pub async fn is_filling_more_than_one_pug_check(
                 Some(potential_pugs) => {
                     let mut game_modes_which_will_fill = Vec::default();
                     for game_mode in game_modes.iter() {
-                        if let Some(pug_instances_for_game_mode) = potential_pugs.get(&game_mode) {
-                            if let Some(current_pug_for_game_mode) =
-                                pug_instances_for_game_mode.last()
-                            {
-                                match current_pug_for_game_mode {
-                                    Pug::Empty => continue,
-                                    Pug::Players(players_in_pug) => {
-                                        let current_pug_will_fill_if_joined =
-                                            game_mode.capacity() - players_in_pug.len() as u8 == 1;
-                                        if current_pug_will_fill_if_joined {
-                                            game_modes_which_will_fill.push(game_mode);
-                                        }
-                                    }
+                        if let Some(participants) = potential_pugs.get(&game_mode) {
+                            if participants.is_empty() {
+                                continue;
+                            } else {
+                                let will_fill_on_join =
+                                    game_mode.capacity() - participants.len() as u8 == 1;
+                                if will_fill_on_join {
+                                    game_modes_which_will_fill.push(game_mode);
                                 }
                             }
                         }

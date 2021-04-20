@@ -1,5 +1,5 @@
 use crate::{
-    pug::{GameMode, Pug, PugParticipant},
+    pug::{GameMode, Participants, Player},
     validation::{game_mode::*, multiple_fill::*},
     PugsWaitingToFill, RegisteredGameModes,
 };
@@ -47,32 +47,38 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                     .iter::<String>()
                     .filter_map(|arg| arg.ok())
                     .collect::<HashSet<String>>();
-                let mut game_modes_to_join: Vec<&GameMode> = Vec::default();
 
-                for (registered_game_mode, pugs) in pugs_waiting_to_fill_in_guild.iter_mut() {
-                    if desired_game_mode_args.contains(registered_game_mode.key()) {
+                for (game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
+                    if desired_game_mode_args.contains(game_mode.key()) {
                         // add user to pug
-                        if let Some(current_pug_for_game_mode) = pugs.last_mut() {
-                            let player = PugParticipant::new(msg.author.id);
-                            // multiple join attempts wont result in duplicate
-                            // instances of UserId in LinkedHashSet
-                            match current_pug_for_game_mode {
-                                Pug::Empty => {
-                                    let mut new_player_set = LinkedHashSet::default();
-                                    new_player_set.insert(player);
-                                    let new_pug = Pug::Players(new_player_set);
-                                    pugs.push(new_pug);
-                                }
-                                Pug::Players(players) => {
-                                    players.insert(player);
-                                    game_modes_to_join.push(registered_game_mode);
-                                }
-                            };
+                        let player = Player::new(msg.author.id);
+                        // multiple join attempts wont result in duplicate
+                        // instances of PugParticipant in LinkedHashSet
+                        let mut just_filled = false;
+                        if participants.is_empty() {
+                            participants.insert(player);
+                        } else {
+                            participants.insert(player);
+                            just_filled = participants.len() as u8 == game_mode.capacity();
+                        }
+                        if just_filled {
+
+                            // announce pug has filled
+
+                            // remove it from vec
+
+                            // remove players in this pug from any other pugs they're in
+                            // and announce
+
+                            // create PickingSession, discarding PugWaitingToFill
+
+                            // in picking session, there should be a reference to the announcement,
+                            // which updates every second with auto captain countdown
                         }
                         msg.reply(
                             &ctx.http,
                             MessageBuilder::new()
-                                .push(format!("okay - {:?}", pugs.last()))
+                                .push(format!("{:?}", participants))
                                 .build(),
                         )
                         .await?;

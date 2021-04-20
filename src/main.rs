@@ -3,8 +3,7 @@ mod pug;
 mod validation;
 #[macro_use]
 extern crate maplit;
-use pug::{GameMode, PickingSession, Pug};
-
+use pug::{GameMode, Participants, PickingSession};
 use serenity::{
     async_trait,
     client::bridge::gateway::ShardManager,
@@ -53,17 +52,7 @@ impl TypeMapKey for RegisteredGameModes {
 
 pub struct PugsWaitingToFill;
 impl TypeMapKey for PugsWaitingToFill {
-    type Value = Arc<
-        RwLock<
-            HashMap<
-                GuildId,
-                HashMap<
-                    GameMode,
-                    Vec<Pug>, // manipulate as stack - should never have more than 2 items
-                >,
-            >,
-        >,
-    >;
+    type Value = Arc<RwLock<HashMap<GuildId, HashMap<GameMode, Participants>>>>;
 }
 
 struct FilledPug;
@@ -83,7 +72,7 @@ impl EventHandler for Handler {
     async fn cache_ready(&self, context: Context, guild_ids: Vec<GuildId>) {
         let mut designated_pug_channels = HashMap::default();
         let mut registered_game_modes: HashMap<GuildId, HashSet<GameMode>> = HashMap::default();
-        let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Vec<Pug>>> =
+        let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Participants>> =
             HashMap::default();
         let filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
         let preset_gamemodes = hashset! {
@@ -117,9 +106,9 @@ impl EventHandler for Handler {
             // TODO: pull these game modes from persistent storage
 
             registered_game_modes.insert(*guild_id, preset_gamemodes.clone());
-            let mut potential_pugs: HashMap<GameMode, Vec<Pug>> = HashMap::default();
+            let mut potential_pugs: HashMap<GameMode, Participants> = HashMap::default();
             for game_mode in preset_gamemodes.clone().drain() {
-                potential_pugs.insert(game_mode, vec![Pug::Empty]);
+                potential_pugs.insert(game_mode, Participants::default());
             }
             pugs_waiting_to_fill.insert(*guild_id, potential_pugs);
         }

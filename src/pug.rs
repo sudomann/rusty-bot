@@ -37,8 +37,8 @@ impl GameMode {
     pub fn new(label: String, player_count: u8) -> Self {
         GameMode {
             key: label.to_lowercase(),
-            label: label,
-            player_count: player_count,
+            label,
+            player_count,
         }
     }
 
@@ -52,20 +52,20 @@ impl GameMode {
 }
 
 #[derive(Eq, Debug)]
-pub struct PugParticipant {
+pub struct Player {
     // TODO: `join_datetime` field might interfer with comparison
     // consider manually implementing comparison of UserId's
     user_id: UserId,
     join_datetime: DateTime<Utc>,
 }
 
-impl PartialEq for PugParticipant {
+impl PartialEq for Player {
     fn eq(&self, other: &Self) -> bool {
         self.user_id == other.user_id
     }
 }
 
-impl PartialEq<UserId> for PugParticipant {
+impl PartialEq<UserId> for Player {
     fn eq(&self, other: &UserId) -> bool {
         self.user_id == *other
         // how is this different from
@@ -73,13 +73,14 @@ impl PartialEq<UserId> for PugParticipant {
     }
 }
 
-impl Hash for PugParticipant {
+impl Hash for Player {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.user_id.hash(state);
     }
 }
 
-impl Borrow<UserId> for PugParticipant {
+// TODO: might be useful to implement this for GameMode
+impl Borrow<UserId> for Player {
     /// Facilitates identifying instances of [`PugParticipant`]
     /// within collections, so get, insertion, removal, can be done
     /// by providing a [`UserId`] (borrowed) as argument
@@ -88,21 +89,16 @@ impl Borrow<UserId> for PugParticipant {
     }
 }
 
-impl PugParticipant {
+impl Player {
     pub fn new(user_id: UserId) -> Self {
-        PugParticipant {
-            user_id: user_id,
+        Player {
+            user_id,
             join_datetime: Utc::now(),
         }
     }
 }
 
-#[derive(Debug)]
-pub enum Pug {
-    Empty,
-    // using hashset to guard from duplicates
-    Players(LinkedHashSet<PugParticipant>),
-}
+pub type Participants = LinkedHashSet<Player>;
 
 pub struct PickingSession {
     // when <color>_captain is being assigned,
@@ -117,7 +113,7 @@ pub struct PickingSession {
 }
 
 impl PickingSession {
-    pub fn new(game_mode: GameMode, players: LinkedHashSet<PugParticipant>) -> Self {
+    pub fn new(game_mode: GameMode, players: LinkedHashSet<Player>) -> Self {
         // TODO - start auto captain timer
         let mut enumerated_players: Vec<(u8, UserId)> = Vec::new();
         for (index, player) in players.iter().enumerate() {
@@ -126,7 +122,7 @@ impl PickingSession {
             enumerated_players.push((player_number, player.user_id));
         }
         PickingSession {
-            game_mode: game_mode,
+            game_mode,
             pick_round: 0,
             players: enumerated_players,
             red_captain: None,
