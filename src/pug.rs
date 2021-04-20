@@ -87,30 +87,42 @@ pub enum Pug {
 }
 
 pub struct PickingSession {
+    // when <color>_captain is being assigned,
+    // assign into both <color>_captain and <color>_team collection
+    game_mode: GameMode,
     pick_round: u8,
     players: Vec<(u8, UserId)>,
     red_captain: Option<UserId>,
-    red_team: Vec<UserId>,
+    red_team: LinkedHashSet<(u8, UserId)>,
     blue_captain: Option<UserId>,
-    blue_team: Vec<UserId>,
+    blue_team: LinkedHashSet<(u8, UserId)>,
 }
 
 impl PickingSession {
-    pub fn new(records: LinkedHashSet<PugParticipant>) -> Self {
+    pub fn new(game_mode: GameMode, players: LinkedHashSet<PugParticipant>) -> Self {
         // TODO - start auto captain timer
         let mut enumerated_players: Vec<(u8, UserId)> = Vec::new();
-        for (index, player) in records.iter().enumerate() {
+        for (index, player) in players.iter().enumerate() {
             // cast index from usize to u8. We use try_into().unwrap() so it never fails silently
             let player_number = TryInto::<u8>::try_into(index).unwrap() + 1;
             enumerated_players.push((player_number, player.user_id));
         }
         PickingSession {
+            game_mode: game_mode,
             pick_round: 0,
             players: enumerated_players,
             red_captain: None,
-            red_team: Vec::default(),
+            red_team: LinkedHashSet::default(),
             blue_captain: None,
-            blue_team: Vec::default(),
+            blue_team: LinkedHashSet::default(),
         }
+    }
+
+    pub fn get_red_team(&self) -> &LinkedHashSet<(u8, UserId)> {
+        &self.red_team
+    }
+
+    pub fn get_blue_team(&self) -> &LinkedHashSet<(u8, UserId)> {
+        &self.blue_team
     }
 }
