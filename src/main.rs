@@ -86,6 +86,14 @@ impl EventHandler for Handler {
         let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Vec<Pug>>> =
             HashMap::default();
         let filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
+        let preset_gamemodes = hashset! {
+            GameMode::new("duel".to_string(), 2),
+            GameMode::new("2elim".to_string(), 4),
+            GameMode::new("3elim".to_string(), 6),
+            GameMode::new("4elim".to_string(), 8),
+            GameMode::new("blitz".to_string(), 10),
+            GameMode::new("ctf".to_string(), 10),
+        };
 
         for guild_id in guild_ids.iter() {
             // default pug channels
@@ -108,18 +116,11 @@ impl EventHandler for Handler {
             // initialize pug state data
             // TODO: pull these game modes from persistent storage
 
-            registered_game_modes.insert(
-                *guild_id,
-                hashset! {
-                    GameMode::new("duel".to_string(), 2),
-                    GameMode::new("2elim".to_string(), 4),
-                    GameMode::new("3elim".to_string(), 6),
-                    GameMode::new("4elim".to_string(), 8),
-                    GameMode::new("blitz".to_string(), 10),
-                    GameMode::new("ctf".to_string(), 10),
-                },
-            );
-            let potential_pugs: HashMap<GameMode, Vec<Pug>> = HashMap::default();
+            registered_game_modes.insert(*guild_id, preset_gamemodes.clone());
+            let mut potential_pugs: HashMap<GameMode, Vec<Pug>> = HashMap::default();
+            for game_mode in preset_gamemodes.clone().drain() {
+                potential_pugs.insert(game_mode, vec![Pug::Empty]);
+            }
             pugs_waiting_to_fill.insert(*guild_id, potential_pugs);
         }
 
