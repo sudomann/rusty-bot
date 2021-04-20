@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use linked_hash_set::LinkedHashSet;
 use serenity::model::id::UserId;
 use std::{
+    borrow::Borrow,
     convert::TryInto,
     fmt,
     hash::{Hash, Hasher},
@@ -64,9 +65,26 @@ impl PartialEq for PugParticipant {
     }
 }
 
+impl PartialEq<UserId> for PugParticipant {
+    fn eq(&self, other: &UserId) -> bool {
+        self.user_id == *other
+        // how is this different from
+        // &self.user_id == other
+    }
+}
+
 impl Hash for PugParticipant {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.user_id.hash(state);
+    }
+}
+
+impl Borrow<UserId> for PugParticipant {
+    /// Facilitates identifying instances of [`PugParticipant`]
+    /// within collections, so get, insertion, removal, can be done
+    /// by providing a [`UserId`] (borrowed) as argument
+    fn borrow(&self) -> &UserId {
+        &self.user_id
     }
 }
 
