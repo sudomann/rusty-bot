@@ -264,13 +264,19 @@ async fn main() {
         Err(why) => panic!("Could not access application info: {:?}", why),
     };
 
+    let environment = env::var("ENV").expect("Expected 'ENV' in environment");
+    let prefix = match environment.as_str() {
+        "PROD" => ("."),
+        _ => ("~"),
+    };
+
     // Create the framework
     let framework = StandardFramework::new()
         .configure(|c| {
             c.with_whitespace(true)
                 .case_insensitivity(true)
                 .owners(owners)
-                .prefix(".")
+                .prefix(prefix)
         })
         .on_dispatch_error(dispatch_error_hook)
         .group(&GENERAL_GROUP);
