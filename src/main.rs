@@ -55,7 +55,7 @@ impl TypeMapKey for PugsWaitingToFill {
     type Value = Arc<RwLock<HashMap<GuildId, HashMap<GameMode, Participants>>>>;
 }
 
-struct FilledPug;
+pub struct FilledPug;
 impl TypeMapKey for FilledPug {
     type Value = Arc<RwLock<HashMap<GuildId, VecDeque<PickingSession>>>>;
 }
