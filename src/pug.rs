@@ -14,7 +14,18 @@ pub struct GameMode {
     pub label: String,
     pub player_count: u8, // must be even
 }
-
+/*
+TODO: evaluate whether derived Clone is good enough
+impl Clone for GameMode {
+    fn clone(&self) -> Self {
+        Self {
+            key: self.key.to_owned(),
+            label: self.label.to_owned(),
+            player_count: self.player_count,
+        }
+    }
+}
+*/
 impl PartialEq<GameMode> for GameMode {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
@@ -30,6 +41,12 @@ impl PartialEq<String> for GameMode {
 impl fmt::Display for GameMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.key)
+    }
+}
+
+impl Borrow<String> for GameMode {
+    fn borrow(&self) -> &String {
+        &self.key
     }
 }
 
@@ -51,7 +68,7 @@ impl GameMode {
     }
 }
 
-#[derive(Eq, Debug)]
+#[derive(Eq, Debug, Clone)]
 pub struct Player {
     // TODO: `join_datetime` field might interfer with comparison
     // consider manually implementing comparison of UserId's
@@ -79,7 +96,6 @@ impl Hash for Player {
     }
 }
 
-// TODO: might be useful to implement this for GameMode
 impl Borrow<UserId> for Player {
     /// Facilitates identifying instances of [`PugParticipant`]
     /// within collections, so get, insertion, removal, can be done
@@ -95,6 +111,10 @@ impl Player {
             user_id,
             join_datetime: Utc::now(),
         }
+    }
+
+    pub fn get_user_id(&self) -> &UserId {
+        &self.user_id
     }
 }
 
@@ -113,7 +133,7 @@ pub struct PickingSession {
 }
 
 impl PickingSession {
-    pub fn new(game_mode: GameMode, players: LinkedHashSet<Player>) -> Self {
+    pub fn new(game_mode: &GameMode, players: LinkedHashSet<Player>) -> Self {
         // TODO - start auto captain timer
         let mut enumerated_players: Vec<(u8, UserId)> = Vec::new();
         for (index, player) in players.iter().enumerate() {
@@ -122,7 +142,7 @@ impl PickingSession {
             enumerated_players.push((player_number, player.user_id));
         }
         PickingSession {
-            game_mode,
+            game_mode: game_mode.clone(),
             pick_round: 0,
             players: enumerated_players,
             red_captain: None,
