@@ -175,15 +175,25 @@ impl Player {
 
 pub type Participants = LinkedHashSet<Player>;
 
+enum TeamPickAction {
+    /// Captain for blue team picked
+    BlueCaptain,
+    /// Player picked for blue team
+    BluePlayer(u8),
+    /// Captain for red team picked
+    RedCaptain,
+    /// One player picked for red team
+    RedPlayer(u8),
+}
+
+type PickHistory = Vec<TeamPickAction>;
+// TODO: where consuming history, use .pop(), .push()
+
 pub struct PickingSession {
-    // when <color>_captain is being assigned,
-    // assign into both <color>_captain and <color>_team collection
     game_mode: GameMode,
-    pick_round: u8,
+    pick_history: PickHistory,
     players: Vec<(u8, UserId)>,
-    red_captain: Option<UserId>,
     red_team: LinkedHashSet<(u8, UserId)>,
-    blue_captain: Option<UserId>,
     blue_team: LinkedHashSet<(u8, UserId)>,
 }
 
@@ -196,13 +206,12 @@ impl PickingSession {
             let player_number = TryInto::<u8>::try_into(index).unwrap() + 1;
             enumerated_players.push((player_number, player.user_id));
         }
+
         PickingSession {
             game_mode: game_mode.clone(),
-            pick_round: 0,
+            pick_history: Vec::default(),
             players: enumerated_players,
-            red_captain: None,
             red_team: LinkedHashSet::default(),
-            blue_captain: None,
             blue_team: LinkedHashSet::default(),
         }
     }
