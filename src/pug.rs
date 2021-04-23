@@ -1,5 +1,6 @@
 use chrono::prelude::*;
 use linked_hash_set::LinkedHashSet;
+use rand::{self, Rng};
 use serenity::model::id::UserId;
 use std::{
     borrow::Borrow,
@@ -8,11 +9,24 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-#[derive(Eq, Hash, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone)]
+enum PickTurn {
+    Blue,
+    Red,
+}
+
+#[derive(Eq, Debug, Clone)]
 pub struct GameMode {
     key: String,
     pub label: String,
-    pub player_count: u8, // must be even
+    pub player_count: u8,         // must be even
+    pick_sequence: Vec<PickTurn>, // because pick sequence only makes sense with even numbers
+}
+
+impl Hash for GameMode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
 }
 /*
 TODO: evaluate whether derived Clone is good enough
@@ -52,10 +66,51 @@ impl Borrow<String> for GameMode {
 
 impl GameMode {
     pub fn new(label: String, player_count: u8) -> Self {
+        let options = [PickTurn::Blue, PickTurn::Red];
+        let random_first_pick = &options[rand::thread_rng().gen_range(0, 2)];
+
+        let mut pick_sequence: Vec<PickTurn>;
+        match random_first_pick {
+            PickTurn::Blue => {
+                pick_sequence = vec![PickTurn::Blue];
+            }
+            PickTurn::Red => {
+                pick_sequence = vec![PickTurn::Red];
+            }
+        }
+        for _ in (1..player_count).step_by(2) {
+            // Captains alternate double picks when its not first/last pick round
+            // The loop the turns for all the
+            // picking rounds inbetween the first and last pick
+            // Note: It won't run at all for game modes with capacity of 2
+            if let Some(turn) = pick_sequence.last() {
+                match turn {
+                    PickTurn::Blue => {
+                        pick_sequence.push(PickTurn::Red);
+                        pick_sequence.push(PickTurn::Red);
+                    }
+                    PickTurn::Red => {
+                        pick_sequence.push(PickTurn::Blue);
+                        pick_sequence.push(PickTurn::Blue);
+                    }
+                }
+            }
+        }
+        // the last pick will be the alternative of the first
+        // i.e. if red was first pick, blue will be last, and vice versa
+        match random_first_pick {
+            PickTurn::Blue => {
+                pick_sequence = vec![PickTurn::Red];
+            }
+            PickTurn::Red => {
+                pick_sequence = vec![PickTurn::Blue];
+            }
+        }
         GameMode {
             key: label.to_lowercase(),
             label,
             player_count,
+            pick_sequence,
         }
     }
 
