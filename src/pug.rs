@@ -223,4 +223,132 @@ impl PickingSession {
     pub fn get_blue_team(&self) -> &LinkedHashSet<(u8, UserId)> {
         &self.blue_team
     }
+
+    /// First call which returns [`Ok`] sets captain for one team
+    /// and the second call sets captain for the other team.
+    ///
+    /// The team to which the user gets assigned captain is randomized.
+    ///
+    /// Subsequent calls return [`Err`] because captains have already been assigned for both teams.
+    ///
+    /// The [`Err`] contains a tuple which has the form:
+    ///
+    /// (blue_captain: [`UserId`], red_captain: [`UserId`])
+    pub fn set_captain(&mut self, user_id: UserId) -> Result<(), PickError> {
+        // first check if captains are already picked
+        if let (Some(blue_captain), Some(red_captain)) =
+            (self.blue_team.front(), self.red_team.front())
+        {
+            return Err(PickError::CaptainsExist(
+                "Captains have already been selected".to_string(),
+                blue_captain.1,
+                red_captain.1,
+            ));
+        }
+        let player = self
+            .players
+            .iter()
+            .find(|player| player.1 == user_id)
+            .ok_or(PickError::ForeignUser(
+                "User trying to become captain is not a player in this pug".to_string(),
+            ))?;
+        let player_number = player.0;
+        self.pick(player_number)
+    }
+
+    /// Determines which team to assign the provided user number
+    /// then moves them and updates pick history.
+    pub fn pick(&mut self, picked_player_number: u8) -> Result<(), PickError> {
+        let found_index = self
+            .players
+            .iter()
+            .position(|p| p.0 == picked_player_number)
+            .ok_or(PickError::InvalidPlayerNumber(format!(
+                "{} is not a valid pick",
+                picked_player_number
+            )))?;
+
+        let pick_turn = self.pick_history.len();
+
+        let picking_team = self.game_mode.pick_sequence.get(pick_turn).ok_or(
+            PickError::PickSequenceInvariantViolation("Pick sequence is empty".to_string()),
+        )?;
+
+        // if there have been less than 2 picks, pick history insertions should be the captain variant
+        if pick_turn < 2 {
+            match picking_team {
+                PickTurn::Blue => {
+                    self.blue_team.insert(self.players.remove(found_index));
+                    self.pick_history.push(TeamPickAction::BlueCaptain);
+                }
+                PickTurn::Red => {
+                    self.red_team.insert(self.players.remove(found_index));
+                    self.pick_history.push(TeamPickAction::RedCaptain);
+                }
+            }
+        } else {
+            match picking_team {
+                PickTurn::Blue => {
+                    self.blue_team.insert(self.players.remove(found_index));
+                    self.pick_history
+                        .push(TeamPickAction::BluePlayer(picked_player_number));
+                }
+                PickTurn::Red => {
+                    self.red_team.insert(self.players.remove(found_index));
+                    self.pick_history
+                        .push(TeamPickAction::RedPlayer(picked_player_number));
+                }
+            }
+        }
+
+        // check whether only one player remains - if true, auto assign them
+        if self.players.len() == 1 {
+            let last_player = self
+                .players
+                .last()
+                .ok_or(PickError::PlayersExhausted(
+                    "Tried to auto pick last player, but player list was empty.\n
+                    This might happen if pick() recursively calls itself more than once."
+                        .to_string(),
+                ))?
+                .0;
+            return self.pick(last_player);
+        }
+        Ok(())
+    }
+
+    /// Returns blue team captain - first player in team collection
+    pub fn get_blue_captain(&self) -> Option<&(u8, UserId)> {
+        self.blue_team.front()
+    }
+
+    /// Returns red team captain - first player in team collection
+    pub fn get_red_captain(&self) -> Option<&(u8, UserId)> {
+        self.red_team.front()
+    }
+
+    /// Restores this [`PickingSession`] by clearing captains and team picks
+    pub fn reset(&mut self) -> Result<(), String> {
+        // self.red_team.drain()
+        // self.blue_team.drain()
+        self.pick_history.clear();
+        Ok(())
+    }
 }
+
+pub enum PickError {
+    CaptainsExist(String, UserId, UserId),
+    PlayersExhausted(String),
+    HistoryInvariantViolation(String),
+    PickSequenceInvariantViolation(String),
+    InvalidPlayerNumber(String),
+    ForeignUser(String),
+}
+
+/*
+pub enum OkJoinResult {
+    RedTurn,
+    BlueTurn,
+    PickingComplete(PickingSession),
+}
+*/
