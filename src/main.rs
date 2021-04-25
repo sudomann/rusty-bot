@@ -65,7 +65,7 @@ const DEFAULT_PUG_CHANNEL_NAME: &str = "pugs-test";
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
     }
 
@@ -74,7 +74,7 @@ impl EventHandler for Handler {
         let mut registered_game_modes: HashMap<GuildId, HashSet<GameMode>> = HashMap::default();
         let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Participants>> =
             HashMap::default();
-        let filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
+        let mut filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
         let preset_gamemodes = hashset! {
             GameMode::new("duel".to_string(), 2),
             GameMode::new("2elim".to_string(), 4),
@@ -111,6 +111,8 @@ impl EventHandler for Handler {
                 potential_pugs.insert(game_mode, Participants::default());
             }
             pugs_waiting_to_fill.insert(*guild_id, potential_pugs);
+            let temp_deque: VecDeque<PickingSession> = VecDeque::default();
+            filled_pugs.insert(*guild_id, temp_deque);
         }
 
         {
