@@ -1,3 +1,4 @@
+pub mod captain;
 pub mod join;
 pub mod leave;
 pub mod list;

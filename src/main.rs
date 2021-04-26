@@ -32,7 +32,7 @@ use tokio::sync::RwLock;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-use commands::{join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*};
+use commands::{captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*};
 
 pub struct ShardManagerContainer;
 
@@ -223,17 +223,27 @@ async fn my_help(
 }
 
 #[group]
-#[commands(join, ping, leave, leave_all, list, list_all, pick, promote, quit)]
+#[commands(
+    captain,
+    force_random_captains,
+    join,
+    ping,
+    leave,
+    leave_all,
+    list,
+    list_all,
+    pick,
+    promote,
+    quit
+)]
 #[checks(PugChannel)]
 struct General;
 
 #[tokio::main]
 async fn main() {
-    // Consult `./.env.example` for sample
     dotenv::dotenv().expect("Failed to load .env file");
 
     // Initialize the logger using environment variables.
-    // TODO: get `RUST_LOG` off debug in prod.
     let subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .finish();
