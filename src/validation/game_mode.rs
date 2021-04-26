@@ -35,7 +35,9 @@ pub async fn is_registered_game_mode_check(
                         let game_modes_to_join = args
                             .clone()
                             .iter::<String>()
-                            .filter_map(|arg| arg.ok())
+                            .filter(|arg| arg.is_ok())
+                            .map(|arg| arg.unwrap().to_lowercase())
+                            // TODO: fix borrow/comparison impls on GameMode so we don't have to keep lowercasing
                             .collect::<HashSet<String>>();
 
                         // the values that are in self (game_modes_to_join) self
