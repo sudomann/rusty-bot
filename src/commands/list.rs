@@ -1,23 +1,75 @@
+use itertools::Itertools;
 use serenity::{
-  framework::standard::{macros::command, Args, CommandResult},
-  model::prelude::*,
-  prelude::*,
+    framework::standard::{macros::command, Args, CommandResult},
+    model::prelude::*,
+    prelude::*,
+    utils::MessageBuilder,
 };
+
+use crate::PugsWaitingToFill;
 
 #[command]
 #[aliases("ls")]
-#[min_args(1)]
-#[max_args(1)]
-async fn list(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-  msg.reply(&ctx.http, "TODO - copy mem, fmt").await?;
+// TODO: add check() which verifies that guild has registered pugs in global data
+// TODO: perhaps support game mode arguments to filter output with
+// in this case, the filtered gamemodes should be verbose
+async fn list(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult {
+    let lock_for_pugs_waiting_to_fill = {
+        let data_write = ctx.data.read().await;
+        data_write
+            .get::<PugsWaitingToFill>()
+            .expect("Expected PugsWaitingToFill in TypeMap")
+            .clone()
+    };
+    let pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.read().await;
 
-  Ok(())
+    let pugs_waiting_to_fill_in_guild = pugs_waiting_to_fill.get(&msg.guild_id.unwrap());
+
+    let pugs = pugs_waiting_to_fill_in_guild.unwrap();
+    let mut response = MessageBuilder::new();
+
+    let pug_member_counts =
+        pugs.iter()
+            .format_with(" :small_blue_diamond: ", |(game_mode, players), f| {
+                f(&format_args!(
+                    "**{}** [{}/{}]",
+                    game_mode.label(),
+                    players.len(),
+                    game_mode.capacity()
+                ))
+            });
+    response.push(pug_member_counts).build();
+    msg.reply(&ctx.http, response).await?;
+
+    Ok(())
 }
 
 #[command]
 #[aliases("lsa")]
-async fn list_all(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-  msg.reply(&ctx.http, "TODO - copy mem, fmt").await?;
+// TODO: show player composition and maybe emphasize the pugs in picking state.
+async fn list_all(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult {
+    let lock_for_pugs_waiting_to_fill = {
+        let data_write = ctx.data.read().await;
+        data_write
+            .get::<PugsWaitingToFill>()
+            .expect("Expected PugsWaitingToFill in TypeMap")
+            .clone()
+    };
+    let pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.read().await;
 
-  Ok(())
+    let pugs_waiting_to_fill_in_guild = pugs_waiting_to_fill.get(&msg.guild_id.unwrap());
+
+    let pugs = pugs_waiting_to_fill_in_guild.unwrap();
+    let mut response = MessageBuilder::new();
+    for (game_mode, players) in pugs.iter() {
+        response.push_line(format!(
+            "**{}** [{}/{}]: TODO: player composition",
+            game_mode.label(),
+            players.len(),
+            game_mode.capacity()
+        ));
+    }
+    msg.reply(&ctx.http, response.build()).await?;
+
+    Ok(())
 }

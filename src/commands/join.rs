@@ -1,9 +1,9 @@
 use crate::{
-    pug::{GameMode, PickingSession, Player},
+    pug::{GameMode, PickSuccess, PickingSession, Player},
     validation::{game_mode::*, multiple_fill::*},
     FilledPug, PugsWaitingToFill, RegisteredGameModes,
 };
-
+use itertools::Itertools;
 use linked_hash_set::LinkedHashSet;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
@@ -29,8 +29,8 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         };
 
         let lock_for_pugs_waiting_to_fill = {
-            let data_write = ctx.data.read().await;
-            data_write
+            let data_read = ctx.data.read().await;
+            data_read
                 .get::<PugsWaitingToFill>()
                 .expect("Expected PugsWaitingToFill in TypeMap")
                 .clone()
@@ -76,80 +76,111 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                     }
                 }
 
-                match game_mode_about_to_fill {
-                    Some(filled_game_mode) => {
-                        let mut player_copy: Option<LinkedHashSet<Player>> = None;
-                        // get filled game mode participants
-                        if let Some(filled_pug_players) =
-                            pugs_waiting_to_fill_in_guild.get(filled_game_mode)
-                        {
-                            // announce pug has filled
-                            msg.channel_id
-                                .say(
-                                    &ctx.http,
-                                    MessageBuilder::new()
-                                        .push(format!("{:?} has filled!", filled_game_mode))
-                                        .push_bold_line(format!(
-                                            "TODO - ping & DM participants: {:?}",
-                                            filled_pug_players
-                                        )),
-                                )
-                                .await?;
-                            player_copy = Some(filled_pug_players.clone());
+                if game_mode_about_to_fill.is_none() {
+                    let mut response = MessageBuilder::new();
+                    // insert user to pugs they want to join
+                    for (game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
+                        // check if one of desired game modes before joining
+                        if desired_game_mode_args.contains(game_mode.label()) {
+                            participants.insert(Player::new(msg.author.clone()));
+
+                            let participants_text = participants.iter().format_with(
+                                " :small_orange_diamond: ",
+                                |player, f| {
+                                    f(&format_args!(
+                                        "{}[{}]",
+                                        player.get_user().name,
+                                        player.time_elapsed_since_join().num_minutes() // TODO: better time elapsed formatting
+                                    ))
+                                },
+                            );
+                            response.push_bold_line(format!(
+                                "__{} [{}/{}]:__",
+                                game_mode.label(),
+                                participants.len(),
+                                game_mode.capacity()
+                            ));
+                            response.push_line(participants_text).build();
                         }
+                    }
 
-                        // TODO: Notify all removed players
-                        let mut _removals: HashMap<&GameMode, &UserId> = HashMap::default();
+                    msg.channel_id.say(&ctx.http, response).await?;
+                    return Ok(());
+                }
 
-                        // then loop through all game modes:
-                        // - players that are in the filled pug are removed from all other game modes
-                        // - if currently evaluating the filled game mode, move all players to a PickingSession
-                        for (current_game_mode, participants) in
-                            pugs_waiting_to_fill_in_guild.iter_mut()
-                        {
-                            if current_game_mode == filled_game_mode {
-                                let mut filled_pugs = lock_for_filled_pugs.write().await;
+                let filled_game_mode = game_mode_about_to_fill.unwrap();
+                let mut player_copy: Option<LinkedHashSet<Player>> = None;
+                // get filled game mode participants
+                if let Some(existing_players) =
+                    pugs_waiting_to_fill_in_guild.get_mut(filled_game_mode)
+                {
+                    // try to add current user
+                    let is_already_in = !existing_players.insert(Player::new(msg.author.clone()));
+                    if is_already_in {
+                        msg.channel_id.say(&ctx.http, "You already joined").await?;
+                        return Ok(());
+                    }
+                    // compose filled pug announcement
+                    let participants_text = existing_players
+                        .iter()
+                        .format_with(" :small_orange_diamond: ", |player, f| {
+                            f(&format_args!("{}", player.get_user().mention()))
+                        });
+                    let mut response = MessageBuilder::new();
+                    response.push_line(format!("{} has been filled:", filled_game_mode.label()));
+                    response.push_line(participants_text);
+                    response.push_line("TODO - notify of player removals from other game_modes");
+                    msg.channel_id.say(&ctx.http, response).await?;
+                    player_copy = Some(existing_players.clone());
+                }
 
-                                if let Some(filled_pugs_in_guild) = filled_pugs.get_mut(&guild_id) {
-                                    let picking_session = PickingSession::new(
-                                        &current_game_mode,
-                                        participants.clone(),
-                                    );
-                                    filled_pugs_in_guild.push_back(picking_session);
+                // TODO: Notify all removed players
+                let mut _removals: HashMap<&GameMode, &UserId> = HashMap::default();
+
+                // then loop through all game modes:
+                // - players that are in the filled pug are removed from all other game modes
+                // - if currently evaluating the filled game mode, move all players to a PickingSession
+                for (current_game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
+                    if current_game_mode == filled_game_mode {
+                        let mut filled_pugs = lock_for_filled_pugs.write().await;
+
+                        if let Some(filled_pugs_in_guild) = filled_pugs.get_mut(&guild_id) {
+                            let mut picking_session =
+                                PickingSession::new(&current_game_mode, participants.clone());
+
+                            // Special case: 2 player game mode
+                            // Picking will complete automatically
+                            // set_captain calls pick, which assigns this user to random team,
+                            // then because there's only one user left, they get auto assigned
+                            if filled_game_mode.capacity() == 2 {
+                                if picking_session.set_captain(msg.author.id).is_err() {
+                                    let mut response = MessageBuilder::new();
+                                    response.push_line("Oh no :(")
+                                    .push("Since there are only two players involved,\
+                                    I tried auto assigning you both to teams and something went wrong");
+                                    msg.reply(&ctx.http, response).await?;
+
+                                    // Don't  return OK(()) here, so as to keep the workflow consistent
+                                    // i.e. This game mode filled, so regardless of whether auto picking succeeded/failed,
+                                    // proceed to remove participant from any other pugs they're in
                                 }
+                            }
+                            filled_pugs_in_guild.push_back(picking_session);
+                        }
+                        // clear players from this pug
+                        participants.clear();
 
-                                // clear players from this pug
-                                participants.clear();
-
-                                // in picking session, there should be a reference to the announcement,
-                                // which updates every second with auto captain countdown
-                            } else {
-                                // remove them from *other* pugs they're in
-                                if let Some(ref filled_pug_players) = player_copy {
-                                    for player in filled_pug_players {
-                                        if participants.remove(player) {
-                                            _removals
-                                                .insert(current_game_mode, player.get_user_id());
-                                        }
-                                    }
+                        // in picking session, there should be a reference to the announcement,
+                        // which updates every second with auto captain countdown
+                    } else {
+                        // remove them from *other* pugs they're in
+                        if let Some(ref filled_pug_players) = player_copy {
+                            for player in filled_pug_players {
+                                if participants.remove(player) {
+                                    _removals.insert(current_game_mode, &player.get_user().id);
                                 }
                             }
                         }
-                    }
-                    None => {
-                        // insert user to pugs they want to join
-                        for (_game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
-                            // check if one of desired game modes before joining
-                            participants.insert(Player::new(msg.author.id));
-                        }
-
-                        msg.reply(
-                            &ctx.http,
-                            MessageBuilder::new()
-                                .push(format!("TODO - composition of joined pugs"))
-                                .build(),
-                        )
-                        .await?;
                     }
                 }
             }
