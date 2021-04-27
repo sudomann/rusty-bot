@@ -1,5 +1,5 @@
 use crate::{
-    pug::{GameMode, PickSuccess, PickingSession, Player},
+    pug::{GameMode, PickingSession, Player},
     validation::{game_mode::*, multiple_fill::*},
     FilledPug, PugsWaitingToFill, RegisteredGameModes,
 };
@@ -126,11 +126,18 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                         .format_with(" :small_orange_diamond: ", |player, f| {
                             f(&format_args!("{}", player.get_user().mention()))
                         });
+                    let notice = format!("{} has been filled:", filled_game_mode.label());
                     let mut response = MessageBuilder::new();
-                    response.push_line(format!("{} has been filled:", filled_game_mode.label()));
+                    response.push_line(&notice);
                     response.push_line(participants_text);
                     response.push_line("TODO - notify of player removals from other game_modes");
                     msg.channel_id.say(&ctx.http, response).await?;
+                    for player in existing_players.iter() {
+                        player
+                            .get_user()
+                            .direct_message(&ctx, |m| m.content(&notice))
+                            .await?;
+                    }
                     player_copy = Some(existing_players.clone());
                 }
 
