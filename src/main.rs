@@ -3,7 +3,7 @@ mod pug;
 mod validation;
 #[macro_use]
 extern crate maplit;
-use pug::{GameMode, Participants, PickingSession};
+use pug::{game_mode::GameMode, picking_session::PickingSession, player::Players};
 use serenity::{
     async_trait,
     client::bridge::gateway::ShardManager,
@@ -52,7 +52,7 @@ impl TypeMapKey for RegisteredGameModes {
 
 pub struct PugsWaitingToFill;
 impl TypeMapKey for PugsWaitingToFill {
-    type Value = Arc<RwLock<HashMap<GuildId, HashMap<GameMode, Participants>>>>;
+    type Value = Arc<RwLock<HashMap<GuildId, HashMap<GameMode, Players>>>>;
 }
 
 pub struct FilledPug;
@@ -65,14 +65,14 @@ const DEFAULT_PUG_CHANNEL_NAME: &str = "pugs-test";
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, ctx: Context, ready: Ready) {
+    async fn ready(&self, _ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
     }
 
     async fn cache_ready(&self, context: Context, guild_ids: Vec<GuildId>) {
         let mut designated_pug_channels = HashMap::default();
         let mut registered_game_modes: HashMap<GuildId, HashSet<GameMode>> = HashMap::default();
-        let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Participants>> =
+        let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Players>> =
             HashMap::default();
         let mut filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
         let preset_gamemodes = hashset! {
@@ -106,9 +106,9 @@ impl EventHandler for Handler {
             // TODO: pull these game modes from persistent storage
 
             registered_game_modes.insert(*guild_id, preset_gamemodes.clone());
-            let mut potential_pugs: HashMap<GameMode, Participants> = HashMap::default();
+            let mut potential_pugs: HashMap<GameMode, Players> = HashMap::default();
             for game_mode in preset_gamemodes.clone().drain() {
-                potential_pugs.insert(game_mode, Participants::default());
+                potential_pugs.insert(game_mode, Players::default());
             }
             pugs_waiting_to_fill.insert(*guild_id, potential_pugs);
             let temp_deque: VecDeque<PickingSession> = VecDeque::default();

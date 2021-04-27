@@ -1,5 +1,5 @@
 use crate::{
-    pug::{PickError, PickSuccess},
+    pug::picking_session::{PickError, PickSuccess},
     FilledPug,
 };
 use itertools::Itertools;

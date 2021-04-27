@@ -1,5 +1,5 @@
 use crate::{
-    pug::{GameMode, PickingSession, Player},
+    pug::{game_mode::GameMode, picking_session::PickingSession, player::Player},
     validation::{game_mode::*, multiple_fill::*},
     FilledPug, PugsWaitingToFill, RegisteredGameModes,
 };

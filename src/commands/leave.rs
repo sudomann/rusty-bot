@@ -6,7 +6,7 @@ use serenity::{
 
 use std::collections::HashSet;
 
-use crate::{pug::GameMode, validation::game_mode::*, PugsWaitingToFill};
+use crate::{pug::game_mode::GameMode, validation::game_mode::*, PugsWaitingToFill};
 
 /*
 TODO: examine whether this "behavior" technique can be used

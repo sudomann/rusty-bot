@@ -1,7 +1,5 @@
-use crate::{
-    pug::{SetCaptainError, SetCaptainSuccess},
-    FilledPug,
-};
+use crate::pug::picking_session::{SetCaptainError, SetCaptainSuccess};
+use crate::FilledPug;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
