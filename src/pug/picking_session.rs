@@ -37,11 +37,20 @@ pub enum SetCaptainError {
 
 pub enum SetCaptainSuccess {
     /// Captain needed for blue team
-    NeedBlue,
+    NeedBlueCaptain,
     /// Captain needed for red team
-    NeedRed,
-    /// Both teams have been assigned captains
-    Complete,
+    NeedRedCaptain,
+    /// Both captains have been selected, and blue team captain picks first
+    StartPickingBlue,
+    /// Both captains have been selected, and red team captain picks first
+    StartPickingRed,
+    /// This variant is for two player game modes only, where the "teams"
+    /// are comprised of 1 player each, both auto-assigned to
+    /// one of either team at random, as captains
+    TwoPlayerAutoPick {
+        blue_captain: UserId,
+        red_captain: UserId,
+    },
 }
 
 pub enum PickError {
@@ -52,6 +61,8 @@ pub enum PickError {
     ForeignUser(String),
 }
 
+/// Represents the successful assignment of a player to a team, and the variants describe
+/// the team that is to pick next, or whether picking is complete/concluded.
 pub enum PickSuccess {
     /// Blue captain's turn to pick
     BlueTurn,
@@ -207,9 +218,32 @@ impl PickingSession {
         let player_number = player.0;
         match self.pick(player_number) {
             Ok(pick_success) => match pick_success {
-                PickSuccess::BlueTurn => Ok(SetCaptainSuccess::NeedBlue),
-                PickSuccess::RedTurn => Ok(SetCaptainSuccess::NeedRed),
-                PickSuccess::Complete => Ok(SetCaptainSuccess::Complete),
+                PickSuccess::BlueTurn => {
+                    if self.pick_history.len() == 1
+                    // only one item in history (after self.pick() call above)
+                    // means only 1 captain assigned
+                    {
+                        Ok(SetCaptainSuccess::NeedBlueCaptain)
+                    } else
+                    // more than 1 item in history
+                    // means both captains have been assigned,
+                    // and we're now picking players
+                    {
+                        Ok(SetCaptainSuccess::StartPickingBlue)
+                    }
+                }
+                PickSuccess::RedTurn => {
+                    // same logic as arm above
+                    if self.pick_history.len() == 1 {
+                        Ok(SetCaptainSuccess::NeedRedCaptain)
+                    } else {
+                        Ok(SetCaptainSuccess::StartPickingRed)
+                    }
+                }
+                PickSuccess::Complete => Ok(SetCaptainSuccess::TwoPlayerAutoPick {
+                    blue_captain: self.get_blue_captain().unwrap().1,
+                    red_captain: self.get_blue_captain().unwrap().1,
+                }),
             },
             Err(pick_error) => match pick_error {
                 PickError::PlayersExhausted(m)
