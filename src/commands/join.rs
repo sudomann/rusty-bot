@@ -163,11 +163,19 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                     .format_with(" :small_orange_diamond: ", |player, f| {
                         f(&format_args!("{}", player.get_user().name))
                     });
-                let notice = format!("{} has been filled: ", filled_game_mode.label(),);
-                let dm_announcement = format!(
-                    "{} {} \n TODO: link to channel",
-                    notice, participants_text_for_dm
-                );
+                let notice = format!("{} has been filled: ", filled_game_mode.label());
+                let mut dm_announcement = MessageBuilder::new();
+                // this can fail if the bot does not have create invite permission in a guild
+                dm_announcement
+                    .push_line(notice.clone())
+                    .push_line(participants_text_for_dm);
+                let invite = msg
+                    .channel_id
+                    .create_invite(&ctx.http, |i| i.max_uses(0))
+                    .await;
+                if invite.is_ok() {
+                    dm_announcement.push(invite.unwrap().url());
+                }
                 let mut guild_announcement = MessageBuilder::new();
                 guild_announcement.push_line(&notice);
                 guild_announcement.push_line(participants_text);
