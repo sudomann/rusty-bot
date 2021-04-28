@@ -1,6 +1,7 @@
 mod commands;
+mod common;
 mod pug;
-mod validation;
+mod utils;
 #[macro_use]
 extern crate maplit;
 use pug::{game_mode::GameMode, picking_session::PickingSession, player::Players};
@@ -32,7 +33,10 @@ use tokio::sync::RwLock;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-use commands::{captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*};
+use commands::{
+    add::*, captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*,
+    remove::*,
+};
 
 pub struct ShardManagerContainer;
 
@@ -209,7 +213,7 @@ async fn is_pug_channel_check(
 #[help]
 #[individual_command_tip = "If you want more information about a specific command, just ..."]
 #[command_not_found_text = "Could not find: `{}`."]
-#[max_levenshtein_distance(3)]
+#[max_levenshtein_distance(2)]
 async fn my_help(
     context: &Context,
     msg: &Message,
@@ -223,21 +227,43 @@ async fn my_help(
 }
 
 #[group]
+#[commands(git, ping)]
+struct General;
+
+#[group]
 #[commands(
+    add,
     captain,
     force_random_captains,
     join,
-    ping,
     leave,
     leave_all,
     list,
     list_all,
     pick,
     promote,
-    quit
+    remove
+    // tag, t
+    // voices, v
+    // reset, <-- current picking
+    // resetl, <-- last filled pug with picking completed
 )]
 #[checks(PugChannel)]
-struct General;
+struct Pugs;
+
+#[group]
+struct Bets;
+
+#[group]
+struct Stats;
+
+#[group]
+struct Moderation; // pugban, pugunban, etc.
+
+#[group]
+#[owners_only]
+#[commands(quit)]
+struct SuperUser;
 
 #[tokio::main]
 async fn main() {
@@ -280,7 +306,12 @@ async fn main() {
                 .prefix(prefix)
         })
         .on_dispatch_error(dispatch_error_hook)
-        .group(&GENERAL_GROUP);
+        .help(&MY_HELP)
+        .group(&GENERAL_GROUP)
+        .group(&PUGS_GROUP)
+        .group(&BETS_GROUP)
+        .group(&STATS_GROUP)
+        .group(&SUPERUSER_GROUP);
 
     let mut client = Client::builder(&token)
         .framework(framework)
