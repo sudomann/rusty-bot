@@ -1,5 +1,6 @@
 use crate::pug::picking_session::{SetCaptainError, SetCaptainSuccess};
 use crate::FilledPug;
+use itertools::join;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
@@ -45,26 +46,88 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
 
     match picking_session.set_captain(msg.author.id) {
         Ok(success) => match success {
-            SetCaptainSuccess::NeedBlue => {
+            SetCaptainSuccess::NeedBlueCaptain => {
                 let response = MessageBuilder::new()
                     .push_bold(msg.author.name.clone())
                     .push(" is captain for the ")
-                    .push_bold("Red Team")
+                    .push_bold_line("Red Team")
+                    .push("Blue team needs a captain")
                     .build();
                 msg.channel_id.say(&ctx.http, response).await?;
             }
-            SetCaptainSuccess::NeedRed => {
+            SetCaptainSuccess::NeedRedCaptain => {
                 let response = MessageBuilder::new()
                     .push_bold(msg.author.name.clone())
                     .push(" is captain for the ")
-                    .push_bold("Blue Team")
+                    .push_bold_line("Blue Team")
+                    .push("Red team needs a captain")
                     .build();
                 msg.channel_id.say(&ctx.http, response).await?;
             }
-            SetCaptainSuccess::Complete => {}
+            SetCaptainSuccess::TwoPlayerAutoPick {
+                blue_captain,
+                red_captain,
+            } => {
+                let message = MessageBuilder::new()
+                    .push_line("Teams have been auto-selected:")
+                    .push_line(format!("**Blue:** {}", blue_captain.mention()))
+                    .push(format!("**Red:** {}", red_captain.mention()))
+                    .build();
+                msg.channel_id.say(&ctx.http, message).await?;
+            }
+            SetCaptainSuccess::StartPickingBlue => {
+                let mut numbered_remaining_players: Vec<String> = Vec::default();
+                for (number, user_id) in picking_session.get_remaining() {
+                    let name = user_id.to_user(&ctx.http).await?.name;
+                    numbered_remaining_players.push(format!("{}) {}", number, name));
+                }
+                let blue_captain = picking_session.get_blue_captain().unwrap().1;
+                let red_captain = picking_session.get_red_captain().unwrap().1;
+                let mut response = MessageBuilder::new();
+                response
+                    .push_line(join(numbered_remaining_players, " :small_orange_diamond: "))
+                    .push_line(format!(
+                        "**Blue Team:** {}",
+                        blue_captain.to_user(&ctx).await?.name
+                    ))
+                    .push_line(format!(
+                        "**Red Team:** {}",
+                        red_captain.to_user(&ctx).await?
+                    ))
+                    .push(format!("{} to pick", blue_captain.mention()));
+
+                msg.channel_id.say(&ctx.http, response).await?;
+            }
+            SetCaptainSuccess::StartPickingRed => {
+                // mirrors same logic as arm above
+                // TODO: maybe extract into a function to avoid duplication?
+                let mut numbered_remaining_players: Vec<String> = Vec::default();
+                for (number, user_id) in picking_session.get_remaining() {
+                    let name = user_id.to_user(&ctx.http).await?.name;
+                    numbered_remaining_players.push(format!("{}) {}", number, name));
+                }
+                let blue_captain = picking_session.get_blue_captain().unwrap().1;
+                let red_captain = picking_session.get_red_captain().unwrap().1;
+                let mut response = MessageBuilder::new();
+                response
+                    .push_line(join(numbered_remaining_players, " :small_orange_diamond: "))
+                    .push_line(format!(
+                        "**Blue Team:** {}",
+                        blue_captain.to_user(&ctx).await?.name
+                    ))
+                    .push_line(format!(
+                        "**Red Team:** {}",
+                        red_captain.to_user(&ctx).await?
+                    ))
+                    .push(format!("{} to pick", red_captain.mention()));
+
+                msg.channel_id.say(&ctx.http, response).await?;
+            }
         },
         Err(error) => match error {
-            SetCaptainError::IsCaptainAlready(m) => {
+            SetCaptainError::IsCaptainAlready(m)
+            | SetCaptainError::PickFailure(m)
+            | SetCaptainError::ForeignUser(m) => {
                 msg.channel_id.say(&ctx.http, m).await?;
             }
             SetCaptainError::CaptainSpotsFilled {
@@ -82,12 +145,6 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
                     .push_bold(red_captain_user.name)
                     .build();
                 msg.channel_id.say(&ctx.http, response).await?;
-            }
-            SetCaptainError::PickFailure(m) => {
-                msg.channel_id.say(&ctx.http, m).await?;
-            }
-            SetCaptainError::ForeignUser(m) => {
-                msg.channel_id.say(&ctx.http, m).await?;
             }
         },
     }
