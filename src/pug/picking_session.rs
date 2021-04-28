@@ -354,6 +354,11 @@ impl PickingSession {
         &self.game_mode
     }
 
+    // get list of yet unpicked players
+    pub fn get_remaining(&self) -> &Vec<(u8, UserId)> {
+        &self.players
+    }
+
     /// Restores this [`PickingSession`] by clearing captains and team picks
     pub fn reset(&mut self) -> Result<(), String> {
         // self.red_team.drain()
