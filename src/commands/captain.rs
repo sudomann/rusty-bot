@@ -92,7 +92,7 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
                     ))
                     .push_line(format!(
                         "**Red Team:** {}",
-                        red_captain.to_user(&ctx).await?
+                        red_captain.to_user(&ctx).await?.name
                     ))
                     .push(format!("{} to pick", blue_captain.mention()));
 
@@ -117,7 +117,7 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
                     ))
                     .push_line(format!(
                         "**Red Team:** {}",
-                        red_captain.to_user(&ctx).await?
+                        red_captain.to_user(&ctx).await?.name
                     ))
                     .push(format!("{} to pick", red_captain.mention()));
 
