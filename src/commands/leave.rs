@@ -1,12 +1,14 @@
+use crate::{
+    pug::game_mode::GameMode,
+    utils::parse_game_modes::{parse_game_modes, GameModeError},
+    PugsWaitingToFill,
+};
+use itertools::join;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
     prelude::*,
 };
-
-use std::collections::HashSet;
-
-use crate::{pug::game_mode::GameMode, validation::game_mode::*, PugsWaitingToFill};
 
 /*
 TODO: examine whether this "behavior" technique can be used
@@ -43,10 +45,9 @@ async fn quit_command() {
 */
 
 #[command]
-#[checks(ValidGameMode)]
 #[aliases("l", "lv")]
 #[min_args(1)]
-async fn leave(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     if let Some(guild_id) = msg.guild_id {
         let lock_for_pugs_waiting_to_fill = {
             let data_write = ctx.data.read().await;
@@ -58,25 +59,40 @@ async fn leave(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let mut pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.write().await;
 
         if let Some(pugs_waiting_to_fill_in_guild) = pugs_waiting_to_fill.get_mut(&guild_id) {
-            let game_modes_to_leave = args
-                .iter::<String>()
-                .filter(|arg| arg.is_ok())
-                .map(|arg| arg.unwrap().to_lowercase())
-                .collect::<HashSet<String>>();
-            let mut game_modes_quitted: Vec<&GameMode> = Vec::default();
+            let game_modes_to_leave =
+                match parse_game_modes(ctx.clone(), guild_id, args.clone()).await {
+                    Ok(game_modes) => game_modes,
+                    Err(err) => {
+                        match err {
+                            GameModeError::NoneGiven(m)
+                            | GameModeError::NoneRegistered(m)
+                            | GameModeError::Foreign(m) => {
+                                msg.reply(ctx, m).await?;
+                            }
+                        }
+                        return Ok(());
+                    }
+                };
+            let mut game_modes_actually_removed_from: Vec<&GameMode> = Vec::default();
             for (game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
-                if game_modes_to_leave.contains(game_mode.key()) {
+                if game_modes_to_leave.contains(game_mode) {
                     if participants.remove(&msg.author.id) {
-                        game_modes_quitted.push(game_mode);
+                        game_modes_actually_removed_from.push(game_mode);
                     }
                 }
             }
-            if game_modes_quitted.len() != 0 {
+            if !game_modes_actually_removed_from.is_empty() {
+                let labels = game_modes_actually_removed_from
+                    .iter()
+                    .map(|g| g.label())
+                    .collect::<Vec<&String>>();
+                let pretty_labels = join(labels, " :small_orange_diamond: ");
+
                 msg.reply(
                     &ctx.http,
                     format!(
-                        "You were removed from {:?} because you left.",
-                        game_modes_quitted
+                        "**{}** has been removed from {}.",
+                        msg.author.name, pretty_labels
                     ),
                 )
                 .await?;
@@ -100,19 +116,22 @@ async fn leave_all(ctx: &Context, msg: &Message) -> CommandResult {
         let mut pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.write().await;
 
         if let Some(pugs_waiting_to_fill_in_guild) = pugs_waiting_to_fill.get_mut(&guild_id) {
-            let mut game_modes_quitted: Vec<&GameMode> = Vec::default();
+            let mut game_modes_actually_removed_from: Vec<&GameMode> = Vec::default();
             for (game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
                 if participants.remove(&msg.author.id) {
-                    game_modes_quitted.push(game_mode);
+                    game_modes_actually_removed_from.push(game_mode);
                 }
             }
-            if game_modes_quitted.len() != 0 {
+            if !game_modes_actually_removed_from.is_empty() {
+                let labels = game_modes_actually_removed_from
+                    .iter()
+                    .map(|g| g.label())
+                    .collect::<Vec<&String>>();
+                let pretty_labels = join(labels, " :small_orange_diamond: ");
+
                 msg.reply(
                     &ctx.http,
-                    format!(
-                        "You were removed from {:?} because you left.",
-                        game_modes_quitted
-                    ),
+                    format!("You were removed from {} because you left.", pretty_labels),
                 )
                 .await?;
             }
