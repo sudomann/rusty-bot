@@ -58,12 +58,16 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
         msg.reply(&ctx.http, "You are not a captain").await?;
     }
 
-    // TODO: check that its this captain's turn rn
+    // TODO: validate that its this captain's turn rn
+    // picking_session.current_picking_turn_captain()
 
     let player_picks = args
         .iter::<u8>()
         .filter_map(|arg| arg.ok())
         .collect::<HashSet<u8>>();
+    // TODO: error response to failed conversions
+    // e.g. pick 9999999999999999999999999
+    //      pick some char(s)
     for number in player_picks {
         match picking_session.pick(number) {
             Ok(success) => {
@@ -90,21 +94,36 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
 
                 match success {
                     PickSuccess::BlueTurn => {
+                        let unpicked_players = picking_session
+                            .get_remaining()
+                            .iter()
+                            .format_with(" :small_orange_diamond: ", |player, f| {
+                                f(&format_args!("**{})** {}", player.0, player.1))
+                            });
                         let captain = picking_session.get_blue_captain().unwrap().1;
                         response
+                            .push_line(unpicked_players)
                             .push_line(teams)
                             .user(captain)
-                            .push("'s turn to pick");
+                            .push("to pick");
                     }
                     PickSuccess::RedTurn => {
+                        let unpicked_players = picking_session
+                            .get_remaining()
+                            .iter()
+                            .format_with(" :small_orange_diamond: ", |player, f| {
+                                f(&format_args!("**{})** {}", player.0, player.1))
+                            });
                         let captain = picking_session.get_red_captain().unwrap().1;
                         response
+                            .push_line(unpicked_players)
                             .push_line(teams)
                             .user(captain)
-                            .push("'s turn to pick");
+                            .push("to pick");
                     }
                     PickSuccess::Complete => {
                         response.push_line("Teams have been selected:").push(teams);
+                        // TODO: MOVE THIS picking_session out of the queue
                     }
                 }
 
