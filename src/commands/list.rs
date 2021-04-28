@@ -1,4 +1,4 @@
-use itertools::Itertools;
+use itertools::{join, Itertools};
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
@@ -62,11 +62,16 @@ async fn list_all(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResul
     let pugs = pugs_waiting_to_fill_in_guild.unwrap();
     let mut response = MessageBuilder::new();
     for (game_mode, players) in pugs.iter() {
+        let player_names = players
+            .iter()
+            .map(|p| p.get_user().name.clone())
+            .collect_vec();
         response.push_line(format!(
-            "**{}** [{}/{}]: TODO: player composition",
+            "**{}** *[{}/{}]:* {}",
             game_mode.label(),
             players.len(),
-            game_mode.capacity()
+            game_mode.capacity(),
+            join(player_names, " :small_orange_diamond: ")
         ));
     }
     msg.reply(&ctx.http, response.build()).await?;
