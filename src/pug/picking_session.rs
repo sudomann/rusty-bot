@@ -120,16 +120,20 @@ impl PickingSession {
                 counter += 2;
             }
         }
+        let blue_count = pick_sequence
+            .iter()
+            .filter(|&p| *p == PickTurn::Blue)
+            .count();
+        let red_count = pick_sequence
+            .iter()
+            .filter(|&p| *p == PickTurn::Red)
+            .count();
 
-        // the last pick will be the alternative of the first
-        // i.e. if red was first pick, blue will be last, and vice versa
-        match random_first_pick {
-            PickTurn::Blue => {
-                pick_sequence.push(PickTurn::Red);
-            }
-            PickTurn::Red => {
-                pick_sequence.push(PickTurn::Blue);
-            }
+        // the variant with lower occurences in the sequence fills the last spot in the vec
+        if blue_count < red_count {
+            pick_sequence.push(PickTurn::Blue);
+        } else {
+            pick_sequence.push(PickTurn::Red);
         }
 
         PickingSession {
@@ -148,6 +152,10 @@ impl PickingSession {
 
     pub fn get_blue_team(&self) -> &LinkedHashSet<(u8, UserId)> {
         &self.blue_team
+    }
+
+    pub fn get_pick_sequence(&self) -> &Vec<PickTurn> {
+        &self.pick_sequence
     }
 
     /// First call which returns [`Ok`] sets captain for one team
