@@ -1,19 +1,21 @@
-FROM ubuntu:21.04
+FROM rust:1.51.0-alpine3.13
 
-RUN apt-get update && apt-get install -y \
-  curl \
-  build-essential \
-  && rm -rf /var/lib/apt/lists/* \
-  && curl https://sh.rustup.rs -sSf | sh -s -- -y
-
+RUN apk add --update alpine-sdk
 COPY ["src/", "/app/src/"]
 COPY ["Cargo.toml", "/app/"]
 WORKDIR /app
-RUN ["/bin/bash", "-c", "source $HOME/.cargo/env && cargo build --release"]
-COPY [".env", "."]
+RUN cargo build --release
+
+
 RUN rm -rf target/release/build/ \
   target/release/deps/ \
   target/release/examples/ \
   target/release/incremental/
 
-CMD target/release/rusty-bot
+RUN --mount=type=secret,id=dotenv cat /run/secrets/dotenv
+#ARG dotenv
+#COPY ${dotenv} .
+#RUN echo ${dotenv} > .env
+
+# ENTRYPOINT [ "target/release/rusty-bot" ]
+CMD [ "target/release/rusty-bot" ]
