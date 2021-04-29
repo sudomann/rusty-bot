@@ -9,3 +9,4 @@ pub mod pick;
 pub mod promote;
 pub mod remove;
 pub mod teams;
+pub mod voices;

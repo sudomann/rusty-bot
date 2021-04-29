@@ -35,7 +35,7 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use commands::{
     add::*, captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*,
-    remove::*, teams::*,
+    remove::*, teams::*, voices::*,
 };
 
 pub struct ShardManagerContainer;
@@ -231,10 +231,11 @@ async fn my_help(
 struct General;
 
 #[group]
+#[only_in(guilds)]
 #[commands(
     add,
     captain,
-    force_random_captains,
+    random_captains,
     join,
     leave,
     leave_all,
@@ -242,9 +243,10 @@ struct General;
     list_all,
     pick,
     promote,
-    remove
+    remove,
+    teams,
     // tag, t
-    // voices, v
+    voices,
     // reset, <-- current picking
     // resetl, <-- last filled pug with picking completed
 )]
@@ -252,12 +254,15 @@ struct General;
 struct Pugs;
 
 #[group]
+#[only_in(guilds)]
 struct Bets;
 
 #[group]
+#[only_in(guilds)]
 struct Stats;
 
 #[group]
+#[only_in(guilds)]
 struct Moderation; // pugban, pugunban, etc.
 
 #[group]
