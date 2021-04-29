@@ -94,7 +94,7 @@ impl PickingSession {
         }
 
         let options = [PickTurn::Blue, PickTurn::Red];
-        let random_first_pick = &options[rand::thread_rng().gen_range(0, 2)];
+        let random_first_pick = &options[rand::thread_rng().gen_range(0..2)];
 
         let mut pick_sequence: Vec<PickTurn>;
         match random_first_pick {
@@ -365,5 +365,24 @@ impl PickingSession {
         // self.blue_team.drain()
         self.pick_history.clear();
         Ok(())
+    }
+
+    pub fn is_completed(&self) -> bool {
+        let full_team_size = self.game_mode.player_count / 2;
+        self.players.len() == 0
+            && self.pick_history.len() as u8 == self.game_mode.player_count
+            && self.blue_team.len() as u8 == full_team_size
+            && self.red_team.len() as u8 == full_team_size
+    }
+
+    pub fn currently_picking_captain(&self) -> Option<UserId> {
+        let captain = match self.pick_sequence.get(self.pick_history.len()).unwrap() {
+            PickTurn::Blue => self.get_blue_captain(),
+            PickTurn::Red => self.get_red_captain(),
+        };
+        if captain.is_none() {
+            return None;
+        }
+        Some(captain.unwrap().1)
     }
 }
