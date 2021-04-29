@@ -1,6 +1,10 @@
-use crate::pug::picking_session::{SetCaptainError, SetCaptainSuccess};
-use crate::FilledPug;
-use itertools::join;
+use crate::{
+    pug::picking_session::{SetCaptainError, SetCaptainSuccess},
+    utils::player_user_ids_to_users::*,
+    FilledPug,
+};
+use itertools::Itertools;
+use rand::seq::SliceRandom;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
@@ -51,7 +55,7 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
                     .push_bold(msg.author.name.clone())
                     .push(" is captain for the ")
                     .push_bold_line("Red Team")
-                    .push("Blue team needs a captain")
+                    .push("**Blue team** needs a captain")
                     .build();
                 msg.channel_id.say(&ctx.http, response).await?;
             }
@@ -60,7 +64,7 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
                     .push_bold(msg.author.name.clone())
                     .push(" is captain for the ")
                     .push_bold_line("Blue Team")
-                    .push("Red team needs a captain")
+                    .push("**Red team** needs a captain")
                     .build();
                 msg.channel_id.say(&ctx.http, response).await?;
             }
@@ -75,42 +79,21 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
                     .build();
                 msg.channel_id.say(&ctx.http, message).await?;
             }
-            SetCaptainSuccess::StartPickingBlue => {
-                let mut numbered_remaining_players: Vec<String> = Vec::default();
-                for (number, user_id) in picking_session.get_remaining() {
-                    let name = user_id.to_user(&ctx.http).await?.name;
-                    numbered_remaining_players.push(format!("{}) {}", number, name));
-                }
-                let blue_captain = picking_session.get_blue_captain().unwrap().1;
-                let red_captain = picking_session.get_red_captain().unwrap().1;
-                let mut response = MessageBuilder::new();
-                response
-                    .push_line(join(numbered_remaining_players, " :small_orange_diamond: "))
-                    .push_line(format!(
-                        "**Blue Team:** {}",
-                        blue_captain.to_user(&ctx).await?.name
-                    ))
-                    .push_line(format!(
-                        "**Red Team:** {}",
-                        red_captain.to_user(&ctx).await?.name
-                    ))
-                    .push(format!("{} to pick", blue_captain.mention()));
+            SetCaptainSuccess::StartPickingBlue | SetCaptainSuccess::StartPickingRed => {
+                let remaining =
+                    player_user_ids_to_users(ctx, picking_session.get_remaining()).await?;
+                let unpicked_players = remaining
+                    .iter()
+                    .format_with(" :small_orange_diamond: ", |player, f| {
+                        f(&format_args!("**{})** {}", player.0, player.1.name))
+                    });
 
-                msg.channel_id.say(&ctx.http, response).await?;
-            }
-            SetCaptainSuccess::StartPickingRed => {
-                // mirrors same logic as arm above
-                // TODO: maybe extract into a function to avoid duplication?
-                let mut numbered_remaining_players: Vec<String> = Vec::default();
-                for (number, user_id) in picking_session.get_remaining() {
-                    let name = user_id.to_user(&ctx.http).await?.name;
-                    numbered_remaining_players.push(format!("{}) {}", number, name));
-                }
                 let blue_captain = picking_session.get_blue_captain().unwrap().1;
                 let red_captain = picking_session.get_red_captain().unwrap().1;
+                let picking_captain = picking_session.currently_picking_captain().unwrap();
                 let mut response = MessageBuilder::new();
                 response
-                    .push_line(join(numbered_remaining_players, " :small_orange_diamond: "))
+                    .push_line(unpicked_players)
                     .push_line(format!(
                         "**Blue Team:** {}",
                         blue_captain.to_user(&ctx).await?.name
@@ -119,7 +102,7 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
                         "**Red Team:** {}",
                         red_captain.to_user(&ctx).await?.name
                     ))
-                    .push(format!("{} to pick", red_captain.mention()));
+                    .push(format!("{} to pick", picking_captain.mention()));
 
                 msg.channel_id.say(&ctx.http, response).await?;
             }
@@ -153,9 +136,50 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
 }
 
 #[command]
-#[aliases("frc")]
-async fn force_random_captains(_ctx: &Context, _msg: &Message, mut _args: Args) -> CommandResult {
-    // TODO: get player list, grab 2 random, and call .captain(with_user_id)
+#[aliases("rc", "frc", "force_random_captain", "force_random_captains")]
+#[max_args(0)]
+/// Assign captains to random players in filled pug
+/// Should work even if one of the captains has already been picked
+/// Incomplete
+async fn random_captains(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let lock_for_filled_pugs = {
+        let data_write = ctx.data.read().await;
+        data_write
+            .get::<FilledPug>()
+            .expect("Expected PugsWaitingToFill in TypeMap")
+            .clone()
+    };
+
+    let mut filled_pugs = lock_for_filled_pugs.write().await;
+    let guild_id = msg.guild_id.unwrap();
+    let filled_pugs_in_guild = filled_pugs.get_mut(&guild_id).unwrap();
+
+    let perhaps_picking_session = filled_pugs_in_guild.front();
+    if perhaps_picking_session.is_none() {
+        msg.channel_id
+            .say(
+                &ctx.http,
+                "No filled pugs for which to pick random captains",
+            )
+            .await?;
+        return Ok(());
+    }
+    let mut rng = rand::thread_rng();
+    let picking_session = perhaps_picking_session.unwrap();
+    let players = picking_session.get_remaining();
+    let randoms: Vec<(u8, UserId)> = players.choose_multiple(&mut rng, 2).cloned().collect();
+    let new_msg = msg.clone();
+    /*
+    instead of iterator, discretely check availibility of captain for each team
+
+    for (_, user_id) in randoms {
+        let user = user_id.to_user(&ctx.http).await?;
+        // picking_session.set_captain(user_id);
+        new_msg.author = user;
+        captain(&ctx, &new_msg, args).a;
+    }
 
     Ok(())
+    */
+    unimplemented!()
 }
