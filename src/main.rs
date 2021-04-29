@@ -35,7 +35,7 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use commands::{
     add::*, captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*,
-    remove::*,
+    remove::*, teams::*,
 };
 
 pub struct ShardManagerContainer;
