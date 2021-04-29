@@ -8,7 +8,7 @@ use serenity::{
 /// Upon success, a [`OnBehalfOf`] is returned with the info
 /// so commands can be invoked as the mentioned user.
 /// Upon failure, the error returned contains a user-friendly help string.
-pub async fn add_remove_helper(msg: &Message, mut args: Args) -> Result<OnBehalfOf, OpFail> {
+pub async fn as_another(msg: &Message, mut args: Args) -> Result<OnBehalfOf, OpFail> {
     if msg.mentions.len() == 0 {
         return Err(OpFail::NoUserMention(
             "You need to mention a user".to_string(),
