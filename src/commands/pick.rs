@@ -1,5 +1,6 @@
 use crate::{
     pug::picking_session::{PickError, PickSuccess},
+    utils::player_user_ids_to_users::*,
     FilledPug,
 };
 use itertools::Itertools;
@@ -9,7 +10,6 @@ use serenity::{
     prelude::*,
     utils::MessageBuilder,
 };
-use std::collections::HashSet;
 
 #[command]
 #[aliases("p")]
@@ -26,8 +26,8 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
 
     let mut filled_pugs = lock_for_filled_pugs.write().await;
 
-    // TODO: remove all this use of unwrap()
-    // and actually handle the None case with perhaps a generic error enum
+    // TODO: remove/justify all this use of unwrap()
+    // and prefer handling the None case with perhaps a generic error enum
     let guild_id = msg.guild_id.unwrap();
 
     let filled_pugs_in_guild = filled_pugs.get_mut(&guild_id).unwrap();
@@ -39,107 +39,115 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
         return Ok(());
     }
     let picking_session = perhaps_picking_session.unwrap();
-    let red_captain = picking_session.get_red_captain();
 
-    let blue_captain = picking_session.get_blue_captain();
+    let mut peekable = args.iter::<u8>().peekable();
+    while let Some(number) = peekable.next() {
+        let red_captain = picking_session.get_red_captain();
+        let blue_captain = picking_session.get_blue_captain();
 
-    // validate that both captains exist
-    if blue_captain.is_none() || blue_captain.is_none() {
-        msg.channel_id.say(&ctx.http, "Captain needed").await?;
-        return Ok(());
-    }
+        // Validate that both captains exist
+        if blue_captain.is_none() || blue_captain.is_none() {
+            msg.channel_id.say(&ctx.http, "Captain needed").await?;
+            return Ok(());
+        }
 
-    // validate that user is a captain
-    let current_team_captains: [&(u8, UserId); 2] = [blue_captain.unwrap(), red_captain.unwrap()];
-    if !current_team_captains
-        .iter()
-        .any(|(_, captain_user_id)| *captain_user_id == msg.author.id)
-    {
-        msg.reply(&ctx.http, "You are not a captain").await?;
-    }
+        // Validate that user is a captain
+        let current_team_captains: [&(u8, UserId); 2] =
+            [blue_captain.unwrap(), red_captain.unwrap()];
+        if !current_team_captains
+            .iter()
+            .any(|(_, captain_user_id)| *captain_user_id == msg.author.id)
+        {
+            msg.reply(&ctx.http, "You are not a captain").await?;
+            return Ok(());
+        }
 
-    // TODO: validate that its this captain's turn rn
-    // picking_session.current_picking_turn_captain()
+        // Validate that it's this captain's turn to pick
+        // We've already validated that both captains exist, so we can safely unwrap
+        let currently_picking_captain = picking_session.currently_picking_captain().unwrap();
+        if currently_picking_captain != msg.author.id {
+            msg.reply(
+                &ctx.http,
+                format!("Ignored - {} to pick", currently_picking_captain.mention()),
+            )
+            .await?;
+            return Ok(());
+        }
 
-    let player_picks = args
-        .iter::<u8>()
-        .filter_map(|arg| arg.ok())
-        .collect::<HashSet<u8>>();
-    // TODO: error response to failed conversions
-    // e.g. pick 9999999999999999999999999
-    //      pick some char(s)
-    for number in player_picks {
-        match picking_session.pick(number) {
-            Ok(success) => {
-                let blue_team = picking_session.get_blue_team();
-                let red_team = picking_session.get_red_team();
-                let blue_team_text = blue_team
-                    .iter()
-                    .format_with(" :small_orange_diamond: ", |player, f| {
-                        f(&format_args!("{}", player.1.mention()))
-                    });
-                let red_team_text = red_team
-                    .iter()
-                    .format_with(" :small_orange_diamond: ", |player, f| {
-                        f(&format_args!("{}", player.1.mention()))
-                    });
+        let mut response = MessageBuilder::new();
+        if number.is_err() {
+            msg.reply(&ctx.http, format!("Invalid pick: {}", number.unwrap_err()))
+                .await?;
+            return Ok(());
+        }
+        let pick_result = picking_session.pick(number.unwrap());
+        let remaining = player_user_ids_to_users(ctx, picking_session.get_remaining()).await?;
+        let unpicked_players = remaining
+            .iter()
+            .format_with(" :small_orange_diamond: ", |player, f| {
+                f(&format_args!("**{})** {}", player.0, player.1.name))
+            });
 
-                let mut response = MessageBuilder::new();
-                let mut teams = MessageBuilder::new();
-                teams
-                    .push_bold("Blue Team: ")
-                    .push_line(blue_team_text)
-                    .push_bold("Red Team: ")
-                    .push(red_team_text);
+        let blue_team = picking_session
+            .get_blue_team()
+            .iter()
+            .format_with(" :small_orange_diamond: ", |player, f| {
+                f(&format_args!("{}", player.1.mention()))
+            });
 
-                match success {
-                    PickSuccess::BlueTurn => {
-                        let unpicked_players = picking_session
-                            .get_remaining()
-                            .iter()
-                            .format_with(" :small_orange_diamond: ", |player, f| {
-                                f(&format_args!("**{})** {}", player.0, player.1))
-                            });
-                        let captain = picking_session.get_blue_captain().unwrap().1;
-                        response
-                            .push_line(unpicked_players)
-                            .push_line(teams)
-                            .user(captain)
-                            .push("to pick");
-                    }
-                    PickSuccess::RedTurn => {
-                        let unpicked_players = picking_session
-                            .get_remaining()
-                            .iter()
-                            .format_with(" :small_orange_diamond: ", |player, f| {
-                                f(&format_args!("**{})** {}", player.0, player.1))
-                            });
-                        let captain = picking_session.get_red_captain().unwrap().1;
-                        response
-                            .push_line(unpicked_players)
-                            .push_line(teams)
-                            .user(captain)
-                            .push("to pick");
-                    }
-                    PickSuccess::Complete => {
-                        response.push_line("Teams have been selected:").push(teams);
-                        // TODO: MOVE THIS picking_session out of the queue
-                    }
+        let red_team = picking_session
+            .get_red_team()
+            .iter()
+            .format_with(" :small_orange_diamond: ", |player, f| {
+                f(&format_args!("{}", player.1.mention()))
+            });
+
+        response
+            .push_line(unpicked_players)
+            .push_bold("Blue Team: ")
+            .push_line(blue_team)
+            .push_bold("Red Team: ")
+            .push_line(red_team);
+        if pick_result.is_ok() {
+            match pick_result.ok().unwrap() {
+                PickSuccess::BlueTurn => {
+                    response
+                        .user(picking_session.get_blue_captain().unwrap().1)
+                        .push(" to pick");
                 }
-
-                msg.channel_id.say(&ctx.http, response.build()).await?;
+                PickSuccess::RedTurn => {
+                    response
+                        .user(picking_session.get_red_captain().unwrap().1)
+                        .push(" to pick");
+                }
+                PickSuccess::Complete => {
+                    response.push_line("Teams have been selected!");
+                }
             }
-            Err(error) => match error {
+        } else {
+            match pick_result.err().unwrap() {
                 PickError::PlayersExhausted(m)
                 | PickError::HistoryInvariantViolation(m)
                 | PickError::PickSequenceInvariantViolation(m)
                 | PickError::InvalidPlayerNumber(m)
                 | PickError::ForeignUser(m) => {
+                    response
+                        .user(picking_session.currently_picking_captain().unwrap())
+                        .push(" to pick");
                     msg.reply(&ctx.http, m).await?;
                 }
-            },
-        };
+            }
+        }
+        if peekable.peek().is_none() {
+            // Avoiding responding twice by only responding if there isn't another number to parse
+            // When there IS another number, the next iteration will print the final state of team
+            msg.channel_id.say(&ctx.http, response.build()).await?;
+        }
+        if picking_session.is_completed() {
+            // TODO: move completed picking session to a complete pug storage
+            filled_pugs_in_guild.pop_front();
+            break;
+        }
     }
-
     Ok(())
 }
