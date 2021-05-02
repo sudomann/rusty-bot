@@ -18,7 +18,7 @@ use serenity::{
     model::{
         channel::{GuildChannel, Message},
         event::ResumedEvent,
-        gateway::Ready,
+        gateway::{Activity, Ready},
         id::{GuildId, UserId},
     },
     prelude::*,
@@ -267,7 +267,7 @@ struct Moderation; // pugban, pugunban, etc.
 
 #[group]
 #[owners_only]
-#[commands(quit)]
+#[commands(set_activity, quit)]
 struct SuperUser;
 
 #[tokio::main]
