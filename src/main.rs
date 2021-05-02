@@ -1,5 +1,7 @@
+// mod command_history;
 mod commands;
 mod common;
+mod jobs;
 mod pug;
 mod utils;
 #[macro_use]
@@ -67,11 +69,36 @@ impl TypeMapKey for FilledPug {
 struct Handler;
 const DEFAULT_PUG_CHANNEL_NAME: &str = "pugs-test";
 
+pub(crate) const HOUR: u64 = 3600;
+
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _ctx: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
+        ctx.set_activity(Activity::playing("Bugs? Message sudomann#9568"))
+            .await;
+        /*
+        {
+            let mut data = ctx.data.write();
+            data.insert::<command_history::CommandHistory>(IndexMap::new());
+            jobs::start_jobs(cx);
+        }
+        */
     }
+
+    /*
+    fn message_update(
+        &self,
+        ctx: Context,
+        _: Option<Message>,
+        _: Option<Message>,
+        ev: MessageUpdateEvent,
+    ) {
+        if let Err(e) = command_history::replay_message(ctx, ev, &self.cmds) {
+            error!("{}", e);
+        }
+    }
+    */
 
     async fn cache_ready(&self, context: Context, guild_ids: Vec<GuildId>) {
         let mut designated_pug_channels = HashMap::default();
