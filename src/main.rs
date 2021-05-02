@@ -201,7 +201,9 @@ async fn is_pug_channel_check(
             }
         };
         if let Some(response) = fail {
-            Err(Reason::User(response))
+            // while guilds test this alongside their current bots, lets not be annoying
+            // Err(Reason::User(response))
+            Err(Reason::Log(response))
         } else {
             Ok(())
         }
