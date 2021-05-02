@@ -59,20 +59,19 @@ pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let mut pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.write().await;
 
         if let Some(pugs_waiting_to_fill_in_guild) = pugs_waiting_to_fill.get_mut(&guild_id) {
-            let game_modes_to_leave =
-                match parse_game_modes(ctx.clone(), guild_id, args.clone()).await {
-                    Ok(game_modes) => game_modes,
-                    Err(err) => {
-                        match err {
-                            GameModeError::NoneGiven(m)
-                            | GameModeError::NoneRegistered(m)
-                            | GameModeError::Foreign(m) => {
-                                msg.reply(ctx, m).await?;
-                            }
+            let game_modes_to_leave = match parse_game_modes(ctx, guild_id, args.clone()).await {
+                Ok(game_modes) => game_modes,
+                Err(err) => {
+                    match err {
+                        GameModeError::NoneGiven(m)
+                        | GameModeError::NoneRegistered(m)
+                        | GameModeError::Foreign(m) => {
+                            msg.reply(ctx, m).await?;
                         }
-                        return Ok(());
                     }
-                };
+                    return Ok(());
+                }
+            };
             let mut game_modes_actually_removed_from: Vec<&GameMode> = Vec::default();
             for (game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
                 if game_modes_to_leave.contains(game_mode) {
@@ -99,6 +98,8 @@ pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             }
         }
     }
+    // TODO: call reset if they are in any filled pugs - search the whole queue
+    // as well - queue removals should clearly announce that their pugs have been returning to pugswaitingtofill
     Ok(())
 }
 

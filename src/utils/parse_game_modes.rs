@@ -15,7 +15,7 @@ pub enum GameModeError {
 /// TODO: callers such as commands are responsible for having the right checks to make sure
 /// the message came through the gateway and contains a GuildId, which they provide to this function
 pub async fn parse_game_modes(
-    ref ctx: Context,
+    ctx: &Context,
     ref guild_id: GuildId,
     mut args: Args,
 ) -> Result<FoundGameModes, GameModeError> {
