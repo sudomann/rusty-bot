@@ -7,7 +7,7 @@ use serenity::{
 };
 
 #[command]
-#[aliases("del", "delplayer", "rem")]
+#[aliases("r", "del", "delplayer", "rem")]
 #[min_args(2)]
 #[max_args(2)]
 // TODO: admin and owner only
