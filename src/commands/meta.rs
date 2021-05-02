@@ -1,9 +1,8 @@
-use serenity::{
-    framework::standard::{macros::command, CommandResult},
-    model::prelude::*,
-    prelude::*,
-    utils::MessageBuilder,
-};
+use serenity::client::Context;
+use serenity::framework::standard::{macros::command, Args, CommandResult};
+use serenity::model::channel::Message;
+use serenity::model::gateway::Activity;
+use serenity::utils::MessageBuilder;
 
 #[command]
 async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
@@ -20,6 +19,15 @@ async fn git(ctx: &Context, msg: &Message) -> CommandResult {
         .push_bold("See the magic at <https://github.com/sudomann/rusty-bot/>")
         .build();
     msg.reply(&ctx.http, response).await?;
+
+    Ok(())
+}
+
+#[command]
+#[aliases("setactivity")]
+async fn set_activity(ctx: &Context, _msg: &Message, args: Args) -> CommandResult {
+    let name = args.message();
+    ctx.set_activity(Activity::playing(&name)).await;
 
     Ok(())
 }
