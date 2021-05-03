@@ -242,7 +242,7 @@ impl PickingSession {
                 }
                 PickSuccess::Complete => Ok(SetCaptainSuccess::TwoPlayerAutoPick {
                     blue_captain: self.get_blue_captain().unwrap().1,
-                    red_captain: self.get_blue_captain().unwrap().1,
+                    red_captain: self.get_red_captain().unwrap().1,
                 }),
             },
             Err(pick_error) => match pick_error {
