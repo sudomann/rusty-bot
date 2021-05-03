@@ -16,7 +16,7 @@ pub enum GameModeError {
 /// the message came through the gateway and contains a GuildId, which they provide to this function
 pub async fn parse_game_modes(
     ctx: &Context,
-    ref guild_id: GuildId,
+    guild_id: &GuildId,
     mut args: Args,
 ) -> Result<FoundGameModes, GameModeError> {
     args.trimmed().quoted();

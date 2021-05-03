@@ -17,7 +17,7 @@ use serenity::{
 /// Promote a game mode with @here
 async fn promote(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
-    match parse_game_modes(ctx, guild_id, args).await {
+    match parse_game_modes(ctx, &guild_id, args).await {
         Ok(game_modes) => {
             let lock_for_pugs_waiting_to_fill = {
                 let data_read = ctx.data.read().await;

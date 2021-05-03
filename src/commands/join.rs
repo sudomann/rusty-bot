@@ -1,9 +1,5 @@
 use crate::{
-    pug::{
-        game_mode::GameMode,
-        picking_session::{PickingSession, SetCaptainSuccess},
-        player::Player,
-    },
+    pug::{game_mode::GameMode, picking_session::PickingSession, player::Player},
     utils::parse_game_modes::{parse_game_modes, GameModeError},
     FilledPug, PugsWaitingToFill,
 };
@@ -45,10 +41,7 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                 .clone()
         };
 
-        // TODO: what if PugsWaitingToFill not available for a a particular guild?
-        // i.e. `[registered_game_modes | pugs_waiting_to_fill ].get(&guild_id)` is `None`
-
-        let registered_game_modes = match parse_game_modes(ctx, guild_id, args.clone()).await {
+        let registered_game_modes = match parse_game_modes(ctx, &guild_id, args.clone()).await {
             Ok(game_modes) => game_modes,
             Err(err) => {
                 match err {

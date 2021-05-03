@@ -59,7 +59,7 @@ pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let mut pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.write().await;
 
         if let Some(pugs_waiting_to_fill_in_guild) = pugs_waiting_to_fill.get_mut(&guild_id) {
-            let game_modes_to_leave = match parse_game_modes(ctx, guild_id, args.clone()).await {
+            let game_modes_to_leave = match parse_game_modes(ctx, &guild_id, args.clone()).await {
                 Ok(game_modes) => game_modes,
                 Err(err) => {
                     match err {
