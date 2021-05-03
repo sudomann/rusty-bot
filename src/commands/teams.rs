@@ -25,6 +25,7 @@ async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let pugs = filled_pugs_in_guild.unwrap();
     let last = pugs.front();
     if last.is_none() {
+        // TODO, here get it from completed pug storage
         msg.reply(
             &ctx.http,
             "No pugs to show teams for.\n\
@@ -60,10 +61,11 @@ async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 
     response
         .push_line(unpicked_players)
-        .push_bold("Blue Team: ")
-        .push_line(blue_team_text)
         .push_bold("Red Team: ")
-        .push_line(red_team_text);
+        .push_line(red_team_text)
+        .push_bold("Blue Team: ")
+        .push_line(blue_team_text);
+    // TODO: reply seems to work with MessageBuilder instance even if you dont .build() it?
     msg.reply(&ctx.http, response).await?;
 
     Ok(())

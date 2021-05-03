@@ -104,10 +104,11 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
 
         response
             .push_line(unpicked_players)
-            .push_bold("Blue Team: ")
-            .push_line(blue_team)
             .push_bold("Red Team: ")
-            .push_line(red_team);
+            .push_line(red_team)
+            .push_bold("Blue Team: ")
+            .push_line(blue_team);
+
         if pick_result.is_ok() {
             match pick_result.ok().unwrap() {
                 PickSuccess::BlueTurn => {
@@ -141,7 +142,7 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
         if peekable.peek().is_none() {
             // Avoiding responding twice by only responding if there isn't another number to parse
             // When there IS another number, the next iteration will print the final state of team
-            msg.channel_id.say(&ctx.http, response.build()).await?;
+            msg.channel_id.say(&ctx.http, response).await?;
         }
         if picking_session.is_completed() {
             // TODO: move completed picking session to a complete pug storage
