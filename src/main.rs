@@ -113,6 +113,8 @@ impl EventHandler for Handler {
             GameMode::new("4elim".to_string(), 8),
             GameMode::new("blitz".to_string(), 10),
             GameMode::new("ctf".to_string(), 10),
+            GameMode::new("tdm".to_string(), 10),
+            GameMode::new("dm".to_string(), 10),
         };
 
         for guild_id in guild_ids.iter() {
