@@ -69,7 +69,7 @@ impl TypeMapKey for FilledPug {
 struct Handler;
 const DEFAULT_PUG_CHANNEL_NAME: &str = "pugs-test";
 
-pub(crate) const HOUR: u64 = 3600;
+// pub(crate) const HOUR: u64 = 3600;
 
 #[async_trait]
 impl EventHandler for Handler {
@@ -260,7 +260,7 @@ async fn my_help(
 struct General;
 
 #[group]
-#[only_in(guilds)]
+#[only_in("guilds")]
 #[commands(
     add,
     captain,
@@ -283,15 +283,15 @@ struct General;
 struct Pugs;
 
 #[group]
-#[only_in(guilds)]
+#[only_in("guilds")]
 struct Bets;
 
 #[group]
-#[only_in(guilds)]
+#[only_in("guilds")]
 struct Stats;
 
 #[group]
-#[only_in(guilds)]
+#[only_in("guilds")]
 struct Moderation; // pugban, pugunban, etc.
 
 #[group]
