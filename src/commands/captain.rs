@@ -13,8 +13,9 @@ use serenity::{
 };
 
 #[command]
+#[max_args(0)]
 #[aliases("c", "capt", "cap", "iamyourleader")]
-async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult {
+async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let lock_for_filled_pugs = {
         let data_write = ctx.data.read().await;
         data_write
@@ -74,8 +75,8 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
             } => {
                 let message = MessageBuilder::new()
                     .push_line("Teams have been auto-selected:")
-                    .push_line(format!("**Blue:** {}", blue_captain.mention()))
                     .push(format!("**Red:** {}", red_captain.mention()))
+                    .push_line(format!("**Blue:** {}", blue_captain.mention()))
                     .build();
                 msg.channel_id.say(&ctx.http, message).await?;
             }
@@ -120,13 +121,13 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
             } => {
                 let blue_captain_user = blue_captain.to_user(ctx).await?;
                 let red_captain_user = red_captain.to_user(ctx).await?;
-                let response = MessageBuilder::new()
+                let mut response = MessageBuilder::new();
+                response
                     .push_line(message)
-                    .push("Blue: ")
-                    .push_bold_line(blue_captain_user.name)
                     .push("Red: ")
-                    .push_bold(red_captain_user.name)
-                    .build();
+                    .push_bold_line(red_captain_user.name)
+                    .push("Blue: ")
+                    .push_bold(blue_captain_user.name);
                 msg.channel_id.say(&ctx.http, response).await?;
             }
         },
@@ -141,7 +142,7 @@ async fn captain(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult
 /// Assign captains to random players in filled pug
 /// Should work even if one of the captains has already been picked
 /// Incomplete
-async fn random_captains(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let lock_for_filled_pugs = {
         let data_write = ctx.data.read().await;
         data_write
@@ -154,7 +155,7 @@ async fn random_captains(ctx: &Context, msg: &Message, args: Args) -> CommandRes
     let guild_id = msg.guild_id.unwrap();
     let filled_pugs_in_guild = filled_pugs.get_mut(&guild_id).unwrap();
 
-    let perhaps_picking_session = filled_pugs_in_guild.front();
+    let perhaps_picking_session = filled_pugs_in_guild.front_mut();
     if perhaps_picking_session.is_none() {
         msg.channel_id
             .say(
@@ -164,22 +165,87 @@ async fn random_captains(ctx: &Context, msg: &Message, args: Args) -> CommandRes
             .await?;
         return Ok(());
     }
-    let mut rng = rand::thread_rng();
     let picking_session = perhaps_picking_session.unwrap();
-    let players = picking_session.get_remaining();
-    let randoms: Vec<(u8, UserId)> = players.choose_multiple(&mut rng, 2).cloned().collect();
-    let new_msg = msg.clone();
-    /*
-    instead of iterator, discretely check availibility of captain for each team
 
-    for (_, user_id) in randoms {
-        let user = user_id.to_user(&ctx.http).await?;
-        // picking_session.set_captain(user_id);
-        new_msg.author = user;
-        captain(&ctx, &new_msg, args).a;
+    let mut captains_needed = 0;
+    if picking_session.get_blue_captain().is_none() {
+        captains_needed += 1;
+    }
+    if picking_session.get_red_captain().is_none() {
+        captains_needed += 1;
+    }
+
+    if captains_needed == 0 {
+        msg.channel_id
+            .say(&ctx.http, "Both teams have captains")
+            .await?;
+        return Ok(());
+    }
+
+    let random_players: Vec<(u8, UserId)> = picking_session
+        .get_remaining()
+        .choose_multiple(&mut rand::thread_rng(), captains_needed)
+        .cloned()
+        .collect();
+
+    for (_, user_id) in random_players {
+        match picking_session.set_captain(user_id) {
+            Ok(success) => {
+                match success {
+                    SetCaptainSuccess::NeedBlueCaptain | SetCaptainSuccess::NeedRedCaptain => {
+                        continue;
+                    }
+                    SetCaptainSuccess::StartPickingBlue => {
+                        msg.channel_id
+                            .say(&ctx.http, "Blue Team picks first")
+                            .await?;
+                    }
+                    SetCaptainSuccess::StartPickingRed => {
+                        msg.channel_id
+                            .say(&ctx.http, "Red Team picks first")
+                            .await?;
+                    }
+                    SetCaptainSuccess::TwoPlayerAutoPick {
+                        blue_captain,
+                        red_captain,
+                    } => {
+                        let response = MessageBuilder::new()
+                            .push_line("Randomly assigned team(s)/captain(s):")
+                            .push_line(format!("**Red:** {}", red_captain.mention()))
+                            .push_line(format!("**Blue:** {}", blue_captain.mention()))
+                            .build();
+                        msg.channel_id.say(&ctx.http, response).await?;
+                        if picking_session.is_completed() {
+                            // TODO: move completed picking session to a complete pug storage
+                            filled_pugs_in_guild.pop_front();
+                            break;
+                        }
+                    }
+                };
+            }
+            Err(err) => match err {
+                SetCaptainError::CaptainSpotsFilled {
+                    message: m,
+                    blue_captain,
+                    red_captain,
+                } => {
+                    // TODO: evaluate whether there's a reasonable situation under which this arm evaluates,
+                    // because the if check's above should've handled that already
+                    let mut response = MessageBuilder::new();
+                    response
+                        .push_line(m)
+                        .push_line(format!("**Red captain:** {}", red_captain.mention()))
+                        .push_line(format!("**Blue captain:** {}", blue_captain.mention()));
+                    msg.reply(&ctx.http, response).await?;
+                }
+                SetCaptainError::IsCaptainAlready(m)
+                | SetCaptainError::PickFailure(m)
+                | SetCaptainError::ForeignUser(m) => {
+                    msg.reply(&ctx.http, m).await?;
+                }
+            },
+        };
     }
 
     Ok(())
-    */
-    unimplemented!()
 }
