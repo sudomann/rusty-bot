@@ -75,6 +75,9 @@ pub enum PickSuccess {
 }
 
 pub struct PickingSession {
+    // TODO: kurrgan suggestion - potentially implement this as an opt out
+    // because the UTPugs guys might not like the randomness - ask them and see
+    // uses_captain_randomness = bool
     game_mode: GameMode,
     pick_sequence: Vec<PickTurn>,
     pick_history: PickHistory,
@@ -179,6 +182,8 @@ impl PickingSession {
     /// The [`Err`] contains a tuple which has the form:
     ///
     /// (blue_captain: [`UserId`], red_captain: [`UserId`])
+    // TODO: when players manually captain themselves, second to self-captain always gets first pick
+    // Maybe as a fix, during second captaining, randomly decide whether to swap captains or not
     pub fn set_captain(&mut self, user_id: UserId) -> Result<SetCaptainSuccess, SetCaptainError> {
         let blue_captain = self.blue_team.front();
         let red_captain = self.red_team.front();
