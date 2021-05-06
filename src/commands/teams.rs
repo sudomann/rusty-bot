@@ -6,53 +6,72 @@ use serenity::{
     utils::MessageBuilder,
 };
 
-use crate::{utils::player_user_ids_to_users::player_user_ids_to_users, FilledPug};
+use crate::{utils::player_user_ids_to_users::player_user_ids_to_users, CompletedPug, FilledPug};
 
 #[command]
 #[aliases("team")]
 async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    let lock_for_filled_pugs = {
+    let guild_id = msg.guild_id.unwrap();
+    let (lock_for_filled_pugs, completed_pug_lock) = {
         let data_read = ctx.data.read().await;
-        data_read
-            .get::<FilledPug>()
-            .expect("Expected PugsWaitingToFill in TypeMap")
-            .clone()
+        (
+            data_read
+                .get::<FilledPug>()
+                .expect("Expected PugsWaitingToFill in TypeMap")
+                .clone(),
+            data_read
+                .get::<CompletedPug>()
+                .expect("Expected CompletedPug in TypeMap")
+                .clone(),
+        )
     };
     let filled_pugs = lock_for_filled_pugs.read().await;
 
-    let filled_pugs_in_guild = filled_pugs.get(&msg.guild_id.unwrap());
+    let filled_pugs_in_guild = filled_pugs.get(&guild_id);
 
     let pugs = filled_pugs_in_guild.unwrap();
-    let last = pugs.front();
-    if last.is_none() {
-        // TODO, here get it from completed pug storage
-        msg.reply(
-            &ctx.http,
-            "No pugs to show teams for.\n\
-      Take note, at the moment this will only display teams while picking has not concluded",
-        )
-        .await?;
+    let maybe_picking_session = pugs.front();
+    let remaining_ids;
+    let blue_team_ids;
+    let red_team_ids;
+    if maybe_picking_session.is_some() {
+        let current_picking_session = maybe_picking_session.unwrap();
+        remaining_ids = current_picking_session.get_remaining().clone();
+        blue_team_ids = current_picking_session.get_blue_team().clone();
+        red_team_ids = current_picking_session.get_red_team().clone();
+    } else {
+        // look in completed pug storage
+        let completed_pugs = completed_pug_lock.read().await;
+        let completed_pugs_in_guild = completed_pugs.get(&guild_id).unwrap();
+        let maybe_previous_session = completed_pugs_in_guild.last();
+        if maybe_previous_session.is_none() {
+            msg.reply(&ctx.http, "No pugs to show teams for").await?;
+            return Ok(());
+        }
+        let previous_picking_session = maybe_previous_session.unwrap();
+
+        remaining_ids = previous_picking_session.get_remaining().clone();
+        blue_team_ids = previous_picking_session.get_blue_team().clone();
+        red_team_ids = previous_picking_session.get_red_team().clone();
     }
 
     let mut response = MessageBuilder::new();
 
-    let picking_session = last.unwrap();
-
-    let remaining = player_user_ids_to_users(ctx, picking_session.get_remaining()).await?;
-    let unpicked_players = remaining
+    let remaining_owned = player_user_ids_to_users(ctx, &remaining_ids).await?;
+    let unpicked_players = remaining_owned
         .iter()
         .format_with(" :small_orange_diamond: ", |player, f| {
             f(&format_args!("**{})** {}", player.0, player.1.name))
         });
 
-    let blue_team = player_user_ids_to_users(ctx, picking_session.get_blue_team()).await?;
+    let blue_team = player_user_ids_to_users(ctx, &blue_team_ids).await?;
     let blue_team_text = blue_team
         .iter()
         .format_with(" :small_orange_diamond: ", |player, f| {
             f(&format_args!("{}", player.1.name))
         });
 
-    let red_team = player_user_ids_to_users(ctx, picking_session.get_red_team()).await?;
+    let red_team = player_user_ids_to_users(ctx, &red_team_ids).await?;
     let red_team_text = red_team
         .iter()
         .format_with(" :small_orange_diamond: ", |player, f| {
