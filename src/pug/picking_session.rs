@@ -373,6 +373,11 @@ impl PickingSession {
 
     /// Restores this [`PickingSession`] by clearing captains and team picks
     pub fn reset(&mut self) -> Result<(), String> {
+        /* TODO: Some things are currently being done
+        to avoid making closures borrow "too much" and
+        forcing you to perform borrow splitting manually.
+        For now, with nightly you can look into enabling the `capture_disjoint_fields` feature
+        */
         let players = &mut self.players;
         let blue_team = &mut self.blue_team;
         let red_team = &mut self.red_team;
