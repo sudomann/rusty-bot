@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use linked_hash_set::LinkedHashSet;
 use rand::{self, Rng};
 use serenity::model::id::UserId;
@@ -79,6 +80,7 @@ pub struct PickingSession {
     // because the UTPugs guys might not like the randomness - ask them and see
     // uses_captain_randomness = bool
     game_mode: GameMode,
+    created: DateTime<Utc>,
     pick_sequence: Vec<PickTurn>,
     pick_history: PickHistory,
     players: Vec<(u8, UserId)>,
@@ -152,12 +154,17 @@ impl PickingSession {
 
         PickingSession {
             game_mode: game_mode.clone(),
+            created: Utc::now(),
             pick_sequence,
             pick_history: Vec::default(),
             players: enumerated_players,
             red_team: LinkedHashSet::default(),
             blue_team: LinkedHashSet::default(),
         }
+    }
+
+    pub fn get_created(&self) -> DateTime<Utc> {
+        self.created.clone()
     }
 
     pub fn get_red_team(&self) -> &LinkedHashSet<(u8, UserId)> {
@@ -366,8 +373,19 @@ impl PickingSession {
 
     /// Restores this [`PickingSession`] by clearing captains and team picks
     pub fn reset(&mut self) -> Result<(), String> {
-        // self.red_team.drain()
-        // self.blue_team.drain()
+        let players = &mut self.players;
+        let blue_team = &mut self.blue_team;
+        let red_team = &mut self.red_team;
+        let unpick_player = move |item: &mut TeamPickAction| match item {
+            TeamPickAction::BlueCaptain | TeamPickAction::BluePlayer(_) => {
+                players.push(blue_team.pop_back().unwrap());
+            }
+            TeamPickAction::RedCaptain | TeamPickAction::RedPlayer(_) => {
+                players.push(red_team.pop_back().unwrap());
+            }
+        };
+
+        self.pick_history.iter_mut().rev().for_each(unpick_player);
         self.pick_history.clear();
         Ok(())
     }
