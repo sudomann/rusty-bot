@@ -3,6 +3,7 @@ use linked_hash_set::LinkedHashSet;
 use rand::{self, Rng};
 use serenity::model::id::UserId;
 use std::convert::TryInto;
+use uuid::Uuid;
 
 use super::{game_mode::GameMode, player::Player};
 
@@ -86,6 +87,7 @@ pub struct PickingSession {
     players: Vec<(u8, UserId)>,
     red_team: LinkedHashSet<(u8, UserId)>,
     blue_team: LinkedHashSet<(u8, UserId)>,
+    uuid: Uuid,
 }
 
 impl PickingSession {
@@ -160,6 +162,7 @@ impl PickingSession {
             players: enumerated_players,
             red_team: LinkedHashSet::default(),
             blue_team: LinkedHashSet::default(),
+            uuid: Uuid::new_v4(),
         }
     }
 
@@ -412,5 +415,9 @@ impl PickingSession {
             return None;
         }
         Some(captain.unwrap().1)
+    }
+
+    pub fn uuid(&self) -> &Uuid {
+        &self.uuid
     }
 }

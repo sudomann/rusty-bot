@@ -22,3 +22,7 @@ tracing-subscriber = "0.2"
 [dependencies.tokio]
 version = "1.0"
 features = ["macros", "signal", "rt-multi-thread"]
+
+[dependencies.uuid]
+version = "0.8"
+features = ["v4"]
