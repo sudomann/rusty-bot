@@ -1,7 +1,7 @@
 use crate::{
     pug::picking_session::{PickError, PickSuccess},
     utils::player_user_ids_to_users::*,
-    FilledPug,
+    CompletedPug, FilledPug,
 };
 use itertools::Itertools;
 use serenity::{
@@ -20,7 +20,7 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
         let data_write = ctx.data.read().await;
         data_write
             .get::<FilledPug>()
-            .expect("Expected PugsWaitingToFill in TypeMap")
+            .expect("Expected FilledPug in TypeMap")
             .clone()
     };
 
@@ -39,7 +39,7 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
         return Ok(());
     }
     let picking_session = perhaps_picking_session.unwrap();
-
+    let mut picking_session_completed = false;
     let mut peekable = args.iter::<u8>().peekable();
     while let Some(number) = peekable.next() {
         let red_captain = picking_session.get_red_captain();
@@ -87,7 +87,7 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
             .format_with(" :small_orange_diamond: ", |player, f| {
                 f(&format_args!("**{})** {}", player.0, player.1.name))
             });
-
+        // TODO: change these mentions to names
         let blue_team = picking_session
             .get_blue_team()
             .iter()
@@ -145,9 +145,20 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
             msg.channel_id.say(&ctx.http, response).await?;
         }
         if picking_session.is_completed() {
-            // TODO: move completed picking session to a complete pug storage
-            filled_pugs_in_guild.pop_front();
+            picking_session_completed = true;
             break;
+        }
+    }
+    if picking_session_completed {
+        // move it to completed pugs storage
+        {
+            let data = ctx.data.read().await;
+            let completed_pug_lock = data
+                .get::<CompletedPug>()
+                .expect("Expected CompletedPug in TypeMap");
+            let mut completed_pugs = completed_pug_lock.write().await;
+            let completed_pugs_in_guild = completed_pugs.get_mut(&guild_id).unwrap();
+            completed_pugs_in_guild.push(filled_pugs_in_guild.pop_front().unwrap());
         }
     }
     Ok(())
