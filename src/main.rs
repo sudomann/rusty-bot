@@ -30,6 +30,7 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     env,
     sync::Arc,
+    vec::Vec,
 };
 use tokio::sync::RwLock;
 use tracing::{error, info};
@@ -37,7 +38,7 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use commands::{
     add::*, captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*,
-    remove::*, teams::*, voices::*,
+    remove::*, reset::*, teams::*, voices::*,
 };
 
 pub struct ShardManagerContainer;
@@ -64,6 +65,11 @@ impl TypeMapKey for PugsWaitingToFill {
 pub struct FilledPug;
 impl TypeMapKey for FilledPug {
     type Value = Arc<RwLock<HashMap<GuildId, VecDeque<PickingSession>>>>;
+}
+
+pub struct CompletedPug;
+impl TypeMapKey for CompletedPug {
+    type Value = Arc<RwLock<HashMap<GuildId, Vec<PickingSession>>>>;
 }
 
 struct Handler;
@@ -106,6 +112,7 @@ impl EventHandler for Handler {
         let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Players>> =
             HashMap::default();
         let mut filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
+        let mut completed_pugs: HashMap<GuildId, Vec<PickingSession>> = HashMap::default();
         let preset_gamemodes = hashset! {
             GameMode::new("duel".to_string(), 2),
             GameMode::new("2elim".to_string(), 4),
@@ -146,6 +153,7 @@ impl EventHandler for Handler {
             pugs_waiting_to_fill.insert(*guild_id, potential_pugs);
             let temp_deque: VecDeque<PickingSession> = VecDeque::default();
             filled_pugs.insert(*guild_id, temp_deque);
+            completed_pugs.insert(*guild_id, Vec::default());
         }
 
         {
@@ -154,6 +162,7 @@ impl EventHandler for Handler {
             data.insert::<RegisteredGameModes>(Arc::new(RwLock::new(registered_game_modes)));
             data.insert::<PugsWaitingToFill>(Arc::new(RwLock::new(pugs_waiting_to_fill)));
             data.insert::<FilledPug>(Arc::new(RwLock::new(filled_pugs)));
+            data.insert::<CompletedPug>(Arc::new(RwLock::new(completed_pugs)));
         }
     }
 
@@ -275,10 +284,11 @@ struct General;
     pick,
     promote,
     remove,
+    reset,
     teams,
     // tag, t
     voices,
-    // reset, <-- current picking
+    
     // resetl, <-- last filled pug with picking completed
 )]
 #[checks(PugChannel)]
