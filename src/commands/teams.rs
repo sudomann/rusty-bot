@@ -10,7 +10,7 @@ use crate::{utils::player_user_ids_to_users::player_user_ids_to_users, Completed
 
 #[command]
 #[aliases("team")]
-async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
+pub async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let (lock_for_filled_pugs, completed_pug_lock) = {
         let data_read = ctx.data.read().await;
@@ -40,7 +40,6 @@ async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         blue_team_ids = current_picking_session.get_blue_team().clone();
         red_team_ids = current_picking_session.get_red_team().clone();
     } else {
-        // look in completed pug storage
         let completed_pugs = completed_pug_lock.read().await;
         let completed_pugs_in_guild = completed_pugs.get(&guild_id).unwrap();
         let maybe_previous_session = completed_pugs_in_guild.last();
@@ -84,7 +83,6 @@ async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         .push_line(red_team_text)
         .push_bold("Blue Team: ")
         .push_line(blue_team_text);
-    // TODO: reply seems to work with MessageBuilder instance even if you dont .build() it?
     msg.reply(&ctx.http, response).await?;
 
     Ok(())
