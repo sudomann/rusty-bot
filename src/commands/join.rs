@@ -1,6 +1,9 @@
 use crate::{
     pug::{game_mode::GameMode, picking_session::PickingSession, player::Player},
-    utils::parse_game_modes::{parse_game_modes, GameModeError},
+    utils::{
+        captain_countdown::do_captain_countdown,
+        parse_game_modes::{parse_game_modes, GameModeError},
+    },
     FilledPug, PugsWaitingToFill,
 };
 use itertools::Itertools;
@@ -12,19 +15,23 @@ use serenity::{
     utils::MessageBuilder,
 };
 use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
 
 use super::captain::random_captains;
 
 #[command]
 #[aliases("j", "jp")]
 #[min_args(1)]
+// TODO: for better validation, also check queue of PickSessions to ensure they're not in there
 pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let guild_id = msg.guild_id.unwrap();
     // Special case: 2 player game mode
     // Picking will complete automatically, after the following block completes
     // and releases locks
     let mut user_filled_a_two_player_game_mode = false;
+
+    let mut new_picking_session_uuid: Option<Uuid> = None;
     {
-        let guild_id = msg.guild_id.unwrap();
         let lock_for_pugs_waiting_to_fill = {
             let data_read = ctx.data.read().await;
             data_read
@@ -161,7 +168,6 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                 });
             let notice = format!("{} has been filled! ", filled_game_mode.label());
             let mut dm_announcement = MessageBuilder::new();
-            // this can fail if the bot does not have create invite permission in a guild
             dm_announcement
                 .push_line(notice.clone())
                 .push_line(participants_text_for_dm);
@@ -182,15 +188,14 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                 // the players get autoassigned to teams and another message is sent then
                 guild_announcement.push_line(participants_text);
             }
-            guild_announcement
-                .push_line("TODO - notify of player removals from other game_modes")
-                .push_line("TODO - mount auto captain timer countdown");
+            guild_announcement.push_line("TODO - notify of player removals from other game_modes");
             msg.channel_id.say(&ctx.http, guild_announcement).await?;
             for player in existing_players.iter() {
-                player
+                // We don't particularly care for the result of a DM attempt
+                let _ = player
                     .get_user()
                     .direct_message(&ctx, |m| m.content(&dm_announcement))
-                    .await?;
+                    .await;
             }
             player_copy = Some(existing_players.clone());
         }
@@ -208,6 +213,7 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                 if let Some(filled_pugs_in_guild) = filled_pugs.get_mut(&guild_id) {
                     let picking_session =
                         PickingSession::new(&current_game_mode, participants.clone());
+                    new_picking_session_uuid = Some(picking_session.uuid().clone());
                     filled_pugs_in_guild.push_back(picking_session);
                 }
                 // clear players from this pug
@@ -229,9 +235,11 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 
     // this is out here because we need the write locks to be released after the logic above
     if user_filled_a_two_player_game_mode {
-        // TODO: does it still work if I pass the existing Args
         random_captains(ctx, msg, Args::new("", &[Delimiter::Single(' ')])).await?;
+    } else {
+        if new_picking_session_uuid.is_some() {
+            do_captain_countdown(ctx, msg, &guild_id, &new_picking_session_uuid.unwrap()).await;
+        }
     }
-
     Ok(())
 }
