@@ -88,6 +88,7 @@ pub struct PickingSession {
     red_team: LinkedHashSet<(u8, UserId)>,
     blue_team: LinkedHashSet<(u8, UserId)>,
     uuid: Uuid,
+    last_reset: Option<DateTime<Utc>>,
 }
 
 impl PickingSession {
@@ -163,6 +164,7 @@ impl PickingSession {
             red_team: LinkedHashSet::default(),
             blue_team: LinkedHashSet::default(),
             uuid: Uuid::new_v4(),
+            last_reset: None,
         }
     }
 
@@ -375,12 +377,13 @@ impl PickingSession {
     }
 
     /// Restores this [`PickingSession`] by clearing captains and team picks
-    pub fn reset(&mut self) -> Result<(), String> {
+    pub fn reset(&mut self) {
         /* TODO: Some things are currently being done
         to avoid making closures borrow "too much" and
         forcing you to perform borrow splitting manually.
         For now, with nightly you can look into enabling the `capture_disjoint_fields` feature
         */
+        self.last_reset = Some(Utc::now());
         let players = &mut self.players;
         let blue_team = &mut self.blue_team;
         let red_team = &mut self.red_team;
@@ -395,7 +398,10 @@ impl PickingSession {
 
         self.pick_history.iter_mut().rev().for_each(unpick_player);
         self.pick_history.clear();
-        Ok(())
+    }
+
+    pub fn latest_reset(&self) -> Option<DateTime<Utc>> {
+        self.last_reset
     }
 
     pub fn is_completed(&self) -> bool {
