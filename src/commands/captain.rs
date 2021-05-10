@@ -1,7 +1,7 @@
 use crate::{
     pug::picking_session::{SetCaptainError, SetCaptainSuccess},
     utils::player_user_ids_to_users::*,
-    FilledPug,
+    CompletedPug, FilledPug,
 };
 use itertools::Itertools;
 use rand::seq::SliceRandom;
@@ -96,12 +96,12 @@ async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
                 response
                     .push_line(unpicked_players)
                     .push_line(format!(
-                        "**Blue Team:** {}",
-                        blue_captain.to_user(&ctx).await?.name
-                    ))
-                    .push_line(format!(
                         "**Red Team:** {}",
                         red_captain.to_user(&ctx).await?.name
+                    ))
+                    .push_line(format!(
+                        "**Blue Team:** {}",
+                        blue_captain.to_user(&ctx).await?.name
                     ))
                     .push(format!("{} to pick", picking_captain.mention()));
 
@@ -140,8 +140,8 @@ async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 #[aliases("rc", "frc", "force_random_captain", "force_random_captains")]
 #[max_args(0)]
 /// Assign captains to random players in filled pug
+///
 /// Should work even if one of the captains has already been picked
-/// Incomplete
 pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let lock_for_filled_pugs = {
         let data_write = ctx.data.read().await;
@@ -166,6 +166,7 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
         return Ok(());
     }
     let picking_session = perhaps_picking_session.unwrap();
+    let mut picking_session_completed = false;
 
     let mut captains_needed = 0;
     if picking_session.get_blue_captain().is_none() {
@@ -191,33 +192,42 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
     for (_, user_id) in random_players {
         match picking_session.set_captain(user_id) {
             Ok(success) => {
+                let blue_captain = picking_session.get_blue_captain();
+                let red_captain = picking_session.get_red_captain();
                 match success {
                     SetCaptainSuccess::NeedBlueCaptain | SetCaptainSuccess::NeedRedCaptain => {
                         continue;
                     }
                     SetCaptainSuccess::StartPickingBlue => {
                         msg.channel_id
-                            .say(&ctx.http, "Blue Team picks first")
+                            .say(
+                                &ctx.http,
+                                format!("{} to pick", blue_captain.unwrap().1.mention()),
+                            )
                             .await?;
                     }
                     SetCaptainSuccess::StartPickingRed => {
                         msg.channel_id
-                            .say(&ctx.http, "Red Team picks first")
+                            .say(
+                                &ctx.http,
+                                format!("{} to pick", red_captain.unwrap().1.mention()),
+                            )
                             .await?;
                     }
+                    // TODO: PING captains along with first pick messages
                     SetCaptainSuccess::TwoPlayerAutoPick {
                         blue_captain,
                         red_captain,
                     } => {
                         let response = MessageBuilder::new()
-                            .push_line("Randomly assigned team(s)/captain(s):")
+                            .push_line("Randomly assigned:")
                             .push_line(format!("**Red:** {}", red_captain.mention()))
                             .push_line(format!("**Blue:** {}", blue_captain.mention()))
                             .build();
                         msg.channel_id.say(&ctx.http, response).await?;
                         if picking_session.is_completed() {
-                            // TODO: move completed picking session to a complete pug storage
-                            filled_pugs_in_guild.pop_front();
+                            // TODO: is this check necessary under the current variant matched?
+                            picking_session_completed = true;
                             break;
                         }
                     }
@@ -245,6 +255,19 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
                 }
             },
         };
+    }
+
+    if picking_session_completed {
+        // move it to completed pugs storage
+        {
+            let data = ctx.data.read().await;
+            let completed_pug_lock = data
+                .get::<CompletedPug>()
+                .expect("Expected CompletedPug in TypeMap");
+            let mut completed_pugs = completed_pug_lock.write().await;
+            let completed_pugs_in_guild = completed_pugs.get_mut(&guild_id).unwrap();
+            completed_pugs_in_guild.push(filled_pugs_in_guild.pop_front().unwrap());
+        }
     }
 
     Ok(())
