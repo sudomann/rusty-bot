@@ -194,27 +194,27 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
             Ok(success) => {
                 let blue_captain = picking_session.get_blue_captain();
                 let red_captain = picking_session.get_red_captain();
+                let remaining =
+                    player_user_ids_to_users(ctx, picking_session.get_remaining()).await?;
+                let unpicked_players = remaining
+                    .iter()
+                    .format_with(" :small_orange_diamond: ", |player, f| {
+                        f(&format_args!("**{})** {}", player.0, player.1.name))
+                    });
+                let mut response = MessageBuilder::new();
+                response.push_line(unpicked_players);
                 match success {
                     SetCaptainSuccess::NeedBlueCaptain | SetCaptainSuccess::NeedRedCaptain => {
                         continue;
                     }
                     SetCaptainSuccess::StartPickingBlue => {
-                        msg.channel_id
-                            .say(
-                                &ctx.http,
-                                format!("{} to pick", blue_captain.unwrap().1.mention()),
-                            )
-                            .await?;
+                        response.push(format!("{} to pick", blue_captain.unwrap().1.mention()));
+                        let _ = msg.channel_id.say(&ctx.http, response).await;
                     }
                     SetCaptainSuccess::StartPickingRed => {
-                        msg.channel_id
-                            .say(
-                                &ctx.http,
-                                format!("{} to pick", red_captain.unwrap().1.mention()),
-                            )
-                            .await?;
+                        response.push(format!("{} to pick", red_captain.unwrap().1.mention()));
+                        let _ = msg.channel_id.say(&ctx.http, response).await;
                     }
-                    // TODO: PING captains along with first pick messages
                     SetCaptainSuccess::TwoPlayerAutoPick {
                         blue_captain,
                         red_captain,
