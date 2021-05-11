@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use linked_hash_set::LinkedHashSet;
 use rand::{self, Rng};
 use serenity::model::id::UserId;
-use std::convert::TryInto;
+use std::{convert::TryInto, mem};
 use uuid::Uuid;
 
 use super::{game_mode::GameMode, player::Player};
@@ -378,25 +378,17 @@ impl PickingSession {
 
     /// Restores this [`PickingSession`] by clearing captains and team picks
     pub fn reset(&mut self) {
-        /* TODO: Some things are currently being done
-        to avoid making closures borrow "too much" and
-        forcing you to perform borrow splitting manually.
-        For now, with nightly you can look into enabling the `capture_disjoint_fields` feature
-        */
         self.last_reset = Some(Utc::now());
         let players = &mut self.players;
-        let blue_team = &mut self.blue_team;
-        let red_team = &mut self.red_team;
-        let unpick_player = move |item: &mut TeamPickAction| match item {
-            TeamPickAction::BlueCaptain | TeamPickAction::BluePlayer(_) => {
-                players.push(blue_team.pop_back().unwrap());
-            }
-            TeamPickAction::RedCaptain | TeamPickAction::RedPlayer(_) => {
-                players.push(red_team.pop_back().unwrap());
-            }
-        };
-
-        self.pick_history.iter_mut().rev().for_each(unpick_player);
+        /* TODO: Some things are currently being done
+        to avoid making closures borrow "too much" and
+        forcing you to perform borrow splitting manually, i.e.
+        `&mut self.blue_team` and `&mut self.red_team`.
+        For now, with nightly you can look into enabling the `capture_disjoint_fields` feature
+        */
+        players.extend(mem::take(&mut self.blue_team));
+        players.extend(mem::take(&mut self.red_team));
+        players.sort_by(|a, b| a.0.cmp(&b.0));
         self.pick_history.clear();
     }
 
