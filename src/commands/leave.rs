@@ -1,142 +1,175 @@
 use crate::{
-    pug::game_mode::GameMode,
-    utils::parse_game_modes::{parse_game_modes, GameModeError},
-    PugsWaitingToFill,
+    pug::{game_mode::GameMode, player::Player},
+    utils::{
+        parse_game_modes::{parse_game_modes, GameModeError, ParsedGameModes},
+        player_user_ids_to_users::player_user_ids_to_users,
+    },
+    FilledPug, PugsWaitingToFill, RegisteredGameModes,
 };
-use itertools::join;
+use itertools::Itertools;
+use linked_hash_set::LinkedHashSet;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
     prelude::*,
+    utils::MessageBuilder,
 };
 
-/*
-TODO: examine whether this "behavior" technique can be used
-  as an alternative to current code duplication in leave commands
-trait QuitBehavior {
-    fn do_behavior(a: A, b: &B);
-}
+/// Perform leave operations and compose a String detailing results of actions taken
+async fn leave_handler(
+    ctx: &Context,
+    game_modes_to_leave: ParsedGameModes,
+    user_to_remove: User,
+    guild_id: GuildId,
+) -> Result<String, SerenityError> {
+    let mut unfilled_pugs_removed_from: Vec<GameMode> = Vec::default();
+    let mut filled_pugs_removed_from: Vec<GameMode> = Vec::default();
+    let mut vacated_players: Vec<(GameMode, LinkedHashSet<Player>)> = Vec::default();
+    {
+        let data = ctx.data.read().await;
 
-struct QuitSpecificGameModes;
-impl QuitBehavior for QuitSpecificGameModes {
-    fn do_behavior(a: A, b: &B) {}
-}
-struct QuitAllGameModes;
-impl QuitBehavior for QuitAllGameModes {
-    fn do_behavior(a: A, b: &B) {}
-}
+        // leave unfilled pugs first
+        let lock_for_pugs_waiting_to_fill = data
+            .get::<PugsWaitingToFill>()
+            .expect("Expected PugsWaitingToFill in TypeMap");
 
-fn leave_pugs<T: QuitBehavior>(x: X) {
-    let a = qux(x);
-    let b = B::new();
-    T::do_behavior(a, &b);
-    bar();
-}
+        let mut pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.write().await;
+        let pugs_waiting_to_fill_in_guild = pugs_waiting_to_fill.get_mut(&guild_id).unwrap();
+        for game_mode in &game_modes_to_leave {
+            let participants = pugs_waiting_to_fill_in_guild.get_mut(game_mode).unwrap();
+            if participants.remove(&user_to_remove.id) {
+                unfilled_pugs_removed_from.push(game_mode.clone());
+            }
+        }
 
-async fn quit_command() {
-    leave_pugs::<QuitSpecificGameModes>(x1);
-    leave_pugs::<QuitAllGameModes>(x2);
-}
-*/
+        // then leave filled pugs
+        let lock_for_filled_pugs = data
+            .get::<FilledPug>()
+            .expect("Expected CompletedPug in TypeMap");
+        let mut filled_pugs = lock_for_filled_pugs.write().await;
+        let filled_pugs_in_guild = filled_pugs.get_mut(&guild_id).unwrap();
 
-/*  Leave command MUST NOT touch pug that has filled already
-    Incapable or afk pug participants must be subbed with .substitute
-    This is to keep commands simple and memorable and avoid convoluted code
-*/
+        for i in (0..filled_pugs_in_guild.len()).rev() {
+            let filled_pug = filled_pugs_in_guild.get(i).unwrap();
+            if game_modes_to_leave.contains(filled_pug.get_game_mode()) {
+                // it was filled, but now it's cancelled
+                let mut cancelled_pug = filled_pugs_in_guild.remove(i).unwrap();
+                let cancelled_game_mode = cancelled_pug.get_game_mode().clone();
+                filled_pugs_removed_from.push(cancelled_game_mode.clone());
+                // In case picking had already begun, reset
+                // This moves all players into one collection of unpicked players
+                // so we can get them with .get_remaining()
+                cancelled_pug.reset();
+                let users_in_cancelled_pug =
+                    player_user_ids_to_users(ctx, cancelled_pug.get_remaining()).await?;
+                let unfilled_pug = pugs_waiting_to_fill_in_guild
+                    .remove(&cancelled_game_mode)
+                    .unwrap();
+
+                if !unfilled_pug.is_empty() {
+                    // vacate players that had joined this game mode
+                    // after the current, cancelled pug filled
+                    vacated_players.push((cancelled_game_mode.clone(), unfilled_pug));
+                }
+
+                let mut cancelled_pug_players = LinkedHashSet::default();
+
+                // The players in the cancelled pug will be reinserted to unfilled pug list
+                let move_to_unfilled_pug = |(_, user)| {
+                    // exclude the player leaving
+                    if user != user_to_remove {
+                        cancelled_pug_players.insert(Player::new(user));
+                    }
+                };
+                users_in_cancelled_pug
+                    .into_iter()
+                    .for_each(move_to_unfilled_pug);
+                pugs_waiting_to_fill_in_guild
+                    .insert(cancelled_game_mode.clone(), cancelled_pug_players);
+            }
+        }
+    }
+    let mut message = MessageBuilder::new();
+
+    if unfilled_pugs_removed_from.is_empty() && filled_pugs_removed_from.is_empty() {
+        message.push(user_to_remove.id);
+        message.push(" wasn't found in any pug");
+        return Ok(message.build());
+    }
+
+    if !unfilled_pugs_removed_from.is_empty() {
+        let a = unfilled_pugs_removed_from
+            .iter()
+            .format_with(" :small_orange_diamond: ", |g, f| {
+                f(&format_args!("{}", g.label()))
+            });
+        message.push(user_to_remove.id);
+        message.push(" has been removed from ").push_line(a);
+    }
+
+    if !filled_pugs_removed_from.is_empty() {
+        let a = filled_pugs_removed_from
+            .iter()
+            .format_with(" :small_orange_diamond: ", |g, f| {
+                f(&format_args!("{}", g.label()))
+            });
+        message
+            .push_line("")
+            .push(a)
+            .push_bold_line(" cancelled")
+            .push("TODO: ping vacated players");
+    }
+
+    Ok(message.build())
+}
 
 #[command]
 #[aliases("l", "lv")]
 #[min_args(1)]
 pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    if let Some(guild_id) = msg.guild_id {
-        let lock_for_pugs_waiting_to_fill = {
-            let data_write = ctx.data.read().await;
-            data_write
-                .get::<PugsWaitingToFill>()
-                .expect("Expected PugsWaitingToFill in TypeMap")
-                .clone()
-        };
-        let mut pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.write().await;
-
-        if let Some(pugs_waiting_to_fill_in_guild) = pugs_waiting_to_fill.get_mut(&guild_id) {
-            let game_modes_to_leave = match parse_game_modes(ctx, &guild_id, args.clone()).await {
-                Ok(game_modes) => game_modes,
-                Err(err) => {
-                    match err {
-                        GameModeError::NoneGiven(m)
-                        | GameModeError::NoneRegistered(m)
-                        | GameModeError::Foreign(m) => {
-                            msg.reply(ctx, m).await?;
-                        }
-                    }
-                    return Ok(());
-                }
-            };
-            let mut game_modes_actually_removed_from: Vec<&GameMode> = Vec::default();
-            for (game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
-                if game_modes_to_leave.contains(game_mode) {
-                    if participants.remove(&msg.author.id) {
-                        game_modes_actually_removed_from.push(game_mode);
-                    }
+    let guild_id = msg.guild_id.unwrap();
+    let game_modes_to_leave = match parse_game_modes(ctx, &guild_id, args.clone()).await {
+        Ok(game_modes) => game_modes,
+        Err(err) => {
+            match err {
+                GameModeError::NoneGiven(m)
+                | GameModeError::NoneRegistered(m)
+                | GameModeError::Foreign(m) => {
+                    msg.reply(ctx, m).await?;
                 }
             }
-            if !game_modes_actually_removed_from.is_empty() {
-                let labels = game_modes_actually_removed_from
-                    .iter()
-                    .map(|g| g.label())
-                    .collect::<Vec<&String>>();
-                let pretty_labels = join(labels, " :small_orange_diamond: ");
-
-                msg.reply(
-                    &ctx.http,
-                    format!(
-                        "**{}** has been removed from {}.",
-                        msg.author.name, pretty_labels
-                    ),
-                )
-                .await?;
-            }
+            return Ok(());
         }
-    }
-    // TODO: call reset if they are in any filled pugs - search the whole queue
-    // as well - queue removals should clearly announce that their pugs have been returning to pugswaitingtofill
+    };
+    let response = leave_handler(ctx, game_modes_to_leave, msg.author.clone(), guild_id).await?;
+    let _ = msg.reply(&ctx.http, response).await;
     Ok(())
 }
 
 #[command]
 #[aliases("lva", "leaveall")]
 async fn leave_all(ctx: &Context, msg: &Message) -> CommandResult {
-    if let Some(guild_id) = msg.guild_id {
-        let lock_for_pugs_waiting_to_fill = {
-            let data_write = ctx.data.read().await;
-            data_write
-                .get::<PugsWaitingToFill>()
-                .expect("Expected PugsWaitingToFill in TypeMap")
-                .clone()
-        };
-        let mut pugs_waiting_to_fill = lock_for_pugs_waiting_to_fill.write().await;
+    let guild_id = msg.guild_id.unwrap();
+    let game_modes_to_leave = {
+        let data_read = ctx.data.read().await;
+        let lock_for_registered_game_modes = data_read
+            .get::<RegisteredGameModes>()
+            .expect("Expected RegisteredGameModes in TypeMap")
+            .clone();
+        let global_game_modes = lock_for_registered_game_modes.read().await;
 
-        if let Some(pugs_waiting_to_fill_in_guild) = pugs_waiting_to_fill.get_mut(&guild_id) {
-            let mut game_modes_actually_removed_from: Vec<&GameMode> = Vec::default();
-            for (game_mode, participants) in pugs_waiting_to_fill_in_guild.iter_mut() {
-                if participants.remove(&msg.author.id) {
-                    game_modes_actually_removed_from.push(game_mode);
-                }
-            }
-            if !game_modes_actually_removed_from.is_empty() {
-                let labels = game_modes_actually_removed_from
-                    .iter()
-                    .map(|g| g.label())
-                    .collect::<Vec<&String>>();
-                let pretty_labels = join(labels, " :small_orange_diamond: ");
-
-                msg.reply(
-                    &ctx.http,
-                    format!("You were removed from {} because you left.", pretty_labels),
-                )
-                .await?;
-            }
+        let guild_game_modes = global_game_modes.get(&guild_id);
+        if guild_game_modes.is_none() {
+            msg.reply(
+                ctx,
+                "No game modes registered. Contact admins to run `.addmod`",
+            )
+            .await?;
+            return Ok(());
         }
-    }
+        guild_game_modes.unwrap().clone()
+    };
+    let response = leave_handler(ctx, game_modes_to_leave, msg.author.clone(), guild_id).await?;
+    let _ = msg.reply(&ctx.http, response).await;
     Ok(())
 }
