@@ -49,7 +49,26 @@ pub async fn do_captain_countdown(ctx: &Context, msg: &Message, guild_id: &Guild
             "Auto captains in about `{}` seconds",
             MAX_WAIT_SECS - seconds_elapsed
         );
-        let current_picking_session = filled_pugs_in_guild.front().unwrap();
+
+        // This can be None if:
+        // - Between loop iterations, someone leaves
+        //   (the user leaving causes the PickingSession to be destroyed)
+        //   OR
+        // - Between loop iterations, somehow captains and players
+        //   are rapidly picked and and the session is moved to CompletedPugs
+        let maybe_picking_session = filled_pugs_in_guild.front();
+        if maybe_picking_session.is_none() {
+            let final_update = MessageBuilder::new()
+                .push_strike_line(new_update)
+                .push_italic("Pug was either cancelled/completed")
+                .build();
+            let _ = countdown_message
+                .edit(&ctx.http, |m| m.content(final_update))
+                .await;
+            return;
+        }
+
+        let current_picking_session = maybe_picking_session.unwrap();
         if current_picking_session.uuid() == uuid {
             if last_known_reset.is_none() {
                 // assign it the latest reset value and proceed with loop
@@ -97,7 +116,7 @@ pub async fn do_captain_countdown(ctx: &Context, msg: &Message, guild_id: &Guild
         } else {
             let final_update = MessageBuilder::new()
                 .push_strike_line(new_update)
-                .push_italic("Pug no longer needs captain to be picked")
+                .push_italic("Some new pug has replaced the one this timer was meant for")
                 .build();
             let _ = countdown_message
                 .edit(&ctx.http, |m| m.content(final_update))
