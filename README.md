@@ -9,7 +9,16 @@ Describe channel/hub scopes, etc.
 
 ## Want to run this bot?
 
+
+For development, do:
+
 Have at least rust-x.x, cargo... clone repo, build and run with `...` 
+
+If deploying, do:
+
+`docker build . -t rusty:test --build-arg dotenv=$(cat .env)`
+
+^ should work in bash and powershell
 
 ## Extra
 

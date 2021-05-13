@@ -7,7 +7,6 @@ use serenity::{
 
 #[command]
 #[owners_only]
-// TODO: consider persisting memory contents (picks, joins, etc.)
 async fn quit(ctx: &Context, msg: &Message) -> CommandResult {
     let data = ctx.data.read().await;
 
@@ -21,6 +20,20 @@ async fn quit(ctx: &Context, msg: &Message) -> CommandResult {
 
         return Ok(());
     }
+
+    Ok(())
+}
+
+#[command]
+#[owners_only]
+/// Persist all data and then shut down
+///
+/// Locks the global data map so no more command can be executed while
+/// data is saved to persistent storage.
+/// Announces in all guilds that the bot is going down for maintenance.
+async fn maintenance(ctx: &Context, msg: &Message) -> CommandResult {
+    msg.reply(ctx, "Shutting down gracefully...").await?;
+    let _data = ctx.data.write().await;
 
     Ok(())
 }

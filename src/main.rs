@@ -331,7 +331,7 @@ async fn main() {
         Ok(info) => {
             let mut owners = HashSet::new();
             owners.insert(info.owner.id);
-
+            // TODO:load superusers here
             (owners, info.id)
         }
         Err(why) => panic!("Could not access application info: {:?}", why),

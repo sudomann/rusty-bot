@@ -5,7 +5,11 @@ use serenity::{
 };
 use std::collections::HashSet;
 
-pub type FoundGameModes = HashSet<GameMode>;
+
+/// GameModes which are parsed from string arguments submitted to a command.
+/// The string arguments are matched against the registered game modes (if any) of the guild
+/// the command was sent from and returned as respective [`GameMode`]s in a [`HashSet`].
+pub type ParsedGameModes = HashSet<GameMode>;
 pub enum GameModeError {
     NoneGiven(String),
     NoneRegistered(String),
@@ -18,7 +22,7 @@ pub async fn parse_game_modes(
     ctx: &Context,
     guild_id: &GuildId,
     mut args: Args,
-) -> Result<FoundGameModes, GameModeError> {
+) -> Result<ParsedGameModes, GameModeError> {
     args.trimmed().quoted();
     if args.is_empty() {
         return Err(GameModeError::NoneGiven(
@@ -62,7 +66,7 @@ pub async fn parse_game_modes(
         .collect::<HashSet<String>>();
 
     if unrecogized_game_modes.is_empty() {
-        let mut recognized_game_modes: FoundGameModes = FoundGameModes::default();
+        let mut recognized_game_modes: ParsedGameModes = ParsedGameModes::default();
         for game_mode in registered_game_modes.iter() {
             if command_args.contains(game_mode.key()) {
                 recognized_game_modes.insert(game_mode.clone());

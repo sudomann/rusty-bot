@@ -14,7 +14,7 @@ use serenity::{
 #[allowed_roles("admin", "voice_channel_admin")]
 /// Moves pug participants into their team voice channels if they are not in them already.
 /// Only works on people that are already connected to voice chat
-/// Uninplemented
 async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
+    // read completed pugs
     unimplemented!()
 }
