@@ -4,7 +4,7 @@ use crate::{
         captain_countdown::do_captain_countdown,
         parse_game_modes::{parse_game_modes, GameModeError},
     },
-    FilledPug, PugsWaitingToFill,
+    DefaultVoiceChannels, FilledPug, PugsWaitingToFill, TeamVoiceChannels,
 };
 use itertools::Itertools;
 use linked_hash_set::LinkedHashSet;
@@ -32,21 +32,14 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 
     let mut new_picking_session_uuid: Option<Uuid> = None;
     {
-        let lock_for_pugs_waiting_to_fill = {
-            let data_read = ctx.data.read().await;
-            data_read
-                .get::<PugsWaitingToFill>()
-                .expect("Expected PugsWaitingToFill in TypeMap")
-                .clone()
-        };
+        let data = ctx.data.read().await;
+        let lock_for_pugs_waiting_to_fill = data
+            .get::<PugsWaitingToFill>()
+            .expect("Expected PugsWaitingToFill in TypeMap");
 
-        let lock_for_filled_pugs = {
-            let data_write = ctx.data.read().await;
-            data_write
-                .get::<FilledPug>()
-                .expect("Expected FilledPug in TypeMap")
-                .clone()
-        };
+        let lock_for_filled_pugs = data
+            .get::<FilledPug>()
+            .expect("Expected FilledPug in TypeMap");
 
         let registered_game_modes = match parse_game_modes(ctx, &guild_id, args.clone()).await {
             Ok(game_modes) => game_modes,
@@ -211,8 +204,22 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                 let mut filled_pugs = lock_for_filled_pugs.write().await;
 
                 if let Some(filled_pugs_in_guild) = filled_pugs.get_mut(&guild_id) {
-                    let picking_session =
-                        PickingSession::new(&current_game_mode, participants.clone());
+                    let picking_session = if user_filled_a_two_player_game_mode {
+                        PickingSession::new(&current_game_mode, participants.clone(), None)
+                    } else {
+                        let lock_for_default_voice = data
+                            .get::<DefaultVoiceChannels>()
+                            .expect("Expected DefaultVoiceChannels in TypeMap");
+                        let default_voice_channels = lock_for_default_voice.read().await;
+                        let default_voice_channels_in_guild =
+                            *default_voice_channels.get(&guild_id).unwrap();
+                        PickingSession::new(
+                            &current_game_mode,
+                            participants.clone(),
+                            Some(default_voice_channels_in_guild),
+                        )
+                    };
+
                     new_picking_session_uuid = Some(picking_session.uuid().clone());
                     filled_pugs_in_guild.push_back(picking_session);
                 }
