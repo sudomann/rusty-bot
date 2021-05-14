@@ -277,7 +277,7 @@ async fn my_help(
 }
 
 #[group]
-#[commands(git, ping)]
+#[commands(git, ping, tilde)]
 struct General;
 
 #[group]
