@@ -5,6 +5,8 @@ use serenity::model::id::UserId;
 use std::{convert::TryInto, mem};
 use uuid::Uuid;
 
+use crate::TeamVoiceChannels;
+
 use super::{game_mode::GameMode, player::Player};
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -89,10 +91,15 @@ pub struct PickingSession {
     blue_team: LinkedHashSet<(u8, UserId)>,
     uuid: Uuid,
     last_reset: Option<DateTime<Utc>>,
+    voice_channels: Option<TeamVoiceChannels>,
 }
 
 impl PickingSession {
-    pub fn new(game_mode: &GameMode, players: LinkedHashSet<Player>) -> Self {
+    pub fn new(
+        game_mode: &GameMode,
+        players: LinkedHashSet<Player>,
+        voice_channels: Option<TeamVoiceChannels>,
+    ) -> Self {
         // TODO - start auto captain timer
         let mut enumerated_players: Vec<(u8, UserId)> = Vec::new();
         for (index, player) in players.iter().enumerate() {
@@ -167,6 +174,7 @@ impl PickingSession {
             blue_team: LinkedHashSet::default(),
             uuid: Uuid::new_v4(),
             last_reset: None,
+            voice_channels,
         }
     }
 

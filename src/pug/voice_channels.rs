@@ -1,3 +1,5 @@
+use serenity::model::id::ChannelId;
+
 // This gets the latest item in CompletedPug list (if it exists) and
 // attaches a VoiceChannels instance (if channel creation succeeds) to its `voice_channels` field
 // then moves players
@@ -25,3 +27,27 @@ let _ = guild
     .create_channel(&http, |c| c.name("my-test-channel").kind(ChannelType::Voice).id(  see parent_id comment above ^))
     .await;
 */
+
+#[derive(Clone, Copy, Debug)]
+pub struct TeamVoiceChannels {
+    blue: Option<ChannelId>,
+    red: Option<ChannelId>,
+}
+
+impl TeamVoiceChannels {
+    pub fn new(blue: Option<ChannelId>, red: Option<ChannelId>) -> Self {
+        Self { blue, red }
+    }
+    pub fn get_blue(&self) -> &Option<ChannelId> {
+        &self.blue
+    }
+    pub fn get_red(&self) -> &Option<ChannelId> {
+        &self.red
+    }
+    pub fn set_blue(&mut self, new_value: Option<ChannelId>) {
+        self.blue = new_value;
+    }
+    pub fn set_red(&mut self, new_value: Option<ChannelId>) {
+        self.red = new_value;
+    }
+}

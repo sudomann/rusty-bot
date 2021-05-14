@@ -6,26 +6,13 @@ mod pug;
 mod utils;
 #[macro_use]
 extern crate maplit;
-use pug::{game_mode::GameMode, picking_session::PickingSession, player::Players};
-use serenity::{
-    async_trait,
-    client::bridge::gateway::ShardManager,
-    framework::standard::{
+use pug::{game_mode::GameMode, picking_session::PickingSession, player::Players, voice_channels::TeamVoiceChannels};
+use serenity::{async_trait, client::bridge::gateway::ShardManager, framework::standard::{
         help_commands,
         macros::{check, group, help, hook},
         Args, CommandGroup, CommandOptions, CommandResult, DispatchError, HelpOptions, Reason,
         StandardFramework,
-    },
-    http::Http,
-    model::{
-        channel::{GuildChannel, Message},
-        event::ResumedEvent,
-        gateway::{Activity, Ready},
-        id::{GuildId, UserId},
-    },
-    prelude::*,
-    utils::MessageBuilder,
-};
+    }, http::Http, model::{channel::{GuildChannel, Message}, event::ResumedEvent, gateway::{Activity, Ready}, id::{ChannelId, GuildId, UserId}}, prelude::*, utils::MessageBuilder};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     env,
@@ -40,6 +27,7 @@ use commands::{
     add::*, captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*,
     remove::*, reset::*, teams::*, voices::*,
 };
+
 
 pub struct ShardManagerContainer;
 
@@ -70,6 +58,11 @@ impl TypeMapKey for FilledPug {
 pub struct CompletedPug;
 impl TypeMapKey for CompletedPug {
     type Value = Arc<RwLock<HashMap<GuildId, Vec<PickingSession>>>>;
+}
+
+pub struct DefaultVoiceChannels;
+impl TypeMapKey for DefaultVoiceChannels {
+    type Value = Arc<RwLock<HashMap<GuildId, TeamVoiceChannels>>>;
 }
 
 struct Handler;
@@ -113,6 +106,7 @@ impl EventHandler for Handler {
             HashMap::default();
         let mut filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
         let mut completed_pugs: HashMap<GuildId, Vec<PickingSession>> = HashMap::default();
+        let mut team_voice_channels: HashMap<GuildId, TeamVoiceChannels> = HashMap::default();
         let preset_gamemodes = hashset! {
             GameMode::new("duel".to_string(), 2),
             GameMode::new("2elim".to_string(), 4),
@@ -154,6 +148,21 @@ impl EventHandler for Handler {
             let temp_deque: VecDeque<PickingSession> = VecDeque::default();
             filled_pugs.insert(*guild_id, temp_deque);
             completed_pugs.insert(*guild_id, Vec::default());
+            // Unreal Carnage data hardcoded for testing
+            if guild_id == &GuildId(189984496655925258) {
+                let v = TeamVoiceChannels::new(
+                    Some(ChannelId(614287367657881615)),  
+                    Some(ChannelId(614287248195584021))
+                );
+                team_voice_channels.insert(guild_id.clone(), v);
+            }
+            else {
+                let v = TeamVoiceChannels::new(
+                    None,  
+                    None
+                );
+                team_voice_channels.insert(guild_id.clone(), v);
+            }
         }
 
         {
@@ -163,6 +172,7 @@ impl EventHandler for Handler {
             data.insert::<PugsWaitingToFill>(Arc::new(RwLock::new(pugs_waiting_to_fill)));
             data.insert::<FilledPug>(Arc::new(RwLock::new(filled_pugs)));
             data.insert::<CompletedPug>(Arc::new(RwLock::new(completed_pugs)));
+            data.insert::<DefaultVoiceChannels>(Arc::new(RwLock::new(team_voice_channels)));
         }
     }
 
