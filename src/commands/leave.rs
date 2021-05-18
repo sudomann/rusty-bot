@@ -92,7 +92,7 @@ async fn leave_handler(
     let mut message = MessageBuilder::new();
 
     if unfilled_pugs_removed_from.is_empty() && filled_pugs_removed_from.is_empty() {
-        message.push(user_to_remove.id);
+        message.push(user_to_remove);
         message.push(" wasn't found in any pug");
         return Ok(message.build());
     }
@@ -103,7 +103,7 @@ async fn leave_handler(
             .format_with(" :small_orange_diamond: ", |g, f| {
                 f(&format_args!("{}", g.label()))
             });
-        message.push(user_to_remove.id);
+        message.push(user_to_remove);
         message.push(" has been removed from ").push_line(a);
     }
 
