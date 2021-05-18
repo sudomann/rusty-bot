@@ -22,17 +22,11 @@ pub async fn is_pug_captain_or_guild_admin_check(
 
 #[check]
 #[name = "GuildAdmin"]
-// TODO: explicitely include kurrgan
 pub async fn is_guild_admin_check(
     _ctx: &Context,
     _msg: &Message,
     _args: &mut Args,
     _: &CommandOptions,
 ) -> Result<(), Reason> {
-    match env::var("KURRGAN_ID") {
-        // not required
-        Ok(_val) => {}
-        Err(_e) => {}
-    }
     Ok(())
 }

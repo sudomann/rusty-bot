@@ -100,13 +100,10 @@ impl PickingSession {
         players: LinkedHashSet<Player>,
         voice_channels: Option<TeamVoiceChannels>,
     ) -> Self {
-        // TODO - start auto captain timer
         let mut enumerated_players: Vec<(u8, UserId)> = Vec::new();
         for (index, player) in players.iter().enumerate() {
             // cast index from usize to u8. We use try_into().unwrap() so it never fails silently
             let player_number = TryInto::<u8>::try_into(index).unwrap() + 1;
-            // FIXME: this was a bad design choice
-            // TODO: Change the tuple to contain [`Player`] instead of [`UserId`]
             enumerated_players.push((player_number, player.get_user().id));
         }
 

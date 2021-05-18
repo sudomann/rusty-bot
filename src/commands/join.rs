@@ -3,8 +3,9 @@ use crate::{
     utils::{
         captain_countdown::do_captain_countdown,
         parse_game_modes::{parse_game_modes, GameModeError},
+        time::{Accuracy, HumanTime, Tense},
     },
-    DefaultVoiceChannels, FilledPug, PugsWaitingToFill, TeamVoiceChannels,
+    DefaultVoiceChannels, FilledPug, PugsWaitingToFill,
 };
 use itertools::Itertools;
 use linked_hash_set::LinkedHashSet;
@@ -118,10 +119,11 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                         participants
                             .iter()
                             .format_with(" :small_orange_diamond: ", |player, f| {
+                                let ht = HumanTime::from(player.time_elapsed_since_join());
                                 f(&format_args!(
                                     "{}[{}]",
                                     player.get_user().name,
-                                    player.time_elapsed_since_join().num_minutes() // TODO: better time elapsed formatting
+                                    ht.to_text_en(Accuracy::RoughShort, Tense::Present)
                                 ))
                             });
                     response.push_bold_line(format!(
