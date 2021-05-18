@@ -6,16 +6,33 @@ mod pug;
 mod utils;
 #[macro_use]
 extern crate maplit;
-use pug::{game_mode::GameMode, picking_session::PickingSession, player::Players, voice_channels::TeamVoiceChannels};
-use serenity::{async_trait, client::bridge::gateway::ShardManager, framework::standard::{
+use pug::{
+    game_mode::GameMode, picking_session::PickingSession, player::Players,
+    voice_channels::TeamVoiceChannels,
+};
+use serenity::{
+    async_trait,
+    client::bridge::gateway::ShardManager,
+    framework::standard::{
         help_commands,
         macros::{check, group, help, hook},
         Args, CommandGroup, CommandOptions, CommandResult, DispatchError, HelpOptions, Reason,
         StandardFramework,
-    }, http::Http, model::{channel::{GuildChannel, Message}, event::ResumedEvent, gateway::{Activity, Ready}, id::{ChannelId, GuildId, UserId}}, prelude::*, utils::MessageBuilder};
+    },
+    http::Http,
+    model::{
+        channel::{GuildChannel, Message},
+        event::ResumedEvent,
+        gateway::{Activity, Ready},
+        id::{ChannelId, GuildId, UserId},
+    },
+    prelude::*,
+    utils::MessageBuilder,
+};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     env,
+    str::FromStr,
     sync::Arc,
     vec::Vec,
 };
@@ -28,7 +45,6 @@ use commands::{
     remove::*, reset::*, teams::*, voices::*,
 };
 
-
 pub struct ShardManagerContainer;
 
 impl TypeMapKey for ShardManagerContainer {
@@ -37,7 +53,7 @@ impl TypeMapKey for ShardManagerContainer {
 
 struct DesignatedPugChannel;
 impl TypeMapKey for DesignatedPugChannel {
-    type Value = Arc<RwLock<HashMap<GuildId, GuildChannel>>>;
+    type Value = Arc<RwLock<HashMap<GuildId, ChannelId>>>;
 }
 
 pub struct RegisteredGameModes;
@@ -66,7 +82,11 @@ impl TypeMapKey for DefaultVoiceChannels {
 }
 
 struct Handler;
-const DEFAULT_PUG_CHANNEL_NAME: &str = "pugs-test";
+const UC_GUILD_ID: u64 = 189984496655925258;
+const UC_PUGS_CHANNEL_ID: u64 = 544733485924089858;
+const UC_PUGS_TEST_CHANNEL_ID: u64 = 782333564389294131;
+const UC_BLUE_TEAM_VOICE_CHANNEL_ID: u64 = 614287367657881615;
+const UC_RED_TEAM_VOICE_CHANNEL_ID: u64 = 614287248195584021;
 
 // pub(crate) const HOUR: u64 = 3600;
 
@@ -118,27 +138,8 @@ impl EventHandler for Handler {
             GameMode::new("dm".to_string(), 10),
         };
 
+        // initialize pug state data
         for guild_id in guild_ids.iter() {
-            // default pug channels
-            match context.cache.guild_channels(guild_id).await {
-                Some(guild_channels) => {
-                    for (_channel_id, channel) in guild_channels {
-                        if channel.name == DEFAULT_PUG_CHANNEL_NAME {
-                            designated_pug_channels.insert(*guild_id, channel);
-                            // Current implementation assumes there is no more
-                            // than one designated channel for pugging in a guild
-                            // Thus we terminate this loop once we find it
-                            break;
-                        }
-                    }
-                }
-                // TODO: report that somehow a guild returned ... no channels ???
-                None => continue,
-            };
-
-            // initialize pug state data
-            // TODO: pull these game modes from persistent storage
-
             registered_game_modes.insert(*guild_id, preset_gamemodes.clone());
             let mut potential_pugs: HashMap<GameMode, Players> = HashMap::default();
             for game_mode in preset_gamemodes.clone().drain() {
@@ -148,19 +149,29 @@ impl EventHandler for Handler {
             let temp_deque: VecDeque<PickingSession> = VecDeque::default();
             filled_pugs.insert(*guild_id, temp_deque);
             completed_pugs.insert(*guild_id, Vec::default());
+
             // Unreal Carnage data hardcoded for testing
-            if guild_id == &GuildId(189984496655925258) {
+            if guild_id == &GuildId(UC_GUILD_ID) {
+                match env::var("ENV")
+                    .expect("Expected 'ENV' in environment")
+                    .as_str()
+                {
+                    "PROD" => {
+                        designated_pug_channels.insert(*guild_id, ChannelId(UC_PUGS_CHANNEL_ID));
+                    }
+                    _ => {
+                        designated_pug_channels
+                            .insert(*guild_id, ChannelId(UC_PUGS_TEST_CHANNEL_ID));
+                    }
+                }
+
                 let v = TeamVoiceChannels::new(
-                    Some(ChannelId(614287367657881615)),  
-                    Some(ChannelId(614287248195584021))
+                    Some(ChannelId(UC_BLUE_TEAM_VOICE_CHANNEL_ID)),
+                    Some(ChannelId(UC_RED_TEAM_VOICE_CHANNEL_ID)),
                 );
                 team_voice_channels.insert(guild_id.clone(), v);
-            }
-            else {
-                let v = TeamVoiceChannels::new(
-                    None,  
-                    None
-                );
+            } else {
+                let v = TeamVoiceChannels::new(None, None);
                 team_voice_channels.insert(guild_id.clone(), v);
             }
         }
@@ -178,6 +189,73 @@ impl EventHandler for Handler {
 
     async fn resume(&self, _: Context, _: ResumedEvent) {
         info!("Resumed");
+    }
+
+    async fn channel_create(&self, _ctx: Context, _channel: &GuildChannel) {}
+
+    async fn category_create(
+        &self,
+        _ctx: Context,
+        _category: &serenity::model::channel::ChannelCategory,
+    ) {
+    }
+
+    async fn category_delete(
+        &self,
+        _ctx: Context,
+        _category: &serenity::model::channel::ChannelCategory,
+    ) {
+        // TODO: if it contained a registered team voice channel, remove the entry from data store
+    }
+
+    async fn channel_delete(&self, _ctx: Context, _channel: &GuildChannel) {
+        // TODO: if it was a registered team voice channel, remove the entry from data store
+    }
+
+    async fn guild_ban_addition(
+        &self,
+        _ctx: Context,
+        _guild_id: GuildId,
+        _banned_user: serenity::model::prelude::User,
+    ) {
+        // TODO: check pending pug data and remove the user giving the reason, they've just been banned
+        // For past, completed pugs, maybe modify the data (i.e. User.name) to indicate somehow "BANNED"
+    }
+
+    async fn guild_member_addition(
+        &self,
+        _ctx: Context,
+        _guild_id: GuildId,
+        _new_member: serenity::model::guild::Member,
+    ) {
+    }
+
+    async fn guild_member_removal(
+        &self,
+        _ctx: Context,
+        _guild_id: GuildId,
+        _user: serenity::model::prelude::User,
+        _member_data_if_available: Option<serenity::model::guild::Member>,
+    ) {
+        // TODO: probably same thing guild_ban_addition() does
+    }
+
+    async fn message_update(
+        &self,
+        _ctx: Context,
+        _old_if_available: Option<Message>,
+        _new: Option<Message>,
+        _event: serenity::model::event::MessageUpdateEvent,
+    ) {
+    }
+
+    async fn presence_replace(&self, _ctx: Context, _: Vec<serenity::model::prelude::Presence>) {}
+
+    async fn presence_update(
+        &self,
+        _ctx: Context,
+        _new_data: serenity::model::event::PresenceUpdateEvent,
+    ) {
     }
 }
 
@@ -230,11 +308,11 @@ async fn is_pug_channel_check(
             // Then use the designated pug channel of the guild this message came from
             // This time, the value is not Arc, so the data will be cloned.
             match pug_channels.get(&guild_id) {
-                Some(pug_channel_for_current_guild) => {
-                    if current_channel.name != *pug_channel_for_current_guild.name {
+                Some(pug_channel_id) => {
+                    if current_channel.id != *pug_channel_id {
                         Some(MessageBuilder::new()
                             .push("Please go to the ")
-                            .mention(pug_channel_for_current_guild)
+                            .mention(pug_channel_id)
                             .push(" channel to use this command")
                             .build())
                     }
@@ -298,8 +376,6 @@ struct General;
     teams,
     // tag, t
     voices,
-    
-    // resetl, <-- last filled pug with picking completed
 )]
 #[checks(PugChannel)]
 struct Pugs;
@@ -339,9 +415,18 @@ async fn main() {
     // Fetch bot owners and id
     let (owners, _bot_id) = match http.get_current_application_info().await {
         Ok(info) => {
-            let mut owners = HashSet::new();
+            let mut owners: HashSet<UserId> = match env::var("SUPERUSERS") {
+                Ok(superusers) => {
+                    let superuser_ids: HashSet<&str> = superusers.split_terminator(',').collect();
+                    superuser_ids
+                        .iter()
+                        .filter_map(|id| UserId::from_str(id).ok())
+                        .collect()
+                }
+                Err(_err) => HashSet::default(),
+            };
             owners.insert(info.owner.id);
-            // TODO:load superusers here
+
             (owners, info.id)
         }
         Err(why) => panic!("Could not access application info: {:?}", why),
