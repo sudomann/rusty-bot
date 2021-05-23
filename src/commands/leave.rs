@@ -123,8 +123,8 @@ async fn leave_handler(
     Ok(message.build())
 }
 
-#[command]
-#[aliases("l", "lv")]
+#[command("l")]
+#[aliases("lv")]
 #[min_args(1)]
 pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
@@ -146,8 +146,7 @@ pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     Ok(())
 }
 
-#[command]
-#[aliases("lva", "leaveall")]
+#[command("lva")]
 async fn leave_all(ctx: &Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let game_modes_to_leave = {

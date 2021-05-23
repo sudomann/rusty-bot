@@ -12,9 +12,9 @@ use serenity::{
     utils::MessageBuilder,
 };
 
-#[command]
+#[command("capt")]
 #[max_args(0)]
-#[aliases("c", "capt", "cap", "iamyourleader")]
+#[aliases("c", "cap", "iamyourleader")]
 async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let lock_for_filled_pugs = {
         let data_write = ctx.data.read().await;
@@ -26,8 +26,6 @@ async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 
     let mut filled_pugs = lock_for_filled_pugs.write().await;
 
-    // TODO: review all this use of unwrap(), and try as much as possible to remove
-    // and actually handle the None case with perhaps a generic error enum
     let guild_id = msg.guild_id.unwrap();
 
     let filled_pugs_in_guild = filled_pugs.get_mut(&guild_id);
@@ -136,9 +134,10 @@ async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     Ok(())
 }
 
-#[command]
-#[aliases("rc", "frc", "force_random_captain", "force_random_captains")]
+#[command("frc")]
 #[max_args(0)]
+/// "Force random captains"
+///
 /// Assign captains to random players in filled pug
 ///
 /// Should work even if one of the captains has already been picked

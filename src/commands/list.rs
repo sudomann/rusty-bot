@@ -8,8 +8,7 @@ use serenity::{
 
 use crate::PugsWaitingToFill;
 
-#[command]
-#[aliases("ls")]
+#[command("ls")]
 // TODO: add check() which verifies that guild has registered pugs in global data
 // TODO: perhaps support game mode arguments to filter output with
 // in this case, the filtered gamemodes should be verbose
@@ -44,8 +43,7 @@ async fn list(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult {
     Ok(())
 }
 
-#[command]
-#[aliases("lsa")]
+#[command("lsa")]
 // TODO: show player composition and maybe emphasize the pugs in picking state.
 async fn list_all(ctx: &Context, msg: &Message, mut _args: Args) -> CommandResult {
     let lock_for_pugs_waiting_to_fill = {

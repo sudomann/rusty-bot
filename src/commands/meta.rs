@@ -23,8 +23,7 @@ async fn git(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-#[command]
-#[aliases("setactivity")]
+#[command("setactivity")]
 async fn set_activity(ctx: &Context, _msg: &Message, args: Args) -> CommandResult {
     let name = args.message();
     ctx.set_activity(Activity::playing(&name)).await;
