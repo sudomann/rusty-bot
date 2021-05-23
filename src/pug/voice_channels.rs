@@ -44,10 +44,24 @@ impl TeamVoiceChannels {
     pub fn get_red(&self) -> &Option<ChannelId> {
         &self.red
     }
-    pub fn set_blue(&mut self, new_value: Option<ChannelId>) {
-        self.blue = new_value;
+    pub fn set_blue(&mut self, new_value: ChannelId) -> Option<ChannelId> {
+        let former = self.get_blue().clone();
+        self.blue = Some(new_value);
+        former
     }
-    pub fn set_red(&mut self, new_value: Option<ChannelId>) {
-        self.red = new_value;
+    pub fn set_red(&mut self, new_value: ChannelId) -> Option<ChannelId> {
+        let former = self.get_red().clone();
+        self.red = Some(new_value);
+        former
+    }
+    pub fn unset_blue(&mut self) -> Option<ChannelId> {
+        let former = self.blue.clone();
+        self.blue = None;
+        former
+    }
+    pub fn unset_red(&mut self) -> Option<ChannelId> {
+        let former = self.red.clone();
+        self.red = None;
+        former
     }
 }

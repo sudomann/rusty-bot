@@ -82,9 +82,6 @@ impl TypeMapKey for DefaultVoiceChannels {
 }
 
 struct Handler;
-const UC_GUILD_ID: u64 = 189984496655925258;
-const UC_BLUE_TEAM_VOICE_CHANNEL_ID: u64 = 614287367657881615;
-const UC_RED_TEAM_VOICE_CHANNEL_ID: u64 = 614287248195584021;
 
 // pub(crate) const HOUR: u64 = 3600;
 
@@ -118,7 +115,7 @@ impl EventHandler for Handler {
     */
 
     async fn cache_ready(&self, context: Context, guild_ids: Vec<GuildId>) {
-        let mut designated_pug_channels = HashMap::default();
+        let designated_pug_channel = HashMap::default();
         let mut registered_game_modes: HashMap<GuildId, HashSet<GameMode>> = HashMap::default();
         let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Players>> =
             HashMap::default();
@@ -147,23 +144,12 @@ impl EventHandler for Handler {
             let temp_deque: VecDeque<PickingSession> = VecDeque::default();
             filled_pugs.insert(*guild_id, temp_deque);
             completed_pugs.insert(*guild_id, Vec::default());
-
-            // Unreal Carnage data hardcoded for testing
-            if guild_id == &GuildId(UC_GUILD_ID) {
-                let v = TeamVoiceChannels::new(
-                    Some(ChannelId(UC_BLUE_TEAM_VOICE_CHANNEL_ID)),
-                    Some(ChannelId(UC_RED_TEAM_VOICE_CHANNEL_ID)),
-                );
-                team_voice_channels.insert(guild_id.clone(), v);
-            } else {
-                let v = TeamVoiceChannels::new(None, None);
-                team_voice_channels.insert(guild_id.clone(), v);
-            }
+            team_voice_channels.insert(*guild_id, TeamVoiceChannels::new(None, None));
         }
 
         {
             let mut data = context.data.write().await;
-            data.insert::<DesignatedPugChannel>(Arc::new(RwLock::new(designated_pug_channels)));
+            data.insert::<DesignatedPugChannel>(Arc::new(RwLock::new(designated_pug_channel)));
             data.insert::<RegisteredGameModes>(Arc::new(RwLock::new(registered_game_modes)));
             data.insert::<PugsWaitingToFill>(Arc::new(RwLock::new(pugs_waiting_to_fill)));
             data.insert::<FilledPug>(Arc::new(RwLock::new(filled_pugs)));
@@ -373,7 +359,11 @@ struct Stats;
 
 #[group]
 #[only_in("guilds")]
-#[commands(pug_channel_set)]
+#[commands(
+    pug_channel_set,
+    set_blue_team_default_voice_channel,
+    set_red_team_default_voice_channel
+)]
 struct Moderation; // pugban, pugunban, etc.
 
 #[group]
