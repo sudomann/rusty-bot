@@ -42,7 +42,7 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use commands::{
     add::*, captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*,
-    remove::*, reset::*, teams::*, voices::*,
+    pugchannel::*, remove::*, reset::*, teams::*, voices::*,
 };
 
 pub struct ShardManagerContainer;
@@ -83,8 +83,6 @@ impl TypeMapKey for DefaultVoiceChannels {
 
 struct Handler;
 const UC_GUILD_ID: u64 = 189984496655925258;
-const UC_PUGS_CHANNEL_ID: u64 = 544733485924089858;
-const UC_PUGS_TEST_CHANNEL_ID: u64 = 782333564389294131;
 const UC_BLUE_TEAM_VOICE_CHANNEL_ID: u64 = 614287367657881615;
 const UC_RED_TEAM_VOICE_CHANNEL_ID: u64 = 614287248195584021;
 
@@ -152,19 +150,6 @@ impl EventHandler for Handler {
 
             // Unreal Carnage data hardcoded for testing
             if guild_id == &GuildId(UC_GUILD_ID) {
-                match env::var("ENV")
-                    .expect("Expected 'ENV' in environment")
-                    .as_str()
-                {
-                    "PROD" => {
-                        designated_pug_channels.insert(*guild_id, ChannelId(UC_PUGS_CHANNEL_ID));
-                    }
-                    _ => {
-                        designated_pug_channels
-                            .insert(*guild_id, ChannelId(UC_PUGS_TEST_CHANNEL_ID));
-                    }
-                }
-
                 let v = TeamVoiceChannels::new(
                     Some(ChannelId(UC_BLUE_TEAM_VOICE_CHANNEL_ID)),
                     Some(ChannelId(UC_RED_TEAM_VOICE_CHANNEL_ID)),
@@ -321,15 +306,13 @@ async fn is_pug_channel_check(
                 None => {
                     Some(MessageBuilder::new()
                     .push("No pug channel set.")
-                    .push("Contact admins to type `.setpugchannel` in the channel destined for pugs.")
+                    .push("Contact admins to type `.pugchannel` in the channel destined for pugs.")
                     .build())
                 },
             }
         };
         if let Some(response) = fail {
-            // while guilds test this alongside their current bots, lets not be annoying
-            // Err(Reason::User(response))
-            Err(Reason::Log(response))
+            Err(Reason::User(response))
         } else {
             Ok(())
         }
@@ -339,7 +322,7 @@ async fn is_pug_channel_check(
 }
 
 #[help]
-#[individual_command_tip = "If you want more information about a specific command, just ..."]
+#[individual_command_tip = "If you want more information about a specific command, just add that command after 'help'"]
 #[command_not_found_text = "Could not find: `{}`."]
 #[max_levenshtein_distance(2)]
 async fn my_help(
@@ -374,7 +357,7 @@ struct General;
     remove,
     reset,
     teams,
-    // tag, t
+    // tag
     voices,
 )]
 #[checks(PugChannel)]
@@ -390,6 +373,7 @@ struct Stats;
 
 #[group]
 #[only_in("guilds")]
+#[commands(pug_channel_set)]
 struct Moderation; // pugban, pugunban, etc.
 
 #[group]
@@ -451,6 +435,7 @@ async fn main() {
         .group(&GENERAL_GROUP)
         .group(&PUGS_GROUP)
         .group(&BETS_GROUP)
+        .group(&MODERATION_GROUP)
         .group(&STATS_GROUP)
         .group(&SUPERUSER_GROUP);
 
