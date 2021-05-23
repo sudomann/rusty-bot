@@ -42,7 +42,7 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use commands::{
     add::*, captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*,
-    pugchannel::*, remove::*, reset::*, teams::*, voices::*,
+    pug_channel::*, remove::*, reset::*, teams::*, voices::*,
 };
 
 pub struct ShardManagerContainer;

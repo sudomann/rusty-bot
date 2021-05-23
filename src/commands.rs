@@ -7,7 +7,7 @@ pub mod meta;
 pub mod owner;
 pub mod pick;
 pub mod promote;
-pub mod pugchannel;
+pub mod pug_channel;
 pub mod remove;
 pub mod reset;
 pub mod teams;
