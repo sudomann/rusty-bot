@@ -41,8 +41,8 @@ use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use commands::{
-    add::*, captain::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*, promote::*,
-    pug_channel::*, remove::*, reset::*, teams::*, voices::*,
+    add::*, captain::*, game_mode::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*,
+    promote::*, pug_channel::*, remove::*, reset::*, teams::*, voices::*,
 };
 
 pub struct ShardManagerContainer;
@@ -122,7 +122,9 @@ impl EventHandler for Handler {
         let mut filled_pugs: HashMap<GuildId, VecDeque<PickingSession>> = HashMap::default();
         let mut completed_pugs: HashMap<GuildId, Vec<PickingSession>> = HashMap::default();
         let mut team_voice_channels: HashMap<GuildId, TeamVoiceChannels> = HashMap::default();
-        let preset_gamemodes = hashset! {
+        let preset_gamemodes: HashSet<GameMode> = HashSet::default();
+        /*
+        hashset! {
             GameMode::new("duel".to_string(), 2),
             GameMode::new("2elim".to_string(), 4),
             GameMode::new("3elim".to_string(), 6),
@@ -132,6 +134,7 @@ impl EventHandler for Handler {
             GameMode::new("tdm".to_string(), 10),
             GameMode::new("dm".to_string(), 10),
         };
+        */
 
         // initialize pug state data
         for guild_id in guild_ids.iter() {
@@ -291,7 +294,7 @@ async fn is_pug_channel_check(
                 },
                 None => {
                     Some(MessageBuilder::new()
-                    .push("No pug channel set.")
+                    .push("No pug channel set. ")
                     .push("Contact admins to type `.pugchannel` in the channel destined for pugs.")
                     .build())
                 },
@@ -361,6 +364,8 @@ struct Stats;
 #[only_in("guilds")]
 #[commands(
     pug_channel_set,
+    register_game_mode,
+    delete_game_mode,
     set_blue_team_default_voice_channel,
     set_red_team_default_voice_channel
 )]

@@ -1,5 +1,6 @@
 pub mod add;
 pub mod captain;
+pub mod game_mode;
 pub mod join;
 pub mod leave;
 pub mod list;
