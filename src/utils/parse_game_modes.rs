@@ -5,7 +5,6 @@ use serenity::{
 };
 use std::collections::HashSet;
 
-
 /// GameModes which are parsed from string arguments submitted to a command.
 /// The string arguments are matched against the registered game modes (if any) of the guild
 /// the command was sent from and returned as respective [`GameMode`]s in a [`HashSet`].
@@ -30,28 +29,25 @@ pub async fn parse_game_modes(
         ));
     }
 
-    let data_read = ctx.data.read().await;
-    let lock_for_registered_game_modes = data_read
+    let data = ctx.data.read().await;
+    let lock_for_registered_game_modes = data
         .get::<RegisteredGameModes>()
-        .expect("Expected RegisteredGameModes in TypeMap")
-        .clone();
+        .expect("Expected RegisteredGameModes in TypeMap");
     let global_game_modes = lock_for_registered_game_modes.read().await;
 
     let guild_game_modes = global_game_modes.get(guild_id);
-    // Commands expecting game mode arguments should only be available in guilds
-    // i.e. over the gateway, with the Message containing the relevant GuildId
-    // Howvever, it is still possible the guild has no registered game modes
-    if guild_game_modes.is_none() {
+
+    let registered_game_modes = guild_game_modes.unwrap();
+    if registered_game_modes.is_empty() {
         return Err(GameModeError::NoneRegistered(
             "No game modes registered. Contact admins to run `.addmod`".to_string(),
         ));
     }
-
-    let registered_game_modes = guild_game_modes.unwrap();
     let game_mode_keys = registered_game_modes
         .iter()
         .map(|game_mode| game_mode.to_string())
         .collect::<HashSet<String>>();
+
     let command_args = args
         .iter::<String>()
         .filter(|arg| arg.is_ok())
@@ -80,7 +76,7 @@ pub async fn parse_game_modes(
             .push_line("Ignored")
             .push_line("Please double check the unknown game mode(s) you submitted:")
             .push_bold_line(unrecognized_pretty_printed)
-            .push_line("Allowed game modes:")
+            .push_line("Allowed game mode(s):")
             .push_bold(game_modes_pretty_printed)
             .build();
         return Err(GameModeError::Foreign(response));

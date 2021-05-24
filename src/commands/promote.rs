@@ -35,8 +35,8 @@ async fn promote(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 if maybe_participants.is_none() {
                     msg.reply(
                         &ctx.http,
-                        "Valid game mode, but for some reason,\
-                it's absent from map of pugs one can join. This should not happen.\
+                        "Valid game mode, but for some reason, \
+                it's absent from map of pugs one can join. This should not happen. \
                 Contact sudomann#9568 to investigate.",
                     )
                     .await?;
