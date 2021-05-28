@@ -1,12 +1,8 @@
 use serenity::{
     framework::standard::{macros::check, Args, CommandOptions, Reason},
-    model::prelude::*,
+    model::channel::Message,
     prelude::*,
-    // utils::MessageBuilder,
 };
-use std::env;
-
-// impl From<u64> for UserId   to get kurgan's userId
 
 #[check]
 #[name = "TeamCaptainOrGuildAdmin"]
