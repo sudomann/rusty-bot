@@ -12,6 +12,7 @@ use crate::{
 };
 
 #[command("ls")]
+#[aliases("list", "lst")]
 // TODO: add check() which verifies that guild has registered pugs in global data
 // TODO: perhaps support game mode arguments to filter output with
 // in this case, the filtered gamemodes should be verbose
