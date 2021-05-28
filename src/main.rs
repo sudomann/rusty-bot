@@ -7,95 +7,15 @@ mod hooks;
 mod jobs;
 mod pug;
 mod utils;
-use checks::pug_channel::*;
+use commands::{help::*, *};
 use data_structure::ShardManagerContainer;
 use event_handler::Handler;
 use hooks::dispatch_error_hook;
 use pug::voice_channels::TeamVoiceChannels;
-use serenity::{
-    framework::standard::{
-        help_commands,
-        macros::{group, help},
-        Args, CommandGroup, CommandResult, HelpOptions, StandardFramework,
-    },
-    http::Http,
-    model::{channel::Message, id::UserId},
-    prelude::*,
-};
+use serenity::{framework::standard::StandardFramework, http::Http, model::id::UserId, prelude::*};
 use std::{collections::HashSet, env, str::FromStr};
 use tracing::error;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
-
-use commands::{
-    add::*, captain::*, game_mode::*, join::*, leave::*, list::*, meta::*, owner::*, pick::*,
-    promote::*, pug_channel::*, remove::*, reset::*, teams::*, voices::*,
-};
-
-#[help]
-#[individual_command_tip = "If you want more information about a specific command, just add that command after 'help'"]
-#[command_not_found_text = "Could not find: `{}`."]
-#[max_levenshtein_distance(2)]
-async fn my_help(
-    context: &Context,
-    msg: &Message,
-    args: Args,
-    help_options: &'static HelpOptions,
-    groups: &[&'static CommandGroup],
-    owners: HashSet<UserId>,
-) -> CommandResult {
-    let _ = help_commands::with_embeds(context, msg, args, help_options, groups, owners).await;
-    Ok(())
-}
-
-#[group]
-#[commands(git, ping, tilde)]
-struct General;
-
-#[group]
-#[only_in("guilds")]
-#[commands(
-    add,
-    captain,
-    random_captains,
-    join,
-    leave,
-    leave_all,
-    list,
-    list_all,
-    pick,
-    promote,
-    remove,
-    reset,
-    teams,
-    // tag
-    voices,
-)]
-#[checks(PugChannel)]
-struct Pugs;
-
-#[group]
-#[only_in("guilds")]
-struct Bets;
-
-#[group]
-#[only_in("guilds")]
-struct Stats;
-
-#[group]
-#[only_in("guilds")]
-#[commands(
-    pug_channel_set,
-    register_game_mode,
-    delete_game_mode,
-    set_blue_team_default_voice_channel,
-    set_red_team_default_voice_channel
-)]
-struct Moderation; // pugban, pugunban, etc.
-
-#[group]
-#[owners_only]
-#[commands(set_activity, quit)]
-struct SuperUser;
 
 #[tokio::main]
 async fn main() {
