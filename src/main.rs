@@ -1,4 +1,5 @@
 // mod command_history;
+mod checks;
 mod commands;
 mod common;
 mod jobs;
@@ -6,6 +7,7 @@ mod pug;
 mod utils;
 #[macro_use]
 extern crate maplit;
+use checks::*;
 use pug::{
     game_mode::GameMode, picking_session::PickingSession, player::Players,
     voice_channels::TeamVoiceChannels,
@@ -123,18 +125,6 @@ impl EventHandler for Handler {
         let mut completed_pugs: HashMap<GuildId, Vec<PickingSession>> = HashMap::default();
         let mut team_voice_channels: HashMap<GuildId, TeamVoiceChannels> = HashMap::default();
         let preset_gamemodes: HashSet<GameMode> = HashSet::default();
-        /*
-        hashset! {
-            GameMode::new("duel".to_string(), 2),
-            GameMode::new("2elim".to_string(), 4),
-            GameMode::new("3elim".to_string(), 6),
-            GameMode::new("4elim".to_string(), 8),
-            GameMode::new("blitz".to_string(), 10),
-            GameMode::new("ctf".to_string(), 10),
-            GameMode::new("tdm".to_string(), 10),
-            GameMode::new("dm".to_string(), 10),
-        };
-        */
 
         // initialize pug state data
         for guild_id in guild_ids.iter() {
@@ -247,66 +237,6 @@ async fn dispatch_error_hook(context: &Context, msg: &Message, error: DispatchEr
             }
             _ => panic!("Unimplemented response for CheckFailed event"),
         }
-    }
-}
-
-#[check]
-#[name = "PugChannel"]
-async fn is_pug_channel_check(
-    context: &Context,
-    msg: &Message,
-    _: &mut Args,
-    _: &CommandOptions,
-) -> Result<(), Reason> {
-    if let Some(guild_id) = msg.guild_id {
-        // get the channel this message came from
-        let current_channel: GuildChannel = match msg.channel_id.to_channel(&context).await {
-            Ok(channel) => channel.guild().unwrap(),
-            // TODO: remove panic - this is probably be salvageable
-            Err(_why) => panic!("Failed to determine channel of message"),
-        };
-
-        // TODO: try to narrow this body as much as possible
-        // to reduce time spent holding the RwLock in read mode
-        let fail: Option<String> = {
-            let data_read = context.data.read().await;
-            // Then we obtain the value we need from data, in this case, we want the desginated pug channels.
-            // The returned value from get() is an Arc, so the reference will be cloned, rather than
-            // the data.
-            let pug_channels_lock = data_read
-                .get::<DesignatedPugChannel>()
-                .expect("Expected DesignatedPugChannel in TypeMap")
-                .clone();
-            let pug_channels = pug_channels_lock.read().await;
-
-            // Then use the designated pug channel of the guild this message came from
-            // This time, the value is not Arc, so the data will be cloned.
-            match pug_channels.get(&guild_id) {
-                Some(pug_channel_id) => {
-                    if current_channel.id != *pug_channel_id {
-                        Some(MessageBuilder::new()
-                            .push("Please go to the ")
-                            .mention(pug_channel_id)
-                            .push(" channel to use this command")
-                            .build())
-                    }
-                    else {None}
-                },
-                None => {
-                    Some(MessageBuilder::new()
-                    .push("No pug channel set. ")
-                    .push("Contact admins to type `.pugchannel` in the channel destined for pugs.")
-                    .build())
-                },
-            }
-        };
-        if let Some(response) = fail {
-            Err(Reason::User(response))
-        } else {
-            Ok(())
-        }
-    } else {
-        panic!("No GuildId in received message - Is client running without gateway?");
     }
 }
 
