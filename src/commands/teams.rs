@@ -79,6 +79,7 @@ pub async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 
     response
         .push_line(unpicked_players)
+        .push_line("")
         .push_bold("Red Team: ")
         .push_line(red_team_text)
         .push_bold("Blue Team: ")

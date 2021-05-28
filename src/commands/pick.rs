@@ -104,6 +104,7 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
 
         response
             .push_line(unpicked_players)
+            .push_line("")
             .push_bold("Red Team: ")
             .push_line(red_team)
             .push_bold("Blue Team: ")

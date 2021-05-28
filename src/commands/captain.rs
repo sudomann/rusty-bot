@@ -93,6 +93,7 @@ async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
                 let mut response = MessageBuilder::new();
                 response
                     .push_line(unpicked_players)
+                    .push_line("")
                     .push_line(format!(
                         "**Red Team:** {}",
                         red_captain.to_user(&ctx).await?.name
