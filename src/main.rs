@@ -11,7 +11,7 @@ mod utils;
 use commands::{help::*, *};
 use data_structure::ShardManagerContainer;
 use event_handler::Handler;
-use hooks::dispatch_error_hook;
+use hooks::{after_hook, dispatch_error_hook, unrecognised_command_hook};
 use pug::voice_channels::TeamVoiceChannels;
 use serenity::{framework::standard::StandardFramework, http::Http, model::id::UserId, prelude::*};
 use std::{collections::HashSet, env, str::FromStr};
@@ -68,6 +68,8 @@ async fn main() {
                 .prefix(prefix)
         })
         .on_dispatch_error(dispatch_error_hook)
+        .after(after_hook)
+        .unrecognised_command(unrecognised_command_hook)
         .help(&MY_HELP)
         .group(&GENERAL_GROUP)
         .group(&PUGS_GROUP)
