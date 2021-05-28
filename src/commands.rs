@@ -1,5 +1,6 @@
 pub mod add;
 pub mod captain;
+pub mod coinflip;
 pub mod game_mode;
 pub mod help;
 pub mod join;
@@ -17,6 +18,7 @@ pub mod voices;
 use crate::checks::pug_channel::*;
 use add::*;
 use captain::*;
+use coinflip::*;
 use game_mode::*;
 use join::*;
 use leave::*;
@@ -31,7 +33,6 @@ use reset::*;
 use serenity::framework::standard::macros::group;
 use teams::*;
 use voices::*;
-
 #[group]
 #[commands(git, ping, tilde)]
 struct General;
@@ -60,7 +61,8 @@ struct Pugs;
 
 #[group]
 #[only_in("guilds")]
-struct Bets;
+#[commands(coinflip)]
+struct Gambling;
 
 #[group]
 #[only_in("guilds")]
