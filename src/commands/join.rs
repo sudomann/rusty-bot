@@ -165,14 +165,8 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             let mut dm_announcement = MessageBuilder::new();
             dm_announcement
                 .push_line(notice.clone())
-                .push_line(participants_text_for_dm);
-            let invite = msg
-                .channel_id
-                .create_invite(&ctx.http, |i| i.max_uses(0))
-                .await;
-            if invite.is_ok() {
-                dm_announcement.push(invite.unwrap().url());
-            }
+                .push_line(participants_text_for_dm)
+                .push_line(msg.channel_id.mention());
             let mut guild_announcement = MessageBuilder::new();
             guild_announcement.push_line(&notice);
 
