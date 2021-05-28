@@ -1,4 +1,4 @@
-use crate::{commands::captain::random_captains, FilledPug};
+use crate::{commands::captain::random_captains, data_structure::FilledPug};
 use chrono::{DateTime, Utc};
 use serenity::{
     client::Context,

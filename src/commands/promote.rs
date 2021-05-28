@@ -1,6 +1,6 @@
 use crate::{
+    data_structure::PugsWaitingToFill,
     utils::parse_game_modes::{parse_game_modes, GameModeError},
-    PugsWaitingToFill,
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},

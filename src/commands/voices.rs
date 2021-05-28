@@ -1,4 +1,4 @@
-use crate::{CompletedPug, DefaultVoiceChannels};
+use crate::data_structure::{CompletedPug, DefaultVoiceChannels};
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,

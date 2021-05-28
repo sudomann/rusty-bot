@@ -1,4 +1,4 @@
-use crate::DesignatedPugChannel;
+use crate::data_structure::DesignatedPugChannel;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,

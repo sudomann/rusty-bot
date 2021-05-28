@@ -1,10 +1,10 @@
 use crate::{
+    data_structure::{FilledPug, PugsWaitingToFill, RegisteredGameModes},
     pug::{game_mode::GameMode, player::Player},
     utils::{
         parse_game_modes::{parse_game_modes, GameModeError, ParsedGameModes},
         player_user_ids_to_users::player_user_ids_to_users,
     },
-    FilledPug, PugsWaitingToFill, RegisteredGameModes,
 };
 use itertools::Itertools;
 use linked_hash_set::LinkedHashSet;

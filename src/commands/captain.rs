@@ -1,7 +1,7 @@
 use crate::{
+    data_structure::{CompletedPug, FilledPug},
     pug::picking_session::{SetCaptainError, SetCaptainSuccess},
     utils::player_user_ids_to_users::*,
-    CompletedPug, FilledPug,
 };
 use itertools::Itertools;
 use rand::seq::SliceRandom;

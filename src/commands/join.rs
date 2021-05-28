@@ -1,11 +1,11 @@
 use crate::{
+    data_structure::{DefaultVoiceChannels, FilledPug, PugsWaitingToFill},
     pug::{game_mode::GameMode, picking_session::PickingSession, player::Player},
     utils::{
         captain_countdown::do_captain_countdown,
         parse_game_modes::{parse_game_modes, GameModeError},
         time::{Accuracy, HumanTime, Tense},
     },
-    DefaultVoiceChannels, FilledPug, PugsWaitingToFill,
 };
 use itertools::Itertools;
 use linked_hash_set::LinkedHashSet;

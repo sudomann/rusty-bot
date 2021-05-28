@@ -7,8 +7,8 @@ use serenity::{
 };
 
 use crate::{
+    data_structure::PugsWaitingToFill,
     utils::parse_game_modes::{parse_game_modes, GameModeError},
-    PugsWaitingToFill,
 };
 
 #[command("ls")]

@@ -6,7 +6,10 @@ use serenity::{
     utils::MessageBuilder,
 };
 
-use crate::{utils::player_user_ids_to_users::player_user_ids_to_users, CompletedPug, FilledPug};
+use crate::{
+    data_structure::{CompletedPug, FilledPug},
+    utils::player_user_ids_to_users::player_user_ids_to_users,
+};
 
 #[command]
 #[aliases("team", "picking", "pickings")]

@@ -1,7 +1,7 @@
 use crate::{
+    data_structure::{PugsWaitingToFill, RegisteredGameModes},
     pug::{game_mode::GameMode, player::Players},
     utils::parse_game_modes::{parse_game_modes, GameModeError},
-    PugsWaitingToFill, RegisteredGameModes,
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},

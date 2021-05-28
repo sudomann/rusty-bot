@@ -5,7 +5,7 @@ use serenity::{
     utils::MessageBuilder,
 };
 
-use crate::DesignatedPugChannel;
+use crate::data_structure::DesignatedPugChannel;
 
 #[check]
 #[name = "PugChannel"]

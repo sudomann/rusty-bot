@@ -1,4 +1,4 @@
-use crate::{pug::game_mode::GameMode, RegisteredGameModes};
+use crate::{data_structure::RegisteredGameModes, pug::game_mode::GameMode};
 use itertools::join;
 use serenity::{
     client::Context, framework::standard::Args, model::id::GuildId, utils::MessageBuilder,

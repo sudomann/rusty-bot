@@ -1,8 +1,8 @@
 use crate::{
+    data_structure::{CompletedPug, FilledPug},
     utils::{
         captain_countdown::do_captain_countdown, player_user_ids_to_users::player_user_ids_to_users,
     },
-    CompletedPug, FilledPug,
 };
 use itertools::Itertools;
 use serenity::{
