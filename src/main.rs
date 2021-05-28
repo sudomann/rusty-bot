@@ -2,6 +2,7 @@
 mod checks;
 mod commands;
 mod data_structure;
+mod db;
 mod event_handler;
 mod hooks;
 mod jobs;
@@ -70,7 +71,7 @@ async fn main() {
         .help(&MY_HELP)
         .group(&GENERAL_GROUP)
         .group(&PUGS_GROUP)
-        .group(&BETS_GROUP)
+        .group(&GAMBLING_GROUP)
         .group(&MODERATION_GROUP)
         .group(&STATS_GROUP)
         .group(&SUPERUSER_GROUP);
