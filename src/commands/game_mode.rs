@@ -76,7 +76,7 @@ async fn register_game_mode(ctx: &Context, msg: &Message, mut args: Args) -> Com
                 return Ok(());
             }
 
-            let new_game_mode = GameMode::new(label, 10);
+            let new_game_mode = GameMode::new(label, player_count);
             // add new game mode to both RegisteredGameModes and PugsWaitingToFill
             let lock_for_pugs_waiting_to_fill = data
                 .get::<PugsWaitingToFill>()
@@ -98,6 +98,7 @@ async fn register_game_mode(ctx: &Context, msg: &Message, mut args: Args) -> Com
 #[command("delmod")]
 #[max_args(1)]
 #[min_args(1)]
+// TODO: maybe add support for deleting multiple game modes at once?
 async fn delete_game_mode(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     match parse_game_modes(ctx, &guild_id, args).await {
