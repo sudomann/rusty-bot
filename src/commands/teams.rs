@@ -9,7 +9,7 @@ use serenity::{
 use crate::{utils::player_user_ids_to_users::player_user_ids_to_users, CompletedPug, FilledPug};
 
 #[command]
-#[aliases("team")]
+#[aliases("team", "picking", "pickings")]
 pub async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let (lock_for_filled_pugs, completed_pug_lock) = {

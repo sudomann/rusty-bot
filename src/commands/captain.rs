@@ -12,9 +12,8 @@ use serenity::{
     utils::MessageBuilder,
 };
 
-#[command("capt")]
-#[max_args(0)]
-#[aliases("c", "cap", "iamyourleader")]
+#[command("captain")]
+#[aliases("c", "cap", "capt", "iamyourleader")]
 async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let lock_for_filled_pugs = {
         let data_write = ctx.data.read().await;

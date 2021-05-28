@@ -124,7 +124,7 @@ async fn leave_handler(
 }
 
 #[command("l")]
-#[aliases("lv")]
+#[aliases("lv", "leave")]
 #[min_args(1)]
 pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
