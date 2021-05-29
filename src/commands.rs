@@ -40,9 +40,7 @@ struct General;
 #[group]
 #[only_in("guilds")]
 #[commands(
-    add,
     captain,
-    random_captains,
     join,
     leave,
     leave_all,
@@ -50,8 +48,6 @@ struct General;
     list_all,
     pick,
     promote,
-    remove,
-    reset,
     teams,
     // tag
     voices,
@@ -75,7 +71,11 @@ struct Stats;
     register_game_mode,
     delete_game_mode,
     set_blue_team_default_voice_channel,
-    set_red_team_default_voice_channel
+    set_red_team_default_voice_channel,
+    add,
+    remove,
+    reset,
+    random_captains
 )]
 struct Moderation; // pugban, pugunban, etc.
 

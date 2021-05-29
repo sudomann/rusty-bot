@@ -1,5 +1,8 @@
 use super::leave::leave;
-use crate::utils::as_another::{as_another, OpFail};
+use crate::{
+    checks::pug_channel::*,
+    utils::as_another::{as_another, OpFail},
+};
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
@@ -10,7 +13,11 @@ use serenity::{
 #[aliases("r", "del", "delplayer", "rm")]
 #[min_args(2)]
 #[max_args(2)]
+#[checks(PugChannel)]
 // TODO: admin and owner only
+/// This command lets admins/mods remove one user (via mention) from a particular pug .
+///
+/// e.g. `.remove @sudomann ctf` or `.add ctf @sudomann`
 async fn remove(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     match as_another(msg, args).await {
         Ok(data) => leave(&ctx, &data.message, data.args).await,

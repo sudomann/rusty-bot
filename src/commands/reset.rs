@@ -1,4 +1,5 @@
 use crate::{
+    checks::pug_channel::*,
     data_structure::{CompletedPug, FilledPug},
     utils::{
         captain_countdown::do_captain_countdown, player_user_ids_to_users::player_user_ids_to_users,
@@ -30,6 +31,7 @@ use uuid::Uuid;
 /// - As a result, when the queue is empty, this command will reset the most recent pug TODO: if no more than 20 mins elapsed
 // should be fine to use this commands several times, as it will check that
 // one or more captains is needed before doing anything
+#[checks(PugChannel)]
 async fn reset(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let session_uuid: Uuid;

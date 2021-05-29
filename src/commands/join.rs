@@ -1,4 +1,5 @@
 use crate::{
+    checks::{presence_status::*, pug_channel::*},
     data_structure::{DefaultVoiceChannels, FilledPug, PugsWaitingToFill},
     pug::{game_mode::GameMode, picking_session::PickingSession, player::Player},
     utils::{
@@ -23,9 +24,11 @@ use super::captain::random_captains;
 #[command]
 #[aliases("j", "jp")]
 #[min_args(1)]
+#[checks(PugChannel, NoInvisbleOrOfflineStatus)]
 // TODO: for better validation, also check queue of PickSessions to ensure they're not in there
 pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
+
     // Special case: 2 player game mode
     // Picking will complete automatically, after the following block completes
     // and releases locks

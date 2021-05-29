@@ -1,4 +1,5 @@
 use crate::{
+    checks::pug_channel::*,
     data_structure::{CompletedPug, FilledPug},
     pug::picking_session::{SetCaptainError, SetCaptainSuccess},
     utils::player_user_ids_to_users::*,
@@ -14,6 +15,7 @@ use serenity::{
 
 #[command("captain")]
 #[aliases("c", "cap", "capt", "iamyourleader")]
+#[checks(PugChannel)]
 async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let lock_for_filled_pugs = {
         let data_write = ctx.data.read().await;
