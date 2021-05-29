@@ -8,8 +8,11 @@
 FROM ubuntu:bionic AS build
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  ca-certificates \
   curl \
-  build-essential
+  build-essential \
+  libssl-dev \
+  pkg-config
 
 # Install the currently pinned toolchain with rustup
 RUN curl https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init >/tmp/rustup-init && \
