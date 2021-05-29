@@ -1,3 +1,13 @@
+use crate::{
+    data_structure::{
+        CompletedPug, DefaultVoiceChannels, DesignatedPugChannel, FilledPug, PugsWaitingToFill,
+        RegisteredGameModes,
+    },
+    pug::{
+        game_mode::GameMode, picking_session::PickingSession, player::Players,
+        voice_channels::TeamVoiceChannels,
+    },
+};
 use itertools::join;
 use serenity::{
     async_trait,
@@ -16,17 +26,6 @@ use std::{
     sync::Arc,
 };
 use tracing::info;
-
-use crate::{
-    data_structure::{
-        CompletedPug, DefaultVoiceChannels, DesignatedPugChannel, FilledPug, PugsWaitingToFill,
-        RegisteredGameModes,
-    },
-    pug::{
-        game_mode::GameMode, picking_session::PickingSession, player::Players,
-        voice_channels::TeamVoiceChannels,
-    },
-};
 
 pub struct Handler;
 
