@@ -76,9 +76,9 @@ async fn main() {
         .help(&MY_HELP)
         .group(&GENERAL_GROUP)
         .group(&PUGS_GROUP)
-        .group(&GAMBLING_GROUP)
         .group(&MODERATION_GROUP)
         .group(&STATS_GROUP)
+        .group(&GAMBLING_GROUP)
         .group(&SUPERUSER_GROUP);
 
     let intents: GatewayIntents = GatewayIntents::DIRECT_MESSAGES
