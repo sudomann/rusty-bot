@@ -32,7 +32,10 @@ pub async fn dispatch_error_hook(context: &Context, msg: &Message, error: Dispat
         }
         DispatchError::BlockedGuild => {
             let _ = msg
-                .reply(&context.http, "Oof, it appears this server is banned :O")
+                .reply(
+                    &context.http,
+                    "Oof, it appears this server is banned from using my features :O",
+                )
                 .await;
         }
         DispatchError::BlockedChannel => {
@@ -50,7 +53,7 @@ pub async fn dispatch_error_hook(context: &Context, msg: &Message, error: Dispat
         }
         DispatchError::OnlyForGuilds => {
             let _ = msg
-                .reply(&context.http, "You can only use this command in a server")
+                .reply(&context.http, "You must be in a server to use this command")
                 .await;
         }
         DispatchError::OnlyForOwners => {
@@ -76,7 +79,7 @@ pub async fn dispatch_error_hook(context: &Context, msg: &Message, error: Dispat
         }
         DispatchError::NotEnoughArguments { min, given } => {
             let response = format!(
-                "This command requires at least {} arguments. \
+                "This command requires at least {} argument(s). \
             You've given {}",
                 min, given
             );
@@ -84,7 +87,7 @@ pub async fn dispatch_error_hook(context: &Context, msg: &Message, error: Dispat
         }
         DispatchError::TooManyArguments { max, given } => {
             let response = format!(
-                "This command accepts no more than {} arguments. \
+                "This command accepts no more than {} argument(s). \
             You've given {}",
                 max, given
             );
