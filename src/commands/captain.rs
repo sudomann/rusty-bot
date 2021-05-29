@@ -19,7 +19,7 @@ async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         let data_write = ctx.data.read().await;
         data_write
             .get::<FilledPug>()
-            .expect("Expected PugsWaitingToFill in TypeMap")
+            .expect("Expected FilledPug in TypeMap")
             .clone()
     };
 
