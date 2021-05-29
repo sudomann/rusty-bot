@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    sync::Arc,
-};
-
+use itertools::join;
 use serenity::{
     async_trait,
     model::{
@@ -10,8 +6,14 @@ use serenity::{
         event::ResumedEvent,
         gateway::{Activity, Ready},
         id::GuildId,
+        prelude::OnlineStatus::*,
     },
     prelude::*,
+    utils::MessageBuilder,
+};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    sync::Arc,
 };
 use tracing::info;
 
@@ -156,12 +158,64 @@ impl EventHandler for Handler {
     ) {
     }
 
-    async fn presence_replace(&self, _ctx: Context, _: Vec<serenity::model::prelude::Presence>) {}
-
     async fn presence_update(
         &self,
-        _ctx: Context,
-        _new_data: serenity::model::event::PresenceUpdateEvent,
+        ctx: Context,
+        new_data: serenity::model::event::PresenceUpdateEvent,
     ) {
+        if new_data.guild_id.is_none() {
+            // think this update should be relevant to dms or something
+            // ignore
+            return;
+        }
+
+        let data = ctx.data.read().await;
+        let designated_pug_channel_lock = data
+            .get::<DesignatedPugChannel>()
+            .expect("Expected DesignatedPugChannel in TypeMap");
+        let designated_pug_channels = designated_pug_channel_lock.read().await;
+        let guild_id = new_data.guild_id.unwrap();
+        let pug_channel_id = match designated_pug_channels.get(&guild_id) {
+            Some(channel_id) => channel_id.clone(),
+            None => {
+                // guild does not have a registered pug channel - no need to go any further
+                return;
+            }
+        };
+
+        let lock_for_unfilled_pugs = match new_data.presence.status {
+            Invisible | Offline => {
+                // If their presence was just updated to invisible/offline,
+                // we need to check if joined any unfilled pugs and kick them
+                data.get::<PugsWaitingToFill>()
+                    .expect("Expected PugsWaitingToFill in TypeMap")
+                    .clone()
+            }
+            _ => {
+                /* ignore */
+                return;
+            }
+        };
+
+        let mut unfilled_pugs = lock_for_unfilled_pugs.write().await;
+
+        let unfilled_pugs_in_guild = unfilled_pugs.get_mut(&guild_id).unwrap();
+        let mut game_modes_removed_from: Vec<String> = Vec::default();
+        let user_id = new_data.presence.user_id;
+        for (game_mode, waiting_player_list) in unfilled_pugs_in_guild.iter_mut() {
+            if waiting_player_list.remove(&user_id) {
+                game_modes_removed_from.push(game_mode.label().to_owned());
+            }
+        }
+
+        if !game_modes_removed_from.is_empty() {
+            let message = MessageBuilder::new()
+                .push(user_id.mention())
+                .push(" you were removed from ")
+                .push(join(game_modes_removed_from, " :small_orange_diamond: "))
+                .push(" because you went invisble/offline")
+                .build();
+            let _ = pug_channel_id.say(&ctx.http, message).await;
+        }
     }
 }
