@@ -13,7 +13,10 @@ use data_structure::ShardManagerContainer;
 use event_handler::Handler;
 use hooks::{after_hook, dispatch_error_hook, unrecognised_command_hook};
 use pug::voice_channels::TeamVoiceChannels;
-use serenity::{framework::standard::StandardFramework, http::Http, model::id::UserId, prelude::*};
+use serenity::{
+    client::bridge::gateway::GatewayIntents, framework::standard::StandardFramework, http::Http,
+    model::id::UserId, prelude::*,
+};
 use std::{collections::HashSet, env, str::FromStr};
 use tracing::error;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
@@ -78,7 +81,15 @@ async fn main() {
         .group(&STATS_GROUP)
         .group(&SUPERUSER_GROUP);
 
+    let intents: GatewayIntents = GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::GUILD_PRESENCES
+        | GatewayIntents::GUILDS
+        | GatewayIntents::GUILD_MEMBERS
+        | GatewayIntents::GUILD_BANS;
+
     let mut client = Client::builder(&token)
+        .intents(intents)
         .framework(framework)
         .event_handler(Handler)
         .await
