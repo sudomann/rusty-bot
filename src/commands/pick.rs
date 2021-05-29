@@ -110,8 +110,8 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
             .push_bold("Blue Team: ")
             .push_line(blue_team);
 
-        if pick_result.is_ok() {
-            match pick_result.ok().unwrap() {
+        match pick_result {
+            Ok(pick_success) => match pick_success {
                 PickSuccess::BlueTurn => {
                     response
                         .user(picking_session.get_blue_captain().unwrap().1)
@@ -125,9 +125,8 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
                 PickSuccess::Complete => {
                     response.push_line("Teams have been selected!");
                 }
-            }
-        } else {
-            match pick_result.err().unwrap() {
+            },
+            Err(pick_error) => match pick_error {
                 PickError::PlayersExhausted(m)
                 | PickError::HistoryInvariantViolation(m)
                 | PickError::PickSequenceInvariantViolation(m)
@@ -138,7 +137,7 @@ pub(crate) async fn pick(ctx: &Context, msg: &Message, mut args: Args) -> Comman
                         .push(" to pick");
                     msg.reply(&ctx.http, m).await?;
                 }
-            }
+            },
         }
         if peekable.peek().is_none() {
             // Avoiding responding twice by only responding if there isn't another number to parse
