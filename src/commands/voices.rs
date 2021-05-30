@@ -91,7 +91,8 @@ async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         let _ = msg
             .reply(
                 ctx,
-                "This channel does not have a voice channel set for blue team",
+                "This server does not have a voice channel set for blue team. \
+                Contact admins to run `.bluechannel`",
             )
             .await;
     } else {
@@ -108,7 +109,8 @@ async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         let _ = msg
             .reply(
                 ctx,
-                "This channel does not have a voice channel set for red team",
+                "This server does not have a voice channel set for red team. \
+                Contact admins to run `.redchannel`",
             )
             .await;
     } else {
