@@ -188,49 +188,41 @@ async fn team_channel_helper(ctx: &Context, msg: &Message, team: Team, action: A
         let default_voice_channels_in_guild = default_voice_channels.get_mut(&guild_id).unwrap();
         match team {
             Team::Blue => match default_voice_channels_in_guild.unset_blue() {
-                Some(_) => {
-                    return "Default voice channel for blue team has been unset".to_string();
+                Some(c) => {
+                    return format!(
+                        "{} has been unset as default voice channel for the blue team",
+                        c.mention()
+                    );
                 }
                 None => {
-                    return "Blue team did not have a ".to_string();
+                    return "There is no voice channel assigned as default for the blue team"
+                        .to_string();
                 }
             },
             Team::Red => match default_voice_channels_in_guild.unset_red() {
-                Some(_) => {
-                    return "Default voice channel for red team has been unset".to_string();
+                Some(c) => {
+                    return format!(
+                        "{} has been unset as default voice channel for the red team",
+                        c.mention()
+                    );
                 }
                 None => {
-                    return "Red team did not have a ".to_string();
+                    return "There is no voice channel assigned as default for the red team"
+                        .to_string();
                 }
             },
         }
     }
-    match guild_id.channels(ctx).await {
-        Ok(channels) => {
-            let is_voice_channel =
-                |guild_channel: &&GuildChannel| guild_channel.kind == ChannelType::Voice;
-            let voice_channels = channels.values().filter(is_voice_channel);
-            let mut voice_channel_user_is_in: Option<ChannelId> = None;
-            for channel in voice_channels {
-                let members = channel.members(ctx).await;
-                match members {
-                    Ok(members) => {
-                        if members
-                            .iter()
-                            .find(|member| member.user == msg.author)
-                            .is_some()
-                        {
-                            voice_channel_user_is_in = Some(channel.id);
-                        }
-                    }
-                    Err(err) => {
-                        return format!("Something went wrong when trying to inspect the members of the {} channel - {}", channel.name, err);
-                    }
-                }
-            }
 
-            match voice_channel_user_is_in {
-                Some(voice_channel_to_set) => {
+    match msg.guild(&ctx).await {
+        Some(guild) => {
+            match guild.voice_states.get(&msg.author.id) {
+                Some(voice_state) => {
+                    if voice_state.channel_id.is_none() {
+                        return "You need to be connected to the voice channel you want to set"
+                            .to_string();
+                    }
+                    let voice_channel_to_set = voice_state.channel_id.unwrap();
                     let lock_for_default_voice = data
                         .get::<DefaultVoiceChannels>()
                         .expect("Expected DefaultVoiceChannels in TypeMap");
@@ -246,13 +238,14 @@ async fn team_channel_helper(ctx: &Context, msg: &Message, team: Team, action: A
                             // already been assigned to red team
                             if red_channel.is_some() && red_channel.unwrap() == voice_channel_to_set
                             {
-                                return "The channel you're in has already been assigned to red team".to_string();
+                                return "The channel you're in has already been assigned to red team"
+                            .to_string();
                             }
 
                             default_voice_channels_in_guild.set_blue(voice_channel_to_set);
                             return format!(
                                 "Default voice channel for blue team has been set to {}",
-                                voice_channel_user_is_in.unwrap().mention()
+                                voice_channel_to_set.mention()
                             );
                         }
                         Team::Red => {
@@ -263,12 +256,13 @@ async fn team_channel_helper(ctx: &Context, msg: &Message, team: Team, action: A
                             if blue_channel.is_some()
                                 && blue_channel.unwrap() == voice_channel_to_set
                             {
-                                return "The channel you're in has already been assigned to blue team".to_string();
+                                return "The channel you're in has already been assigned to blue team"
+                            .to_string();
                             }
                             default_voice_channels_in_guild.set_red(voice_channel_to_set);
                             return format!(
                                 "Default voice channel for red team has been set to {}",
-                                voice_channel_user_is_in.unwrap().mention()
+                                voice_channel_to_set.mention()
                             );
                         }
                     }
@@ -279,8 +273,8 @@ async fn team_channel_helper(ctx: &Context, msg: &Message, team: Team, action: A
                 }
             }
         }
-        Err(err) => {
-            return format!("Couldn't inspect channels - {}", err);
+        None => {
+            return "Sorry, that didn't work because some data is missing".to_string();
         }
-    };
+    }
 }

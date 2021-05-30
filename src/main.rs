@@ -86,7 +86,8 @@ async fn main() {
         | GatewayIntents::GUILD_PRESENCES
         | GatewayIntents::GUILDS
         | GatewayIntents::GUILD_MEMBERS
-        | GatewayIntents::GUILD_BANS;
+        | GatewayIntents::GUILD_BANS
+        | GatewayIntents::GUILD_VOICE_STATES;
 
     let mut client = Client::builder(&token)
         .intents(intents)
