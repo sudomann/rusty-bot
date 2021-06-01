@@ -56,11 +56,17 @@ async fn list(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         // so `parsed_game_modes.contains(&game_mode)` in this closure works
         .filter(|(game_mode, _)| parsed_game_modes.contains(game_mode.clone()))
         .format_with(" :small_blue_diamond: ", |(game_mode, players), f| {
+            // FIXME: code duplication
+            let player_names = players
+                .iter()
+                .map(|p| p.get_user().name.clone())
+                .collect_vec();
             f(&format_args!(
-                "**{}** [{}/{}]",
+                "{} [**{}/{}**]: {}",
                 game_mode.label(),
                 players.len(),
-                game_mode.capacity()
+                game_mode.capacity(),
+                join(player_names, " :small_orange_diamond: ")
             ))
         });
     response.push(pug_member_counts).build();
@@ -90,12 +96,13 @@ async fn list_all(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     }
     let mut response = MessageBuilder::new();
     for (game_mode, players) in pugs.iter() {
+        // FIXME: code duplication
         let player_names = players
             .iter()
             .map(|p| p.get_user().name.clone())
             .collect_vec();
         response.push_line(format!(
-            "**{}** *[{}/{}]:* {}",
+            "{} [**{}/{}**]: {}",
             game_mode.label(),
             players.len(),
             game_mode.capacity(),
