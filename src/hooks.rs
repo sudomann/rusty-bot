@@ -6,7 +6,7 @@ use serenity::{
 use tracing::error;
 
 #[hook]
-pub async fn dispatch_error_hook(context: &Context, msg: &Message, error: DispatchError) {
+pub async fn dispatch_error(context: &Context, msg: &Message, error: DispatchError) {
     // TODO: convert `if let` to `match` when handling the other errors
     // such as `DispatchError::LackOfPermissions`, etc.
     match error {
@@ -108,7 +108,7 @@ pub async fn dispatch_error_hook(context: &Context, msg: &Message, error: Dispat
 }
 
 #[hook]
-pub async fn after_hook(_: &Context, _: &Message, cmd_name: &str, error: Result<(), CommandError>) {
+pub async fn after(_: &Context, _: &Message, cmd_name: &str, error: Result<(), CommandError>) {
     //  Print out an error if it happened
     if let Err(why) = error {
         error!("Error in {}: {:?}", cmd_name, why);
@@ -116,11 +116,7 @@ pub async fn after_hook(_: &Context, _: &Message, cmd_name: &str, error: Result<
 }
 
 #[hook]
-pub async fn unrecognised_command_hook(
-    _: &Context,
-    msg: &Message,
-    unrecognised_command_name: &str,
-) {
+pub async fn unrecognised_command(_: &Context, msg: &Message, unrecognised_command_name: &str) {
     error!(
         "A user named {:?} tried to executute an unknown command: {}",
         msg.author.name, unrecognised_command_name
