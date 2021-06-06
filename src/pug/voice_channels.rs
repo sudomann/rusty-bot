@@ -1,3 +1,5 @@
+use std::mem::replace;
+
 use serenity::model::id::ChannelId;
 
 // This gets the latest item in CompletedPug list (if it exists) and
@@ -45,23 +47,15 @@ impl TeamVoiceChannels {
         &self.red
     }
     pub fn set_blue(&mut self, new_value: ChannelId) -> Option<ChannelId> {
-        let former = self.get_blue().clone();
-        self.blue = Some(new_value);
-        former
+        replace(&mut self.blue, Some(new_value))
     }
     pub fn set_red(&mut self, new_value: ChannelId) -> Option<ChannelId> {
-        let former = self.get_red().clone();
-        self.red = Some(new_value);
-        former
+        replace(&mut self.red, Some(new_value))
     }
     pub fn unset_blue(&mut self) -> Option<ChannelId> {
-        let former = self.blue.clone();
-        self.blue = None;
-        former
+        replace(&mut self.blue, None)
     }
     pub fn unset_red(&mut self) -> Option<ChannelId> {
-        let former = self.red.clone();
-        self.red = None;
-        former
+        replace(&mut self.red, None)
     }
 }
