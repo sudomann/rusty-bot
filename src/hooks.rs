@@ -7,8 +7,6 @@ use tracing::error;
 
 #[hook]
 pub async fn dispatch_error(context: &Context, msg: &Message, error: DispatchError) {
-    // TODO: convert `if let` to `match` when handling the other errors
-    // such as `DispatchError::LackOfPermissions`, etc.
     match error {
         DispatchError::CheckFailed(_, reason) => match reason {
             Reason::User(info) => {

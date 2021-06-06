@@ -59,12 +59,19 @@ storages stay around a given length. i.e. after backing up, trim as neccessary, 
     DefaultVoiceChannels:
     -   on create, add to db first, then memory
     -   on delete, remove from db first, then remove from mem
-    -   on cache_ready(), load all from db into memory
 
     * On cache_ready, load all from db into memory:
     -   DesignatedPugChannel
     -   RegisteredGameModes
     -   PugsWaitingToFill
+    -   DefaultVoiceChannels
+
+    * On cache_ready, load last 5 for each guild:
+    -   PugsWaitingToFill
+    -   FilledPug
+            - if one or both captain captain spot is unfilled,
+            send a message to start timer)
+    -   CompletedPug
 
 
     * DB storage job every 1 min:
