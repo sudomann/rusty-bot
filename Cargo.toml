@@ -6,13 +6,16 @@ edition = "2018"
 
 
 [dependencies]
+base64-url = "1.4.10"
 chrono = "0.4"
+dotenv = "0.15"
 itertools="0.10.0"
 linked_hash_set = "0.1.4"
-rand = "0.8.3"
 maplit = "1.0.2"
+serde = "1.0"
+serde_json = "1.0"
 serenity = "0.10"
-dotenv = "0.15"
+rand = "0.8.3"
 tracing = "0.1.23"
 tracing-subscriber = "0.2"
 
