@@ -14,8 +14,8 @@ use serenity::{
 #[min_args(1)]
 #[max_args(1)]
 // TODO: admin configurable rate limiting (by number of invocations per minute, no matter who)
-/// Promote a game mode with `@here`
-// "@here" is backticked so when the text is printed in an embed it doesn't actually try to ping
+/// Pinging `@here` with a message promoting a single game mode
+// "@here" is backticked so when this help text is printed in an embed it doesn't actually try to ping
 async fn promote(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     match parse_game_modes(ctx, &guild_id, args).await {
