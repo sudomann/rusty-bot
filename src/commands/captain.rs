@@ -221,7 +221,6 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
                         red_captain,
                     } => {
                         let response = MessageBuilder::new()
-                            .push_line("Randomly assigned:")
                             .push_line(format!("**Red:** {}", red_captain.mention()))
                             .push_line(format!("**Blue:** {}", blue_captain.mention()))
                             .build();

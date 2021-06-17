@@ -124,7 +124,7 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                             .format_with(" :small_orange_diamond: ", |player, f| {
                                 let ht = HumanTime::from(player.time_elapsed_since_join());
                                 f(&format_args!(
-                                    "{}[{}]",
+                                    "{} [{}]",
                                     player.get_user().name,
                                     ht.to_text_en(Accuracy::RoughShort, Tense::Present)
                                 ))
