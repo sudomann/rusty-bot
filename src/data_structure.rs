@@ -1,3 +1,10 @@
+use crate::{
+    db::firestore::Firestore,
+    pug::{
+        game_mode::GameMode, picking_session::PickingSession, player::Players,
+        voice_channels::TeamVoiceChannels,
+    },
+};
 use serenity::{
     client::bridge::gateway::ShardManager,
     model::id::{ChannelId, GuildId},
@@ -10,13 +17,7 @@ use std::{
 };
 use tokio::sync::RwLock;
 
-use crate::pug::{
-    game_mode::GameMode, picking_session::PickingSession, player::Players,
-    voice_channels::TeamVoiceChannels,
-};
-
 pub struct ShardManagerContainer;
-
 impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
