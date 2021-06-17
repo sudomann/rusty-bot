@@ -70,6 +70,7 @@ async fn main() {
                 .prefix(prefix)
         })
         .on_dispatch_error(hooks::dispatch_error)
+        .before(hooks::before)
         .after(hooks::after)
         .unrecognised_command(hooks::unrecognised_command)
         .help(&MY_HELP)

@@ -106,8 +106,14 @@ pub async fn dispatch_error(context: &Context, msg: &Message, error: DispatchErr
 }
 
 #[hook]
+pub async fn before(ctx: &Context, msg: &Message, _: &str) -> bool {
+    let _typing = msg.channel_id.start_typing(&ctx.http).unwrap();
+    true
+}
+
+#[hook]
 pub async fn after(_: &Context, _: &Message, cmd_name: &str, error: Result<(), CommandError>) {
-    //  Print out an error if it happened
+    //  Print out an error if one occured
     if let Err(why) = error {
         error!("Error in {}: {:?}", cmd_name, why);
     }
