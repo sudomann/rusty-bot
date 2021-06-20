@@ -3,6 +3,7 @@ use crate::{
         CompletedPug, DefaultVoiceChannels, DesignatedPugChannel, FilledPug, PugsWaitingToFill,
         RegisteredGameModes,
     },
+    jobs::start_jobs,
     pug::{
         game_mode::GameMode, picking_session::PickingSession, player::Players,
         voice_channels::TeamVoiceChannels,
@@ -93,6 +94,7 @@ impl EventHandler for Handler {
             data.insert::<CompletedPug>(Arc::new(RwLock::new(completed_pugs)));
             data.insert::<DefaultVoiceChannels>(Arc::new(RwLock::new(team_voice_channels)));
         }
+        start_jobs(ctx);
     }
 
     async fn resume(&self, _: Context, _: ResumedEvent) {

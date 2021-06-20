@@ -1,33 +1,49 @@
-/*
-use crate::{ban::unban_users, command_history::clear_command_history, SendSyncError, HOUR};
+use crate::utils::stale_join;
 use serenity::client::Context;
-use std::{
-    sync::atomic::{AtomicBool, Ordering},
-    thread::sleep,
-    time::Duration,
+use std::sync::atomic::{
+    AtomicBool,
+    Ordering::{AcqRel, Acquire, SeqCst},
 };
+use tokio::time;
+use tracing::info;
 
 static JOBS_THREAD_INITIALIZED: AtomicBool = AtomicBool::new(false);
+const FIVE_MINUTES: u64 = 300;
+const ONE_MINUTE: u64 = 60;
 
-pub(crate) fn start_jobs(cx: Context) {
-    if !JOBS_THREAD_INITIALIZED.load(Ordering::SeqCst) {
-        JOBS_THREAD_INITIALIZED.store(true, Ordering::SeqCst);
-        std::thread::spawn(move || -> Result<(), SendSyncError> {
+pub fn start_jobs(ctx: Context) {
+    info!("Launching task threads");
+    if JOBS_THREAD_INITIALIZED
+        .compare_exchange(false, true, AcqRel, Acquire)
+        .is_ok()
+    {
+        JOBS_THREAD_INITIALIZED.store(true, SeqCst);
+        tokio::spawn(async move {
+            let mut interval = time::interval(time::Duration::from_secs(FIVE_MINUTES));
             loop {
-                unban_users(&cx)?;
-                clear_command_history(&cx)?;
-
-                sleep(Duration::new(HOUR, 0));
+                stale_join::remove_expired_players(&ctx).await;
+                interval.tick().await;
             }
         });
-    }
+
+        tokio::spawn(async move {
+            let mut interval = time::interval(time::Duration::from_secs(ONE_MINUTE));
+            loop {
+                //db_jobs::backup_data(&ctx).await;
+                // this job should use the db client, which MUST be behind
+                // a mutex
+                interval.tick().await;
+            }
+        });
+    };
 }
-*/
 
 /*
 TODO:
 when db backup job runs, makes sure all the various collections of in-memory
 storages stay around a given length. i.e. after backing up, trim as neccessary, discarding the oldest entries
+
+When retrieving multiple documents, order by a date field which should indicate the order in which the documents where created
 */
 
 /*

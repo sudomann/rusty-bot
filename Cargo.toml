@@ -25,7 +25,7 @@ features = ["json"]
 
 [dependencies.tokio]
 version = "1.0"
-features = ["macros", "signal", "rt-multi-thread"]
+features = ["macros", "signal", "rt-multi-thread", "time"]
 
 [dependencies.uuid]
 version = "0.8"
