@@ -4,6 +4,7 @@ pub mod coinflip;
 pub mod game_mode;
 pub mod help;
 pub mod join;
+pub mod last;
 pub mod leave;
 pub mod list;
 pub mod meta;
@@ -21,6 +22,7 @@ use captain::*;
 use coinflip::*;
 use game_mode::*;
 use join::*;
+use last::*;
 use leave::*;
 use list::*;
 use meta::*;
@@ -50,6 +52,7 @@ struct General;
     promote,
     teams,
     // tag
+    last,
     voices,
 )]
 #[checks(PugChannel)]
