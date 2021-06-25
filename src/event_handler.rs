@@ -164,18 +164,18 @@ impl EventHandler for Handler {
         ctx: Context,
         new_data: serenity::model::event::PresenceUpdateEvent,
     ) {
-        if new_data.guild_id.is_none() {
-            // think this update should be relevant to dms or something
-            // ignore
-            return;
-        }
+        let guild_id = match new_data.guild_id {
+            Some(id) => id,
+            // I think this is a presence update for a dm channel
+            None => return,
+        };
 
         let data = ctx.data.read().await;
         let designated_pug_channel_lock = data
             .get::<DesignatedPugChannel>()
             .expect("Expected DesignatedPugChannel in TypeMap");
         let designated_pug_channels = designated_pug_channel_lock.read().await;
-        let guild_id = new_data.guild_id.unwrap();
+
         let pug_channel_id = match designated_pug_channels.get(&guild_id) {
             Some(channel_id) => channel_id.clone(),
             None => {
