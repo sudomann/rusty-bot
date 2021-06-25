@@ -210,22 +210,22 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
                     }
                     SetCaptainSuccess::StartPickingBlue => {
                         response.push_line(format!(
-                            "{} is captain for red",
+                            "{} is captain for :red_circle: red",
                             red_captain.unwrap().1.mention()
                         ));
                         response.push(format!(
-                            "{} is captain for blue and picks first",
+                            "{} is captain for :blue_circle: blue and picks first",
                             blue_captain.unwrap().1.mention()
                         ));
                         let _ = msg.channel_id.say(&ctx.http, response).await;
                     }
                     SetCaptainSuccess::StartPickingRed => {
                         response.push_line(format!(
-                            "{} is captain for red and picks first",
+                            "{} is captain for :red_circle: red and picks first",
                             red_captain.unwrap().1.mention()
                         ));
                         response.push(format!(
-                            "{} is captain for blue",
+                            "{} is captain for :blue_circle: blue",
                             blue_captain.unwrap().1.mention()
                         ));
                         let _ = msg.channel_id.say(&ctx.http, response).await;

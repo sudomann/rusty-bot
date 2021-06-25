@@ -214,7 +214,7 @@ impl EventHandler for Handler {
                 .push(user_id.mention())
                 .push(" you were removed from ")
                 .push(join(game_modes_removed_from, " :small_orange_diamond: "))
-                .push(" because you went invisble/offline")
+                .push(" because you went invisible/offline")
                 .build();
             let _ = pug_channel_id.say(&ctx.http, message).await;
         }
