@@ -209,11 +209,25 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
                         continue;
                     }
                     SetCaptainSuccess::StartPickingBlue => {
-                        response.push(format!("{} to pick", blue_captain.unwrap().1.mention()));
+                        response.push_line(format!(
+                            "{} is captain for red",
+                            red_captain.unwrap().1.mention()
+                        ));
+                        response.push(format!(
+                            "{} is captain for blue and picks first",
+                            blue_captain.unwrap().1.mention()
+                        ));
                         let _ = msg.channel_id.say(&ctx.http, response).await;
                     }
                     SetCaptainSuccess::StartPickingRed => {
-                        response.push(format!("{} to pick", red_captain.unwrap().1.mention()));
+                        response.push_line(format!(
+                            "{} is captain for red and picks first",
+                            red_captain.unwrap().1.mention()
+                        ));
+                        response.push(format!(
+                            "{} is captain for blue",
+                            blue_captain.unwrap().1.mention()
+                        ));
                         let _ = msg.channel_id.say(&ctx.http, response).await;
                     }
                     SetCaptainSuccess::TwoPlayerAutoPick {
