@@ -3,6 +3,7 @@ pub mod captain;
 pub mod coinflip;
 pub mod game_mode;
 pub mod help;
+pub mod here;
 pub mod join;
 pub mod last;
 pub mod leave;
@@ -21,6 +22,7 @@ use add::*;
 use captain::*;
 use coinflip::*;
 use game_mode::*;
+use here::*;
 use join::*;
 use last::*;
 use leave::*;
@@ -41,8 +43,10 @@ struct General;
 
 #[group]
 #[only_in("guilds")]
+#[checks(PugChannel)]
 #[commands(
     captain,
+    here,
     join,
     leave,
     leave_all,
@@ -55,7 +59,6 @@ struct General;
     last,
     voices,
 )]
-#[checks(PugChannel)]
 struct Pugs;
 
 #[group]
