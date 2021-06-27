@@ -1,4 +1,5 @@
 pub mod add;
+pub mod broadcast;
 pub mod captain;
 pub mod coinflip;
 pub mod game_mode;
@@ -19,6 +20,7 @@ pub mod teams;
 pub mod voices;
 use crate::checks::pug_channel::*;
 use add::*;
+use broadcast::*;
 use captain::*;
 use coinflip::*;
 use game_mode::*;
@@ -87,5 +89,5 @@ struct Moderation; // pugban, pugunban, etc.
 
 #[group]
 #[owners_only]
-#[commands(set_activity, quit)]
+#[commands(set_activity, quit, broadcast)]
 struct SuperUser;
