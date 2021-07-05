@@ -3,16 +3,28 @@ use serenity::{
     model::channel::Message,
     prelude::*,
 };
-use tracing::error;
+use tracing::log::{error, info, warn};
 
 #[hook]
 pub async fn dispatch_error(context: &Context, msg: &Message, error: DispatchError) {
-    match error {
-        DispatchError::CheckFailed(_, reason) => match reason {
+    match &error {
+        DispatchError::CheckFailed(command, reason) => match reason {
             Reason::User(info) => {
                 let _ = msg.reply(&context.http, info).await;
             }
-            _ => panic!("Unimplemented response for CheckFailed event"),
+            Reason::UserAndLog { user: reply, log } => {
+                info!("{} - {}", command, log);
+                let _ = msg.reply(&context.http, reply).await;
+            }
+            Reason::Unknown => {
+                warn!("`Reason::Unknown` for CheckFailed event\n{:#?}", &error)
+            }
+            Reason::Log(log) => {
+                info!("{}", log);
+            }
+            _ => {
+                error!("CheckFailed event did not match any arms!")
+            }
         },
         DispatchError::Ratelimited(info) => {
             let _ = msg.reply(&context.http, format!("{:#?}", info)).await;
