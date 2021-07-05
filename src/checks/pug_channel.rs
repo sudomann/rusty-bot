@@ -9,6 +9,8 @@ use crate::data_structure::DesignatedPugChannel;
 
 #[check]
 #[name = "PugChannel"]
+#[check_in_help(false)]
+#[display_in_help(false)]
 async fn is_pug_channel_check(
     context: &Context,
     msg: &Message,
