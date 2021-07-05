@@ -13,7 +13,7 @@ use serenity::{
     utils::MessageBuilder,
 };
 
-#[command("captain")]
+#[command]
 #[aliases("c", "cap", "capt", "iamyourleader")]
 #[checks(PugChannel)]
 async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
