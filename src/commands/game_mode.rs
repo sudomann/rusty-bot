@@ -1,4 +1,5 @@
 use crate::{
+    checks::sync_in_progress::*,
     data_structure::{PugsWaitingToFill, RegisteredGameModes},
     pug::{game_mode::GameMode, player::Players},
     utils::parse_game_modes::{parse_game_modes, GameModeError},
@@ -13,6 +14,7 @@ const MIN_PUG_PARTICIPANT_COUNT: u8 = 2;
 const UT_MAX_PLAYER_COUNT: u8 = 24;
 
 #[command("addmod")]
+#[checks(GuildDataSyncInProgress)]
 #[max_args(2)]
 #[min_args(2)]
 /// Register a game mode with player count
@@ -96,6 +98,7 @@ async fn register_game_mode(ctx: &Context, msg: &Message, mut args: Args) -> Com
 }
 
 #[command("delmod")]
+#[checks(GuildDataSyncInProgress)]
 #[max_args(1)]
 #[min_args(1)]
 // TODO: maybe add support for deleting multiple game modes at once?

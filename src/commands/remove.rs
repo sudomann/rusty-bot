@@ -1,6 +1,6 @@
 use super::leave::leave;
 use crate::{
-    checks::pug_channel::*,
+    checks::{pug_channel::*, sync_in_progress::*},
     utils::as_another::{as_another, OpFail},
 };
 use serenity::{
@@ -13,7 +13,7 @@ use serenity::{
 #[aliases("r", "del", "delplayer", "rm")]
 #[min_args(2)]
 #[max_args(2)]
-#[checks(PugChannel)]
+#[checks(PugChannel, GuildDataSyncInProgress)]
 // TODO: admin and owner only
 /// This command lets admins/mods remove one user (via mention) from a particular pug .
 ///

@@ -1,5 +1,5 @@
 use crate::{
-    checks::pug_channel::*,
+    checks::{pug_channel::*, sync_in_progress::*},
     data_structure::{CompletedPug, FilledPug},
     pug::picking_session::{SetCaptainError, SetCaptainSuccess},
     utils::player_user_ids_to_users::*,
@@ -15,7 +15,7 @@ use serenity::{
 
 #[command]
 #[aliases("c", "cap", "capt", "iamyourleader")]
-#[checks(PugChannel)]
+#[checks(PugChannel, GuildDataSyncInProgress)]
 async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let lock_for_filled_pugs = {
         let data_write = ctx.data.read().await;
@@ -137,6 +137,7 @@ async fn captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 }
 
 #[command("frc")]
+#[checks(PugChannel, GuildDataSyncInProgress)]
 #[max_args(0)]
 /// "Force random captains"
 ///

@@ -1,4 +1,5 @@
 use crate::{
+    checks::sync_in_progress::*,
     data_structure::{CompletedPug, FilledPug},
     pug::picking_session::{PickError, PickSuccess},
     utils::player_user_ids_to_users::*,
@@ -12,6 +13,7 @@ use serenity::{
 };
 
 #[command]
+#[checks(GuildDataSyncInProgress)]
 #[aliases("p")]
 #[min_args(1)]
 #[max_args(2)]

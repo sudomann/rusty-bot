@@ -1,4 +1,4 @@
-use crate::data_structure::DesignatedPugChannel;
+use crate::{checks::sync_in_progress::*, data_structure::DesignatedPugChannel};
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
@@ -7,6 +7,7 @@ use serenity::{
 };
 
 #[command("pugchannel")]
+#[checks(GuildDataSyncInProgress)]
 /// Type this command in a channel to set it as the designated pug channel.
 ///
 /// You can only designate one pug channel at a time. If there's already one, it gets replaced with the one you mention.
@@ -29,6 +30,7 @@ async fn pug_channel_set(ctx: &Context, msg: &Message, _: Args) -> CommandResult
 }
 
 #[command("unset")]
+#[checks(GuildDataSyncInProgress)]
 async fn pug_channel_unset(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
 

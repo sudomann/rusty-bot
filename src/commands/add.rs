@@ -1,6 +1,6 @@
 use super::join::join;
 use crate::{
-    checks::pug_channel::*,
+    checks::{pug_channel::*, sync_in_progress::*},
     utils::as_another::{as_another, OpFail},
 };
 use serenity::{
@@ -13,7 +13,7 @@ use serenity::{
 #[aliases("a", "addplayer")]
 #[min_args(2)]
 #[max_args(2)]
-#[checks(PugChannel)]
+#[checks(PugChannel, GuildDataSyncInProgress)]
 // TODO: admin and owner only
 /// This command lets admins/mods add one user (via mention) to a particular pug.
 ///

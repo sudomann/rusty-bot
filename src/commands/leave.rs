@@ -1,4 +1,5 @@
 use crate::{
+    checks::{pug_channel::*, sync_in_progress::*},
     data_structure::{FilledPug, PugsWaitingToFill, RegisteredGameModes},
     pug::{game_mode::GameMode, player::Player},
     utils::{
@@ -124,6 +125,7 @@ async fn leave_handler(
 }
 
 #[command("l")]
+#[checks(PugChannel, GuildDataSyncInProgress)]
 #[aliases("lv", "leave")]
 #[min_args(1)]
 pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
@@ -147,6 +149,7 @@ pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[command("lva")]
+#[checks(PugChannel, GuildDataSyncInProgress)]
 async fn leave_all(ctx: &Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let game_modes_to_leave = {

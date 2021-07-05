@@ -1,5 +1,5 @@
 use crate::{
-    checks::{presence_status::*, pug_channel::*},
+    checks::{presence_status::*, pug_channel::*, sync_in_progress::*},
     data_structure::{DefaultVoiceChannels, FilledPug, PugsWaitingToFill},
     pug::{game_mode::GameMode, picking_session::PickingSession, player::Player},
     utils::{
@@ -24,7 +24,7 @@ use super::captain::random_captains;
 #[command]
 #[aliases("j", "jp")]
 #[min_args(1)]
-#[checks(PugChannel, NoInvisbleOrOfflineStatus)]
+#[checks(PugChannel, GuildDataSyncInProgress, NoInvisbleOrOfflineStatus)]
 // TODO: for better validation, also check queue of PickSessions to ensure they're not in there
 pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
