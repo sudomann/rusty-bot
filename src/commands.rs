@@ -74,6 +74,8 @@ struct Stats;
 
 #[group]
 #[only_in("guilds")]
+#[allowed_roles("admin", "pugbot-admin")]
+#[owner_privilege]
 #[commands(
     pug_channel_set,
     register_game_mode,
