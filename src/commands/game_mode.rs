@@ -37,8 +37,11 @@ async fn register_game_mode(ctx: &Context, msg: &Message, mut args: Args) -> Com
     let label = args.single_quoted::<String>().unwrap();
 
     if label.bytes().all(|x| x.is_ascii_digit()) {
-        msg.reply(ctx, "The game mode label cannot be just a number")
-            .await?;
+        let response = format!(
+            "'{}' is not a valid name for a game mode. A game mode label cannot be just a number.",
+            label
+        );
+        msg.reply(ctx, response).await?;
         return Ok(());
     }
 
