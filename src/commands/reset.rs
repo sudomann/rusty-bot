@@ -75,7 +75,7 @@ async fn reset(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
             remaining_ids = previous_picking_session.get_remaining().clone();
             session_uuid = previous_picking_session.uuid().clone();
             pugs.push_front(previous_picking_session);
-        }
+        } // TODO: replace this text formatting stuff with PickingSession::get_remaining_player_text() etc.
         let remaining_owned = player_user_ids_to_users(ctx, &remaining_ids).await?;
         let unpicked_players = remaining_owned
             .iter()
