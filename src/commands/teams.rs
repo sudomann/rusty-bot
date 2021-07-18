@@ -1,14 +1,9 @@
-use itertools::Itertools;
+use crate::data_structure::{CompletedPug, FilledPug};
 use serenity::{
     client::Context,
     framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
     utils::MessageBuilder,
-};
-
-use crate::{
-    data_structure::{CompletedPug, FilledPug},
-    utils::player_user_ids_to_users::player_user_ids_to_users,
 };
 
 #[command]
@@ -34,14 +29,25 @@ pub async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 
     let pugs = filled_pugs_in_guild.unwrap();
     let maybe_picking_session = pugs.front();
-    let remaining_ids;
-    let blue_team_ids;
-    let red_team_ids;
+    let mut response = MessageBuilder::new();
     if maybe_picking_session.is_some() {
         let current_picking_session = maybe_picking_session.unwrap();
-        remaining_ids = current_picking_session.get_remaining().clone();
-        blue_team_ids = current_picking_session.get_blue_team().clone();
-        red_team_ids = current_picking_session.get_red_team().clone();
+
+        response
+            .push_line(
+                current_picking_session
+                    .get_remaining_player_text(ctx)
+                    .await?,
+            )
+            .push_line("")
+            .push_line(format!(
+                "**Red Team:** {}",
+                current_picking_session.get_red_team_text(ctx).await?
+            ))
+            .push(format!(
+                "**Blue Team:** {}",
+                current_picking_session.get_blue_team_text(ctx).await?
+            ));
     } else {
         let completed_pugs = completed_pug_lock.read().await;
         let completed_pugs_in_guild = completed_pugs.get(&guild_id).unwrap();
@@ -51,42 +57,23 @@ pub async fn teams(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
             return Ok(());
         }
         let previous_picking_session = maybe_previous_session.unwrap();
+        response
+            .push_line(
+                previous_picking_session
+                    .get_remaining_player_text(ctx)
+                    .await?,
+            )
+            .push_line("")
+            .push_line(format!(
+                "**Red Team:** {}",
+                previous_picking_session.get_red_team_text(ctx).await?
+            ))
+            .push(format!(
+                "**Blue Team:** {}",
+                previous_picking_session.get_blue_team_text(ctx).await?
+            ));
+    };
 
-        remaining_ids = previous_picking_session.get_remaining().clone();
-        blue_team_ids = previous_picking_session.get_blue_team().clone();
-        red_team_ids = previous_picking_session.get_red_team().clone();
-    }
-
-    let mut response = MessageBuilder::new();
-
-    let remaining_owned = player_user_ids_to_users(ctx, &remaining_ids).await?;
-    let unpicked_players = remaining_owned
-        .iter()
-        .format_with(" :small_orange_diamond: ", |player, f| {
-            f(&format_args!("**{})** {}", player.0, player.1.name))
-        });
-
-    let blue_team = player_user_ids_to_users(ctx, &blue_team_ids).await?;
-    let blue_team_text = blue_team
-        .iter()
-        .format_with(" :small_orange_diamond: ", |player, f| {
-            f(&format_args!("{}", player.1.name))
-        });
-
-    let red_team = player_user_ids_to_users(ctx, &red_team_ids).await?;
-    let red_team_text = red_team
-        .iter()
-        .format_with(" :small_orange_diamond: ", |player, f| {
-            f(&format_args!("{}", player.1.name))
-        });
-
-    response
-        .push_line(unpicked_players)
-        .push_line("")
-        .push_bold("Red Team: ")
-        .push_line(red_team_text)
-        .push_bold("Blue Team: ")
-        .push_line(blue_team_text);
     msg.reply(&ctx.http, response).await?;
 
     Ok(())

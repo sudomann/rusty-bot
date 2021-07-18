@@ -198,6 +198,28 @@ impl PickingSession {
         &self.blue_team
     }
 
+    pub async fn get_blue_team_text(
+        &self,
+        ctx: &Context,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        Ok(compose_text_for_group(ctx, &self.blue_team, false).await?)
+    }
+    // TODO; is this proper use of ? operator in conjuction with Ok()??
+    // what happens when compose_text_for_group() returns Err??
+    pub async fn get_red_team_text(
+        &self,
+        ctx: &Context,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        Ok(compose_text_for_group(ctx, &self.red_team, false).await?)
+    }
+
+    pub async fn get_remaining_player_text(
+        &self,
+        ctx: &Context,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        Ok(compose_text_for_group(ctx, &self.players, true).await?)
+    }
+
     pub fn get_pick_sequence(&self) -> &Vec<PickTurn> {
         &self.pick_sequence
     }
@@ -503,4 +525,21 @@ impl PickingSession {
     }
 }
 
+async fn compose_text_for_group(
+    ctx: &Context,
+    player_list: impl IntoIterator<Item = &(u8, UserId)>,
+    with_numbers: bool,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let team_text = player_user_ids_to_users(ctx, player_list)
+        .await?
+        .iter()
+        .format_with(" :small_orange_diamond: ", |player, f| {
+            if with_numbers {
+                f(&format_args!("**{})** {}", player.0, player.1.name))
+            } else {
+                f(&format_args!("{}", player.1.name))
+            }
+        })
+        .to_string();
+    Ok(team_text)
 }
