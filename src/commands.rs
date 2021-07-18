@@ -2,6 +2,7 @@ pub mod add;
 pub mod broadcast;
 pub mod captain;
 pub mod coinflip;
+pub mod echo;
 pub mod game_mode;
 pub mod help;
 pub mod here;
@@ -23,6 +24,7 @@ use add::*;
 use broadcast::*;
 use captain::*;
 use coinflip::*;
+use echo::*;
 use game_mode::*;
 use here::*;
 use join::*;
@@ -91,5 +93,5 @@ struct Moderation; // pugban, pugunban, etc.
 
 #[group]
 #[owners_only]
-#[commands(set_activity, quit, broadcast)]
+#[commands(echo, set_activity, quit, broadcast)]
 struct SuperUser;
