@@ -52,6 +52,7 @@ struct General;
     captain,
     here,
     join,
+    last,
     leave,
     leave_all,
     list,
