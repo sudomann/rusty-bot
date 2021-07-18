@@ -57,6 +57,7 @@ struct General;
     leave_all,
     list,
     list_all,
+    no_captain,
     pick,
     promote,
     teams,

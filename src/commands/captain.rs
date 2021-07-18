@@ -1,11 +1,11 @@
 use crate::{
     checks::{pug_channel::*, sync_in_progress::*},
     data_structure::{CompletedPug, FilledPug},
-    pug::picking_session::{SetCaptainError, SetCaptainSuccess},
+    pug::picking_session::{SetCaptainError, SetCaptainSuccess, SetNoCaptError},
     utils::player_user_ids_to_users::*,
 };
 use itertools::Itertools;
-use rand::seq::SliceRandom;
+use rand::prelude::IteratorRandom;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
@@ -149,7 +149,7 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
         let data_write = ctx.data.read().await;
         data_write
             .get::<FilledPug>()
-            .expect("Expected PugsWaitingToFill in TypeMap")
+            .expect("Expected FilledPug in TypeMap")
             .clone()
     };
 
@@ -185,11 +185,15 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
         return Ok(());
     }
 
-    let random_players: Vec<(u8, UserId)> = picking_session
+    let excluded_players = picking_session.get_no_capt_players();
+
+    let random_players = picking_session
         .get_remaining()
-        .choose_multiple(&mut rand::thread_rng(), captains_needed)
+        .iter()
+        // exclude players who opted out of being auto-captained
+        .filter(|(_, user_id)| !excluded_players.contains(user_id))
         .cloned()
-        .collect();
+        .choose_multiple(&mut rand::thread_rng(), captains_needed);
 
     for (_, user_id) in random_players {
         match picking_session.set_captain(user_id) {
@@ -285,5 +289,55 @@ pub async fn random_captains(ctx: &Context, msg: &Message, _: Args) -> CommandRe
         }
     }
 
+    Ok(())
+}
+
+#[command("nocapt")]
+#[aliases("nocap", "nocaptain", "nc")]
+#[checks(PugChannel, GuildDataSyncInProgress)]
+/// Exclude yourself from being assigned captain in a filled pug
+///
+/// The **.reset** command also resets this.
+pub async fn no_captain(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
+    let lock_for_filled_pugs = {
+        let data_write = ctx.data.read().await;
+        data_write
+            .get::<FilledPug>()
+            .expect("Expected FilledPug in TypeMap")
+            .clone()
+    };
+
+    let mut filled_pugs = lock_for_filled_pugs.write().await;
+    let guild_id = msg.guild_id.unwrap();
+    let filled_pugs_in_guild = filled_pugs.get_mut(&guild_id).unwrap();
+
+    match filled_pugs_in_guild.front_mut() {
+        Some(picking_session) => {
+            match picking_session.exclude_from_autocaptaining(&msg.author.id) {
+                Ok(()) => {
+                    if msg
+                        .react(&ctx.http, ReactionType::Unicode("👍🏿".to_string()))
+                        .await
+                        .is_err()
+                    {
+                        msg.reply(ctx, ":thumbsup_tone5:").await?
+                    } else {
+                        return Ok(());
+                    }
+                }
+                Err(err) => match err {
+                    SetNoCaptError::ForeignUser(m)
+                    | SetNoCaptError::NoCaptainSlotsRemaining(m)
+                    | SetNoCaptError::IsCaptainAlready(m)
+                    | SetNoCaptError::PlayersExhausted(m) => msg.reply(&ctx.http, m).await?,
+                },
+            }
+        }
+        None => {
+            msg.channel_id
+                .say(&ctx.http, "There's no picking going on right now")
+                .await?
+        }
+    };
     Ok(())
 }
