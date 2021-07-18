@@ -1,13 +1,15 @@
+use crate::{
+    pug::{game_mode::GameMode, player::Player},
+    utils::player_user_ids_to_users::player_user_ids_to_users,
+    TeamVoiceChannels,
+};
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use linked_hash_set::LinkedHashSet;
 use rand::{self, Rng};
-use serenity::model::id::UserId;
-use std::{convert::TryInto, mem};
+use serenity::{client::Context, model::id::UserId};
+use std::{collections::HashSet, convert::TryInto, error::Error, mem};
 use uuid::Uuid;
-
-use crate::TeamVoiceChannels;
-
-use super::{game_mode::GameMode, player::Player};
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub enum PickTurn {
@@ -78,6 +80,13 @@ pub enum PickSuccess {
     Complete,
 }
 
+pub enum SetNoCaptError {
+    ForeignUser(String),
+    NoCaptainSlotsRemaining(String),
+    IsCaptainAlready(String),
+    PlayersExhausted(String),
+}
+
 pub struct PickingSession {
     // TODO: kurrgan suggestion - potentially implement this as an opt out
     // because the UTPugs guys might not like the randomness - ask them and see
@@ -87,6 +96,7 @@ pub struct PickingSession {
     pick_sequence: Vec<PickTurn>,
     pick_history: PickHistory,
     players: Vec<(u8, UserId)>,
+    auto_captain_exclusions: HashSet<UserId>,
     red_team: LinkedHashSet<(u8, UserId)>,
     blue_team: LinkedHashSet<(u8, UserId)>,
     uuid: Uuid,
@@ -172,6 +182,7 @@ impl PickingSession {
             uuid: Uuid::new_v4(),
             last_reset: None,
             voice_channels,
+            auto_captain_exclusions: HashSet::default(),
         }
     }
 
@@ -189,6 +200,10 @@ impl PickingSession {
 
     pub fn get_pick_sequence(&self) -> &Vec<PickTurn> {
         &self.pick_sequence
+    }
+
+    pub fn get_no_capt_players(&self) -> &HashSet<UserId> {
+        &self.auto_captain_exclusions
     }
 
     /// First call which returns [`Ok`] sets captain for one team
@@ -385,7 +400,6 @@ impl PickingSession {
 
     /// Restores this [`PickingSession`] by clearing captains and team picks
     pub fn reset(&mut self) {
-        self.last_reset = Some(Utc::now());
         let players = &mut self.players;
         /* TODO: Some things are currently being done
         to avoid making closures borrow "too much" and
@@ -396,7 +410,9 @@ impl PickingSession {
         players.extend(mem::take(&mut self.blue_team));
         players.extend(mem::take(&mut self.red_team));
         players.sort_by(|a, b| a.0.cmp(&b.0));
+        self.auto_captain_exclusions.clear();
         self.pick_history.clear();
+        self.last_reset = Some(Utc::now());
     }
 
     pub fn latest_reset(&self) -> Option<DateTime<Utc>> {
@@ -425,4 +441,66 @@ impl PickingSession {
     pub fn uuid(&self) -> &Uuid {
         &self.uuid
     }
+
+    pub fn exclude_from_autocaptaining(&mut self, user_id: &UserId) -> Result<(), SetNoCaptError> {
+        let mut captains_needed = 0;
+
+        // check blue captain
+        if let Some((_, blue_captain)) = self.get_blue_captain() {
+            if blue_captain == user_id {
+                return Err(SetNoCaptError::IsCaptainAlready(
+                    "You are already a captain".to_string(),
+                ));
+            }
+        } else {
+            captains_needed += 1;
+        }
+
+        // check red captain
+        if let Some((_, red_captain)) = self.get_red_captain() {
+            if red_captain == user_id {
+                return Err(SetNoCaptError::IsCaptainAlready(
+                    "You are already a captain".to_string(),
+                ));
+            }
+        } else {
+            captains_needed += 1;
+        }
+
+        if captains_needed == 0 {
+            return Err(SetNoCaptError::NoCaptainSlotsRemaining(
+                "Both captain spots are taken, so it's time to pick teams".to_string(),
+            ));
+        }
+
+        // ensure user is a participant in the pug
+        if !self
+            .players
+            .iter()
+            .any(|(_, player_user_id)| player_user_id == user_id)
+        {
+            return Err(SetNoCaptError::ForeignUser(
+                "You are not a partcipant in this pug".to_string(),
+            ));
+        }
+
+        // don't let too many players .nocapt such that there aren't enough players
+        // for the captain timeout process to auto assign
+        let number_of_players = self.players.len();
+        let number_of_autocaptain_exclusions = self.auto_captain_exclusions.len();
+        let number_of_players_available_for_autocaptain =
+            number_of_players - number_of_autocaptain_exclusions;
+
+        if number_of_players_available_for_autocaptain == captains_needed {
+            return Err(SetNoCaptError::PlayersExhausted(format!(
+                "Ignored. Only {} player(s) remaining to fill the {} available captain spot(s)",
+                number_of_players_available_for_autocaptain, captains_needed
+            )));
+        }
+
+        self.auto_captain_exclusions.insert(*user_id);
+        Ok(())
+    }
+}
+
 }
