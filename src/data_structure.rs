@@ -22,6 +22,11 @@ impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
+pub struct DbClientContainer;
+impl TypeMapKey for DbClientContainer {
+    type Value = Arc<Mutex<Firestore>>;
+}
+
 pub struct DesignatedPugChannel;
 impl TypeMapKey for DesignatedPugChannel {
     type Value = Arc<RwLock<HashMap<GuildId, ChannelId>>>;

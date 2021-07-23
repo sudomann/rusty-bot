@@ -82,15 +82,16 @@ When retrieving multiple documents, order by a date field which should indicate 
     -   PugsWaitingToFill
     -   DefaultVoiceChannels
 
-    * On cache_ready, load last 5 for each guild:
+    * On cache_ready, load last 20 (use global? MAX_HISTORY) for each guild:
     -   PugsWaitingToFill
     -   FilledPug
             - if one or both captain captain spot is unfilled,
-            send a message to start timer)
+            send a message to start timer
     -   CompletedPug
 
 
     * DB storage job every 1 min:
+    >>>>If it has an id in mem, overwrite playerlist, if not, create new
     -   PugsWaitingToFill
     -   FilledPug
     -   CompletedPug
@@ -100,8 +101,5 @@ When retrieving multiple documents, order by a date field which should indicate 
     -   PugsWaitingToFill
     -   FilledPug
     -   CompletedPug
-
-
-    * Every 5 mins, check for players that have been in pug for over 5 hours
 
 */

@@ -77,7 +77,10 @@ pub async fn dispatch_error(context: &Context, msg: &Message, error: DispatchErr
         }
         DispatchError::LackingRole => {
             let _ = msg
-                .reply(&context.http, "You're lacking a role this command requires")
+                .reply(
+                    &context.http,
+                    "This command requires a role you do not have.",
+                )
                 .await;
         }
         DispatchError::LackingPermissions(info) => {

@@ -1,8 +1,9 @@
 use crate::{
     data_structure::{
-        CompletedPug, DefaultVoiceChannels, DesignatedPugChannel, FilledPug, PugsWaitingToFill,
-        RegisteredGameModes,
+        CompletedPug, DbClientContainer, DefaultVoiceChannels, DesignatedPugChannel, FilledPug,
+        PugsWaitingToFill, RegisteredGameModes,
     },
+    db::{client::DbClient, firestore::Firestore},
     jobs::start_jobs,
     pug::{
         game_mode::GameMode, picking_session::PickingSession, player::Players,
@@ -16,6 +17,7 @@ use serenity::{
         channel::{GuildChannel, Message},
         event::ResumedEvent,
         gateway::{Activity, Ready},
+        guild::Guild,
         id::GuildId,
         prelude::OnlineStatus::*,
     },
@@ -30,38 +32,19 @@ use tracing::info;
 
 pub struct Handler;
 
-// pub(crate) const HOUR: u64 = 3600;
-
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
         ctx.set_activity(Activity::playing("Bugs? Message sudomann#9568"))
             .await;
-        /*
-        {
-            let mut data = ctx.data.write();
-            data.insert::<command_history::CommandHistory>(IndexMap::new());
-            jobs::start_jobs(cx);
-        }
-        */
     }
 
-    /*
-    fn message_update(
-        &self,
-        ctx: Context,
-        _: Option<Message>,
-        _: Option<Message>,
-        ev: MessageUpdateEvent,
-    ) {
-        if let Err(e) = command_history::replay_message(ctx, ev, &self.cmds) {
-            error!("{}", e);
-        }
-    }
-    */
+    async fn cache_ready(&self, ctx: Context, guild_ids: Vec<GuildId>) {
+        let db_client = Firestore::create()
+            .await
+            .expect("Expected Firestore db client to be created");
 
-    async fn cache_ready(&self, context: Context, guild_ids: Vec<GuildId>) {
         let designated_pug_channel = HashMap::default();
         let mut registered_game_modes: HashMap<GuildId, HashSet<GameMode>> = HashMap::default();
         let mut pugs_waiting_to_fill: HashMap<GuildId, HashMap<GameMode, Players>> =
@@ -71,6 +54,16 @@ impl EventHandler for Handler {
         let mut team_voice_channels: HashMap<GuildId, TeamVoiceChannels> = HashMap::default();
         let preset_gamemodes: HashSet<GameMode> = HashSet::default();
 
+        // FIXME! remove db specific code from here
+        /*  Firestore's REST API as of writing does not allow generating our own database ids as of yet.
+            We have to use the default database id which is currently the following
+            (glaringly literal) string:
+            (default)
+            And yes, you have to include the parentheses
+        */
+        // projects/ut4-hubs/databases/(default)/documents/CompletedPug/
+        let firestore_db_id = std::env::var("FIRESTORE_DB_ID").unwrap_or("(default)".to_string());
+        info!("Announce db being used");
         // initialize pug state data
         for guild_id in guild_ids.iter() {
             registered_game_modes.insert(*guild_id, preset_gamemodes.clone());
@@ -86,7 +79,8 @@ impl EventHandler for Handler {
         }
 
         {
-            let mut data = context.data.write().await;
+            let mut data = ctx.data.write().await;
+            data.insert::<DbClientContainer>(Arc::new(Mutex::new(db_client)));
             data.insert::<DesignatedPugChannel>(Arc::new(RwLock::new(designated_pug_channel)));
             data.insert::<RegisteredGameModes>(Arc::new(RwLock::new(registered_game_modes)));
             data.insert::<PugsWaitingToFill>(Arc::new(RwLock::new(pugs_waiting_to_fill)));
@@ -130,6 +124,12 @@ impl EventHandler for Handler {
     ) {
         // TODO: check pending pug data and remove the user giving the reason, they've just been banned
         // For past, completed pugs, maybe modify the data (i.e. User.name) to indicate somehow "BANNED"
+    }
+
+    async fn guild_create(&self, _ctx: Context, _guild: Guild, is_new: bool) {
+        if is_new {
+            // TODO: create data map in db and in memory
+        }
     }
 
     async fn guild_member_addition(
@@ -212,8 +212,8 @@ impl EventHandler for Handler {
         if !game_modes_removed_from.is_empty() {
             let message = MessageBuilder::new()
                 .push(user_id.mention())
-                .push(" you were removed from ")
-                .push(join(game_modes_removed_from, " :small_orange_diamond: "))
+                .push_line(" you were removed from ")
+                .push_line(join(game_modes_removed_from, " :small_orange_diamond: "))
                 .push(" because you went invisible/offline")
                 .build();
             let _ = pug_channel_id.say(&ctx.http, message).await;

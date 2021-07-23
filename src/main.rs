@@ -20,10 +20,12 @@ use std::{collections::HashSet, env, str::FromStr};
 use tracing::error;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
+pub const HOUR: u16 = 3600;
+pub type SendSyncError = Box<dyn std::error::Error + Send + Sync>;
+
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
-
     // Initialize the logger using environment variables.
     let subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())

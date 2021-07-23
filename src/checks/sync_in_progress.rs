@@ -16,6 +16,7 @@ async fn is_guild_data_sync_in_progress(
 ) -> Result<(), Reason> {
     // TODO: Check check memory to see if message guild is
     // currently being synced.
+    return Ok(());
     Err(Reason::UserAndLog {
         user: "Please wait a little longer to use this command.\
         \nThis this server's data is currently being synced to a database."
