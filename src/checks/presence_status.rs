@@ -8,7 +8,6 @@ const NO_INVIS_OR_OFFLINE_MSG: &str = "Invisible/Offline players cannot particip
 
 #[check]
 #[name = "NoInvisbleOrOfflineStatus"]
-#[check_in_help(false)]
 #[display_in_help(false)]
 async fn is_not_invisible_or_offline_status(
     ctx: &Context,
