@@ -1,4 +1,5 @@
 use crate::data_structure::{CompletedPug, DefaultVoiceChannels};
+use chrono::Utc;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::*,
@@ -68,6 +69,13 @@ async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         return Ok(());
     }
     let session = last_pug.unwrap();
+
+    let time_elapsed_since_filled = session.get_created() - Utc::now();
+    if time_elapsed_since_filled.num_minutes() > 30 {
+        msg.reply(ctx, "It's been over 30 minutes since the last pug filled")
+            .await?;
+        return Ok(());
+    }
 
     // TODO: this command shouldnt be useable beyond 5 mins post pug completion
 
