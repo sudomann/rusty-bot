@@ -8,11 +8,12 @@ use serenity::{
 use std::collections::HashSet;
 
 #[help]
-#[strikethrough_commands_tip_in_guild = "Commands with a strikethrough like ~~`this`~~ are unavailable to you because of one or more of the following:\n\
+#[strikethrough_commands_tip_in_guild = "Commands with a strikethrough like ~~`this`~~ \
+    are unavailable to you because of one or more of the following:\n\
     - You do not have some permission and/or role the command requires\n\
-    - I did a check and it did not pass. For example \n\
-            \t- is this channel permitted for use?\n\
-            \t- is the command dm-only (or guild-only)?"]
+    - I did a check and it did not pass. For example, \
+    is this channel permitted for use? \
+    is the command dm-only (or guild-only)?"]
 #[strikethrough_commands_tip_in_dm = ""]
 #[lacking_conditions = "nothing"]
 #[lacking_role = "strike"]
