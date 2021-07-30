@@ -41,9 +41,16 @@ impl EventHandler for Handler {
     }
 
     async fn cache_ready(&self, ctx: Context, guild_ids: Vec<GuildId>) {
-        let db_client = Firestore::create()
-            .await
-            .expect("Expected Firestore db client to be created");
+        /*
+        let db_client = match Firestore::create().await {
+            Ok(firestore) => {
+                // TODO
+            }
+            Err(err) => {
+                // TODO
+            }
+        };
+        */
 
         let designated_pug_channel = HashMap::default();
         let mut registered_game_modes: HashMap<GuildId, HashSet<GameMode>> = HashMap::default();
@@ -80,7 +87,7 @@ impl EventHandler for Handler {
 
         {
             let mut data = ctx.data.write().await;
-            data.insert::<DbClientContainer>(Arc::new(Mutex::new(db_client)));
+            // data.insert::<DbClientContainer>(Arc::new(Mutex::new(db_client)));
             data.insert::<DesignatedPugChannel>(Arc::new(RwLock::new(designated_pug_channel)));
             data.insert::<RegisteredGameModes>(Arc::new(RwLock::new(registered_game_modes)));
             data.insert::<PugsWaitingToFill>(Arc::new(RwLock::new(pugs_waiting_to_fill)));
