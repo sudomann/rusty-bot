@@ -63,12 +63,28 @@ async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 
     let completed_pugs_in_guild = completed_pugs.get(&guild_id).unwrap();
 
-    let last_pug = completed_pugs_in_guild.last();
-    if last_pug.is_none() {
+    let session = if let Some(last_pug) = completed_pugs_in_guild.last() {
+        let blue_team = last_pug.get_blue_team();
+        let red_team = last_pug.get_red_team();
+        if blue_team
+            .iter()
+            .all(|(_, user_id)| *user_id != msg.author.id)
+            && red_team
+                .iter()
+                .all(|(_, user_id)| *user_id != msg.author.id)
+        {
+            msg.reply(
+                ctx,
+                "You cannot use this command when you are not in the pug",
+            )
+            .await?;
+            return Ok(());
+        }
+        last_pug
+    } else {
         msg.reply(ctx, "No completed pugs").await?;
         return Ok(());
-    }
-    let session = last_pug.unwrap();
+    };
 
     let time_elapsed_since_filled = session.get_created() - Utc::now();
     if time_elapsed_since_filled.num_minutes() > 30 {
@@ -76,8 +92,6 @@ async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
             .await?;
         return Ok(());
     }
-
-    // TODO: this command shouldnt be useable beyond 5 mins post pug completion
 
     let afk_channel = match guild_id.to_guild_cached(ctx).await {
         Some(guild) => guild.afk_channel_id,
