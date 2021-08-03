@@ -19,7 +19,7 @@ pub mod remove;
 pub mod reset;
 pub mod teams;
 pub mod voices;
-use crate::checks::pug_channel::*;
+use crate::checks::{pug_channel::*, roles::*};
 use add::*;
 use broadcast::*;
 use captain::*;
@@ -78,7 +78,10 @@ struct Stats;
 
 #[group]
 #[only_in("guilds")]
-#[allowed_roles("admin", "pugbot-admin")]
+// #[allowed_roles("admin", "pugbot-admin")] <--- unreliable - ignores owner_privilege
+// replicated its behavior in BotAdmin check
+#[checks(BotAdmin)]
+#[owner_privilege]
 #[commands(
     pug_channel_set,
     register_game_mode,
@@ -90,7 +93,6 @@ struct Stats;
     reset,
     random_captains
 )]
-#[owner_privilege]
 struct Moderation; // pugban, pugunban, etc.
 
 #[group]
