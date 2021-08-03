@@ -99,24 +99,24 @@ async fn leave_handler(
     }
 
     if !unfilled_pugs_removed_from.is_empty() {
-        let a = unfilled_pugs_removed_from
+        let game_mode_label = unfilled_pugs_removed_from
             .iter()
             .format_with(" :small_orange_diamond: ", |g, f| {
                 f(&format_args!("{}", g.label()))
             });
         message.push(user_to_remove);
-        message.push(" has been removed from ").push_line(a);
+        message.push(" removed from ").push_line(game_mode_label);
     }
 
     if !filled_pugs_removed_from.is_empty() {
-        let a = filled_pugs_removed_from
+        let game_mode_label = filled_pugs_removed_from
             .iter()
             .format_with(" :small_orange_diamond: ", |g, f| {
                 f(&format_args!("{}", g.label()))
             });
         message
             .push_line("")
-            .push(a)
+            .push(game_mode_label)
             .push_bold_line(" cancelled")
             .push("TODO: ping vacated players");
     }
