@@ -125,7 +125,7 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                                 let ht = HumanTime::from(player.time_elapsed_since_join());
                                 f(&format_args!(
                                     "{} [{}]",
-                                    player.get_user().name,
+                                    player.get_user_data().name,
                                     ht.to_text_en(Accuracy::RoughShort, Tense::Present)
                                 ))
                             });
@@ -157,12 +157,12 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             let participants_text = existing_players
                 .iter()
                 .format_with(" :small_orange_diamond: ", |player, f| {
-                    f(&format_args!("{}", player.get_user().mention()))
+                    f(&format_args!("{}", player.get_user_data().mention()))
                 });
             let participants_text_for_dm = existing_players
                 .iter()
                 .format_with(" :small_orange_diamond: ", |player, f| {
-                    f(&format_args!("{}", player.get_user().name))
+                    f(&format_args!("{}", player.get_user_data().name))
                 });
             let notice = format!("{} has been filled! ", filled_game_mode.label());
             let mut dm_announcement = MessageBuilder::new();
@@ -185,7 +185,7 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             for player in existing_players.iter() {
                 // We don't particularly care for the result of a DM attempt
                 let _ = player
-                    .get_user()
+                    .get_user_data()
                     .direct_message(&ctx, |m| m.content(&dm_announcement))
                     .await;
             }
@@ -231,7 +231,7 @@ pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                 if let Some(ref filled_pug_players) = player_copy {
                     for player in filled_pug_players {
                         if participants.remove(player) {
-                            _removals.insert(current_game_mode, &player.get_user().id);
+                            _removals.insert(current_game_mode, &player.get_user_data().id);
                         }
                     }
                 }

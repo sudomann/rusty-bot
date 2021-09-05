@@ -39,7 +39,7 @@ pub async fn remove_expired_players(ctx: &Context) {
                 if player.time_elapsed_since_join().num_minutes() > SIX_HOURS {
                     message.push_line(
                     format!("{} - you were removed from {} because it's been six hours since you joined",
-                    player.get_user().mention(),
+                    player.get_user_data().mention(),
                     game_mode.label())
                     );
                     players.remove(player);

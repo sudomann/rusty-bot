@@ -31,7 +31,11 @@ async fn list_helper(ctx: &Context, guild_id: &GuildId, verbose: bool) -> String
                     .iter()
                     .format_with(" :small_orange_diamond: ", |player, f| {
                         let ht = HumanTime::from(player.time_elapsed_since_join());
-                        f(&format_args!("{} [{}]", player.get_user().name.clone(), ht,))
+                        f(&format_args!(
+                            "{} [{}]",
+                            player.get_user_data().name.clone(),
+                            ht,
+                        ))
                     });
             response.push_line(format!(
                 "**{}** [{}/{}]: {}",
