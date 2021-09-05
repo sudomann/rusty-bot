@@ -1,4 +1,7 @@
-use crate::data_structure::{CompletedPug, DefaultVoiceChannels};
+use crate::{
+    checks::bot_voice_permission::*,
+    data_structure::{CompletedPug, DefaultVoiceChannels},
+};
 use chrono::Utc;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
@@ -17,6 +20,7 @@ enum Action {
 }
 
 #[command]
+#[checks(BotHasVoicePermission)]
 #[aliases("voice", "eugene")]
 #[max_args(0)]
 #[allowed_roles("admin", "voice_channel_admin")]
@@ -29,23 +33,6 @@ async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         Ok(info) => info.id,
         Err(why) => panic!("Could not access application info: {:?}", why),
     };
-    let bot_membership = guild_id.member(ctx, bot_id).await?;
-    let has_move_members_perm = bot_membership
-        .permissions(ctx)
-        .await
-        .expect("Expected to get bot permissions in guild")
-        .move_members();
-
-    if !has_move_members_perm {
-        msg.channel_id
-            .say(
-                ctx,
-                "I don't have the `Move Members` permission :( \
-            Please contact an admin to fix this so I can move players",
-            )
-            .await?;
-        return Ok(());
-    }
 
     let data = ctx.data.read().await;
 
@@ -93,7 +80,7 @@ async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         return Ok(());
     }
 
-    let afk_channel = match guild_id.to_guild_cached(ctx).await {
+    let afk_channel_id = match guild_id.to_guild_cached(ctx).await {
         Some(guild) => guild.afk_channel_id,
         None => {
             let guild = guild_id.to_partial_guild(ctx).await?;
@@ -101,7 +88,7 @@ async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         }
     };
     let mut excluded_players: Vec<UserId> = Vec::default();
-    if let Some(channel_id) = afk_channel {
+    if let Some(channel_id) = afk_channel_id {
         let afk_voice_channel = channel_id.to_channel(ctx).await?.guild().unwrap();
         for member in afk_voice_channel.members(ctx).await? {
             excluded_players.push(member.user.id);
