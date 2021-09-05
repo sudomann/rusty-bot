@@ -22,17 +22,11 @@ enum Action {
 #[command]
 #[checks(BotHasVoicePermission)]
 #[aliases("voice", "eugene")]
-#[max_args(0)]
 #[allowed_roles("admin", "voice_channel_admin")]
 /// Moves pug participants into their team voice channels if they are not in them already.
 /// Only works on people that are already connected to voice chat
 async fn voices(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
-
-    let bot_id = match ctx.http.get_current_application_info().await {
-        Ok(info) => info.id,
-        Err(why) => panic!("Could not access application info: {:?}", why),
-    };
 
     let data = ctx.data.read().await;
 
