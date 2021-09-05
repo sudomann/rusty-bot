@@ -10,7 +10,7 @@ use serenity::{
 ///
 /// For use making administrative announcements only,
 /// such as taking the bot down for upgrades and maintenance
-async fn broadcast(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-  // TODO: implement this
+async fn broadcast(_ctx: &Context, _msg: &Message, _: Args) -> CommandResult {
+    // TODO: implement this
     Ok(())
 }

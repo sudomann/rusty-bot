@@ -10,13 +10,14 @@ use serenity::{
 #[display_in_help(false)]
 async fn is_guild_data_sync_in_progress(
     _: &Context,
-    msg: &Message,
+    _msg: &Message,
     _: &mut Args,
     _: &CommandOptions,
 ) -> Result<(), Reason> {
     // TODO: Check check memory to see if message guild is
     // currently being synced.
-    return Ok(());
+    Ok(())
+    /*
     Err(Reason::UserAndLog {
         user: "Please wait a little longer to use this command.\
         \nThis this server's data is currently being synced to a database."
@@ -26,4 +27,5 @@ async fn is_guild_data_sync_in_progress(
             msg.author.id, msg.author.name, msg.guild_id
         ),
     })
+    */
 }
