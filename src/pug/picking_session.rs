@@ -59,11 +59,14 @@ pub enum SetCaptainSuccess {
     },
 }
 
+// FIXME: why are some of these variants never constructer? make sure to use or remove
 pub enum PickError {
     PlayersExhausted(String),
+    #[allow(dead_code)]
     HistoryInvariantViolation(String),
     PickSequenceInvariantViolation(String),
     InvalidPlayerNumber(String),
+    #[allow(dead_code)]
     ForeignUser(String),
 }
 
@@ -104,6 +107,7 @@ pub struct PickingSession {
     blue_team: LinkedHashSet<(u8, UserId)>,
     uuid: Uuid,
     last_reset: Option<DateTime<Utc>>,
+    #[allow(dead_code)]
     voice_channels: Option<TeamVoiceChannels>,
 }
 
@@ -226,6 +230,7 @@ impl PickingSession {
         Ok(compose_text_for_group(ctx, &self.player_lineup, true).await?)
     }
 
+    #[allow(dead_code)]
     pub fn get_pick_sequence(&self) -> &Vec<PickTurn> {
         &self.pick_sequence
     }
