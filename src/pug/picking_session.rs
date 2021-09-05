@@ -95,7 +95,10 @@ pub struct PickingSession {
     created: DateTime<Utc>,
     pick_sequence: Vec<PickTurn>,
     pick_history: PickHistory,
-    players: Vec<(u8, UserId)>,
+    /// A "write once" list of players for conveniently checking pug participants
+    player_list: Vec<UserId>,
+    /// A list of number-labelled users who have not yet been assigned to a team
+    player_lineup: Vec<(u8, UserId)>,
     auto_captain_exclusions: HashSet<UserId>,
     red_team: LinkedHashSet<(u8, UserId)>,
     blue_team: LinkedHashSet<(u8, UserId)>,
@@ -110,11 +113,13 @@ impl PickingSession {
         players: LinkedHashSet<Player>,
         voice_channels: Option<TeamVoiceChannels>,
     ) -> Self {
-        let mut enumerated_players: Vec<(u8, UserId)> = Vec::new();
+        let mut participants: Vec<UserId> = Vec::default();
+        let mut enumerated_players: Vec<(u8, UserId)> = Vec::default();
         for (index, player) in players.iter().enumerate() {
             // cast index from usize to u8. We use try_into().unwrap() so it never fails silently
             let player_number = TryInto::<u8>::try_into(index).unwrap() + 1;
-            enumerated_players.push((player_number, player.get_user().id));
+            enumerated_players.push((player_number, player.get_user_data().id));
+            participants.push(player.get_user_data().id);
         }
 
         let options = [PickTurn::Blue, PickTurn::Red];
@@ -176,7 +181,8 @@ impl PickingSession {
             created: Utc::now(),
             pick_sequence,
             pick_history: Vec::default(),
-            players: enumerated_players,
+            player_list: participants,
+            player_lineup: enumerated_players,
             red_team: LinkedHashSet::default(),
             blue_team: LinkedHashSet::default(),
             uuid: Uuid::new_v4(),
@@ -217,7 +223,7 @@ impl PickingSession {
         &self,
         ctx: &Context,
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
-        Ok(compose_text_for_group(ctx, &self.players, true).await?)
+        Ok(compose_text_for_group(ctx, &self.player_lineup, true).await?)
     }
 
     pub fn get_pick_sequence(&self) -> &Vec<PickTurn> {
@@ -269,7 +275,7 @@ impl PickingSession {
         }
 
         let player = self
-            .players
+            .player_lineup
             .iter()
             .find(|player| player.1 == user_id)
             .ok_or(SetCaptainError::ForeignUser(
@@ -320,7 +326,7 @@ impl PickingSession {
     /// then moves them and updates pick history.
     pub fn pick(&mut self, picked_player_number: u8) -> Result<PickSuccess, PickError> {
         let found_index = self
-            .players
+            .player_lineup
             .iter()
             .position(|p| p.0 == picked_player_number)
             .ok_or(PickError::InvalidPlayerNumber(format!(
@@ -343,12 +349,13 @@ impl PickingSession {
         if history_length_before_insert > 2 {
             match picking_team {
                 PickTurn::Blue => {
-                    self.blue_team.insert(self.players.remove(found_index));
+                    self.blue_team
+                        .insert(self.player_lineup.remove(found_index));
                     self.pick_history
                         .push(TeamPickAction::BluePlayer(picked_player_number));
                 }
                 PickTurn::Red => {
-                    self.red_team.insert(self.players.remove(found_index));
+                    self.red_team.insert(self.player_lineup.remove(found_index));
                     self.pick_history
                         .push(TeamPickAction::RedPlayer(picked_player_number));
                 }
@@ -358,11 +365,12 @@ impl PickingSession {
             // history insertions should be the captain variant
             match picking_team {
                 PickTurn::Blue => {
-                    self.blue_team.insert(self.players.remove(found_index));
+                    self.blue_team
+                        .insert(self.player_lineup.remove(found_index));
                     self.pick_history.push(TeamPickAction::BlueCaptain);
                 }
                 PickTurn::Red => {
-                    self.red_team.insert(self.players.remove(found_index));
+                    self.red_team.insert(self.player_lineup.remove(found_index));
                     self.pick_history.push(TeamPickAction::RedCaptain);
                 }
             }
@@ -370,9 +378,9 @@ impl PickingSession {
 
         // check whether only one player remains - if true, auto assign them
 
-        if self.players.len() == 1 {
+        if self.player_lineup.len() == 1 {
             let last_player = self
-                .players
+                .player_lineup
                 .last()
                 .ok_or(PickError::PlayersExhausted(
                     "Tried to auto pick last player, but player list was empty.\n
@@ -417,12 +425,12 @@ impl PickingSession {
 
     // get list of yet unpicked players
     pub fn get_remaining(&self) -> &Vec<(u8, UserId)> {
-        &self.players
+        &self.player_lineup
     }
 
     /// Restores this [`PickingSession`] by clearing captains and team picks
     pub fn reset(&mut self) {
-        let players = &mut self.players;
+        let players = &mut self.player_lineup;
         /* TODO: Some things are currently being done
         to avoid making closures borrow "too much" and
         forcing you to perform borrow splitting manually, i.e.
@@ -443,7 +451,7 @@ impl PickingSession {
 
     pub fn is_completed(&self) -> bool {
         let full_team_size = self.game_mode.player_count / 2;
-        self.players.len() == 0
+        self.player_lineup.len() == 0
             && self.pick_history.len() as u8 == self.game_mode.player_count
             && self.blue_team.len() as u8 == full_team_size
             && self.red_team.len() as u8 == full_team_size
@@ -497,7 +505,7 @@ impl PickingSession {
 
         // ensure user is a participant in the pug
         if !self
-            .players
+            .player_lineup
             .iter()
             .any(|(_, player_user_id)| player_user_id == user_id)
         {
@@ -508,7 +516,7 @@ impl PickingSession {
 
         // don't let too many players .nocapt such that there aren't enough players
         // for the captain timeout process to auto assign
-        let number_of_players = self.players.len();
+        let number_of_players = self.player_lineup.len();
         let number_of_autocaptain_exclusions = self.auto_captain_exclusions.len();
         let number_of_players_available_for_autocaptain =
             number_of_players - number_of_autocaptain_exclusions;
