@@ -1,4 +1,5 @@
 pub mod add;
+pub mod assemble;
 pub mod broadcast;
 pub mod captain;
 pub mod coinflip;
@@ -21,6 +22,7 @@ pub mod teams;
 pub mod voices;
 use crate::checks::{pug_channel::*, roles::*};
 use add::*;
+use assemble::*;
 use broadcast::*;
 use captain::*;
 use coinflip::*;
@@ -57,6 +59,7 @@ struct General;
     leave_all,
     list,
     list_all,
+    assemble,
     no_captain,
     pick,
     promote,
