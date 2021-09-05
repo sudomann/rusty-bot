@@ -96,7 +96,7 @@ pub struct PickingSession {
     pick_sequence: Vec<PickTurn>,
     pick_history: PickHistory,
     /// A "write once" list of players for conveniently checking pug participants
-    player_list: Vec<UserId>,
+    player_list: HashSet<UserId>,
     /// A list of number-labelled users who have not yet been assigned to a team
     player_lineup: Vec<(u8, UserId)>,
     auto_captain_exclusions: HashSet<UserId>,
@@ -113,13 +113,13 @@ impl PickingSession {
         players: LinkedHashSet<Player>,
         voice_channels: Option<TeamVoiceChannels>,
     ) -> Self {
-        let mut participants: Vec<UserId> = Vec::default();
+        let mut participants: HashSet<UserId> = HashSet::default();
         let mut enumerated_players: Vec<(u8, UserId)> = Vec::default();
         for (index, player) in players.iter().enumerate() {
             // cast index from usize to u8. We use try_into().unwrap() so it never fails silently
             let player_number = TryInto::<u8>::try_into(index).unwrap() + 1;
             enumerated_players.push((player_number, player.get_user_data().id));
-            participants.push(player.get_user_data().id);
+            participants.insert(player.get_user_data().id);
         }
 
         let options = [PickTurn::Blue, PickTurn::Red];
@@ -407,6 +407,10 @@ impl PickingSession {
             // out of bounds
             None => PickSuccess::Complete,
         })
+    }
+
+    pub fn get_player_list(&self) -> &HashSet<UserId> {
+        &self.player_list
     }
 
     /// Returns blue team captain - first player in team collection
