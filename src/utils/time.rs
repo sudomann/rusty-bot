@@ -31,19 +31,18 @@ pub enum Accuracy {
 
 impl Accuracy {
     /// Returns whether this accuracy is precise
-    #[must_use]
+    #[allow(dead_code)]
     pub fn is_precise(self) -> bool {
         self == Self::Precise
     }
 
     /// Returns whether this accuracy is rough
-    #[must_use]
     pub fn is_rough(self) -> bool {
         self == Self::Rough
     }
 
     /// Returns whether this accuracy is rough (shortened)
-    #[must_use]
+    #[allow(dead_code)]
     pub fn is_rough_short(self) -> bool {
         self == Self::RoughShort
     }
@@ -154,12 +153,6 @@ pub struct HumanTime(Duration);
 impl HumanTime {
     const DAYS_IN_YEAR: i64 = 365;
     const DAYS_IN_MONTH: i64 = 30;
-
-    /// Create `HumanTime` object that corresponds to the current point in time.
-    ///. Similar to `chrono::Utc::now()`
-    pub fn now() -> Self {
-        Self(Duration::zero())
-    }
 
     /// Gives English text representation of the `HumanTime` with given `accuracy` and 'tense`
     #[must_use]
