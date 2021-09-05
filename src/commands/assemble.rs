@@ -26,7 +26,7 @@ async fn assemble(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let lock_for_completed_pugs = data
         .get::<CompletedPug>()
         .expect("Expected CompletedPug in TypeMap");
-    let mut completed_pugs = lock_for_completed_pugs.read().await;
+    let completed_pugs = lock_for_completed_pugs.read().await;
     let completed_pugs_in_guild = completed_pugs.get(&guild_id).unwrap();
 
     // exit early if the most recent pug is older than maximum allowed age
