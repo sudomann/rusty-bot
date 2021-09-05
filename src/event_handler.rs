@@ -1,9 +1,9 @@
 use crate::{
     data_structure::{
-        CompletedPug, DbClientContainer, DefaultVoiceChannels, DesignatedPugChannel, FilledPug,
-        PugsWaitingToFill, RegisteredGameModes,
+        CompletedPug, /* DbClientContainer, */ DefaultVoiceChannels, DesignatedPugChannel,
+        FilledPug, PugsWaitingToFill, RegisteredGameModes,
     },
-    db::{client::DbClient, firestore::Firestore},
+    // db::{client::DbClient, firestore::Firestore},
     jobs::start_jobs,
     pug::{
         game_mode::GameMode, picking_session::PickingSession, player::Players,
@@ -69,7 +69,7 @@ impl EventHandler for Handler {
             And yes, you have to include the parentheses
         */
         // projects/ut4-hubs/databases/(default)/documents/CompletedPug/
-        let firestore_db_id = std::env::var("FIRESTORE_DB_ID").unwrap_or("(default)".to_string());
+        // let _firestore_db_id = std::env::var("FIRESTORE_DB_ID").unwrap_or("(default)".to_string());
         info!("Announce db being used");
         // initialize pug state data
         for guild_id in guild_ids.iter() {
