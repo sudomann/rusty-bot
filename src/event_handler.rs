@@ -219,9 +219,9 @@ impl EventHandler for Handler {
         if !game_modes_removed_from.is_empty() {
             let message = MessageBuilder::new()
                 .push(user_id.mention())
-                .push_line(" you were removed from ")
+                .push(" you were removed from ")
                 .push_line(join(game_modes_removed_from, " :small_orange_diamond: "))
-                .push(" because you went invisible/offline")
+                .push("because you went invisible/offline")
                 .build();
             let _ = pug_channel_id.say(&ctx.http, message).await;
         }
