@@ -1,12 +1,14 @@
 pub mod model;
 pub mod read;
 pub mod write;
-
 use mongodb::{options::ClientOptions, Client};
 use std::env;
+use tracing::{info, instrument};
 
 /// Creates a [`mongodb::Client`] connected to the database cluster and store a client
+#[instrument]
 pub async fn setup() -> Client {
+    info!("Launching connection to database deployment/cluster");
     let connection_string = env::var("MONGO_URI").expect("Expected MONGO_URI in the environment");
 
     // Parse a connection string into an options struct.
