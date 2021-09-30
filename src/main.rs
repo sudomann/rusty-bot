@@ -5,16 +5,14 @@ pub mod interaction_handlers;
 pub mod jobs;
 pub mod utils;
 use event_handler::Handler;
-use mongodb::{options::ClientOptions, Client as DbClient};
-use serenity::{client::bridge::gateway::ShardManager, http::Http, model::id::UserId, prelude::*};
+use serenity::{client::bridge::gateway::ShardManager, http::Http, prelude::*};
 use std::{
-    collections::HashSet,
     env,
-    str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
 use tracing::error;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use utils::crucial_user_ids;
 
 pub struct ShardManagerContainer;
 impl TypeMapKey for ShardManagerContainer {
@@ -33,33 +31,17 @@ async fn main() {
     tokio::spawn(async { db::setup() });
 
     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
-    let http = Http::new_with_token(token.as_str());
 
     // Fetch bot id and superusers' ids
-    let (_owners, bot_id) = match http.get_current_application_info().await {
-        Ok(info) => {
-            let mut owners: HashSet<UserId> = match env::var("SUPERUSERS") {
-                Ok(superusers) => {
-                    let superuser_ids: HashSet<&str> = superusers.split_terminator(',').collect();
-                    superuser_ids
-                        .iter()
-                        .filter_map(|id| UserId::from_str(id).ok())
-                        .collect()
-                }
-                Err(_err) => HashSet::default(),
-            };
-            owners.insert(info.owner.id);
-
-            (owners, info.id)
-        }
-        Err(why) => panic!("Could not access application info: {:?}", why),
-    };
+    let important_user_ids = crucial_user_ids::obtain(Http::new_with_token(token.as_str()))
+        .await
+        .expect("Could not access application info: {:?}");
 
     let mut client = Client::builder(&token)
         .event_handler(Handler {
             is_loop_running: AtomicBool::new(false),
         })
-        .application_id(*bot_id.as_u64())
+        .application_id(*important_user_ids.get_bot().as_u64())
         .await
         .expect("Error creating client");
     {
