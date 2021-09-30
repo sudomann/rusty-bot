@@ -3,7 +3,7 @@ use serenity::model::id::GuildId;
 use std::env;
 
 /// Creates a [`mongodb::Client`] connected to the database cluster and store a client
-pub async fn setup() -> Result<Client, mongodb::error::Error> {
+pub async fn setup() -> Client {
     let connection_string = env::var("MONGO_URI").expect("Expected MONGO_URI in the environment");
 
     // Parse a connection string into an options struct.
@@ -15,7 +15,7 @@ pub async fn setup() -> Result<Client, mongodb::error::Error> {
 
     // Try to get and return a handle to the db cluster/deployment.
     Client::with_options(client_options)
-}
+        .expect("Expected a new mongodb::Client connected to the cluster/deployment")
 
 // can these be combined with the picking_session module?
 pub async fn write_new_game_mode() -> Result<(), ()> {

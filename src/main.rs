@@ -22,7 +22,7 @@ impl TypeMapKey for ShardManagerContainer {
 
 pub struct DbClientSetupHandle;
 impl TypeMapKey for DbClientSetupHandle {
-    type Value = JoinHandle<Result<mongodb::Client, mongodb::error::Error>>;
+    type Value = JoinHandle<mongodb::Client>;
 }
 
 #[tokio::main]
