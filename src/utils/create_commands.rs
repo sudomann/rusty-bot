@@ -10,9 +10,6 @@ pub async fn create_slash_commands(
     ctx: &Context,
     guild_id: GuildId,
 ) -> Result<Vec<ApplicationCommand>, SerenityError> {
-    // GuildId(189984496655925258) // Unreal Carnage
-    // GuildId(209722283894374400) // Bird Farm
-
     guild_id
         .set_application_commands(&ctx.http, |commands| {
             commands
