@@ -10,6 +10,7 @@ use std::{
     env,
     sync::{atomic::AtomicBool, Arc},
 };
+use tokio::task::JoinHandle;
 use tracing::error;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 use utils::crucial_user_ids;
@@ -17,6 +18,11 @@ use utils::crucial_user_ids;
 pub struct ShardManagerContainer;
 impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
+}
+
+pub struct DbClientSetupHandle;
+impl TypeMapKey for DbClientSetupHandle {
+    type Value = JoinHandle<Result<mongodb::Client, mongodb::error::Error>>;
 }
 
 #[tokio::main]
@@ -28,7 +34,7 @@ async fn main() {
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to start the logger");
 
-    tokio::spawn(async { db::setup() });
+    let handle_to_db_client_setup = tokio::spawn(async { db::setup().await });
 
     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
 
@@ -47,6 +53,7 @@ async fn main() {
     {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
+        data.insert::<DbClientSetupHandle>(handle_to_db_client_setup);
     }
 
     let shard_manager = client.shard_manager.clone();
