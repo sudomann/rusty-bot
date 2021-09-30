@@ -1,10 +1,9 @@
-use std::env;
-
 use mongodb::{options::ClientOptions, Client};
 use serenity::model::id::GuildId;
+use std::env;
 
 /// Creates a [`mongodb::Client`] connected to the database cluster and store a client
-pub async fn setup() {
+pub async fn setup() -> Result<Client, mongodb::error::Error> {
     let connection_string = env::var("MONGO_URI").expect("Expected MONGO_URI in the environment");
 
     // Parse a connection string into an options struct.
@@ -12,14 +11,10 @@ pub async fn setup() {
         .await
         .expect("Expected successful parsing of connection string");
 
-    // Manually set an option.
     client_options.app_name = Some("Russ T Bot".to_string());
 
-    // Get a handle to the deployment.
-    let _client =
-        Client::with_options(client_options).expect("Expected to update db client options");
-
-    // TODO: if connection fails, shut down the bot
+    // Try to get and return a handle to the db cluster/deployment.
+    Client::with_options(client_options)
 }
 
 // can these be combined with the picking_session module?
