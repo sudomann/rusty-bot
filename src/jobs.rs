@@ -1,8 +1,5 @@
 use chrono::Utc;
-use serenity::{
-    model::{gateway::Activity, id::UserId},
-    prelude::*,
-};
+use serenity::{model::id::UserId, prelude::*};
 use std::sync::Arc;
 
 pub async fn log_system_load(ctx: Arc<Context>) {
