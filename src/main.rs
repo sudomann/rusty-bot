@@ -1,44 +1,42 @@
-// mod command_history;
-mod checks;
-mod commands;
-mod data_structure;
-mod db;
+pub mod commands;
+pub mod db;
 mod event_handler;
-mod hooks;
-mod jobs;
-mod pug;
-mod utils;
-use commands::{help::*, *};
-use data_structure::ShardManagerContainer;
+pub mod interaction_handlers;
+pub mod jobs;
+pub mod utils;
 use event_handler::Handler;
-use pug::voice_channels::TeamVoiceChannels;
-use serenity::{
-    client::bridge::gateway::GatewayIntents, framework::standard::StandardFramework, http::Http,
-    model::id::UserId, prelude::*,
+use mongodb::{options::ClientOptions, Client as DbClient};
+use serenity::{client::bridge::gateway::ShardManager, http::Http, model::id::UserId, prelude::*};
+use std::{
+    collections::HashSet,
+    env,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
 };
-use std::{collections::HashSet, env, str::FromStr};
 use tracing::error;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-pub const HOUR: u16 = 3600;
-pub type SendSyncError = Box<dyn std::error::Error + Send + Sync>;
+pub struct ShardManagerContainer;
+impl TypeMapKey for ShardManagerContainer {
+    type Value = Arc<Mutex<ShardManager>>;
+}
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
-    // Initialize the logger using environment variables.
     let subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to start the logger");
 
+    tokio::spawn(async { db::setup() });
+
     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
+    let http = Http::new_with_token(token.as_str());
 
-    let http = Http::new_with_token(&token);
-
-    // Fetch bot owners and id
-    let (owners, _bot_id) = match http.get_current_application_info().await {
+    // Fetch bot id and superusers' ids
+    let (_owners, bot_id) = match http.get_current_application_info().await {
         Ok(info) => {
             let mut owners: HashSet<UserId> = match env::var("SUPERUSERS") {
                 Ok(superusers) => {
@@ -57,47 +55,13 @@ async fn main() {
         Err(why) => panic!("Could not access application info: {:?}", why),
     };
 
-    let environment = env::var("ENV").expect("Expected 'ENV' in environment");
-    let prefix = match environment.as_str() {
-        "PROD" => ("."),
-        _ => ("~"),
-    };
-
-    // Create the framework
-    let framework = StandardFramework::new()
-        .configure(|c| {
-            c.with_whitespace(true)
-                .case_insensitivity(true)
-                .owners(owners)
-                .prefix(prefix)
-        })
-        .on_dispatch_error(hooks::dispatch_error)
-        .before(hooks::before)
-        .after(hooks::after)
-        .unrecognised_command(hooks::unrecognised_command)
-        .help(&MY_HELP)
-        .group(&GENERAL_GROUP)
-        .group(&PUGS_GROUP)
-        .group(&MODERATION_GROUP)
-        .group(&STATS_GROUP)
-        .group(&GAMBLING_GROUP)
-        .group(&SUPERUSER_GROUP);
-
-    let intents: GatewayIntents = GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::GUILD_PRESENCES
-        | GatewayIntents::GUILDS
-        | GatewayIntents::GUILD_MEMBERS
-        | GatewayIntents::GUILD_BANS
-        | GatewayIntents::GUILD_VOICE_STATES;
-
     let mut client = Client::builder(&token)
-        .intents(intents)
-        .framework(framework)
-        .event_handler(Handler)
+        .event_handler(Handler {
+            is_loop_running: AtomicBool::new(false),
+        })
+        .application_id(*bot_id.as_u64())
         .await
-        .expect("Err creating client");
-
+        .expect("Error creating client");
     {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
@@ -105,9 +69,6 @@ async fn main() {
 
     let shard_manager = client.shard_manager.clone();
 
-    // TODO: attach perhaps a handler to announce to admins that bot is going offline
-    // How to pass reason? Distinguish SIGINT and SIGTERM
-    // Neglect Windows support :/
     tokio::spawn(async move {
         tokio::signal::ctrl_c()
             .await

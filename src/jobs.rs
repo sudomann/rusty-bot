@@ -1,105 +1,48 @@
-use crate::utils::stale_join;
-use serenity::client::Context;
-use std::sync::atomic::{
-    AtomicBool,
-    Ordering::{AcqRel, Acquire, SeqCst},
+use chrono::Utc;
+use serenity::{
+    model::{gateway::Activity, id::UserId},
+    prelude::*,
 };
-use tokio::time;
-use tracing::info;
+use std::sync::Arc;
 
-static JOBS_THREAD_INITIALIZED: AtomicBool = AtomicBool::new(false);
-const FIVE_MINUTES: u64 = 300;
-const ONE_MINUTE: u64 = 60;
+pub async fn log_system_load(ctx: Arc<Context>) {
+    let cpu_load = sys_info::loadavg().unwrap();
+    let mem_use = sys_info::mem_info().unwrap();
 
-pub fn start_jobs(ctx: Context) {
-    info!("Launching task threads");
-    if JOBS_THREAD_INITIALIZED
-        .compare_exchange(false, true, AcqRel, Acquire)
-        .is_ok()
+    if let Err(why) = UserId(209721904662183937)
+        .create_dm_channel(&*ctx)
+        .await
+        .expect("expected opened dm channel with sudomann")
+        .send_message(&ctx, |m| {
+            m.embed(|e| {
+                e.title("System Resource Load");
+                e.field(
+                    "CPU Load Average",
+                    format!("{:.2}%", cpu_load.one * 10.0),
+                    false,
+                );
+                e.field(
+                    "Memory Usage",
+                    format!(
+                        "{:.2} MB Free out of {:.2} MB",
+                        mem_use.free as f32 / 1000.0,
+                        mem_use.total as f32 / 1000.0
+                    ),
+                    false,
+                );
+                e
+            })
+        })
+        .await
     {
-        JOBS_THREAD_INITIALIZED.store(true, SeqCst);
-        tokio::spawn(async move {
-            let mut interval = time::interval(time::Duration::from_secs(FIVE_MINUTES));
-            loop {
-                stale_join::remove_expired_players(&ctx).await;
-                interval.tick().await;
-            }
-        });
-
-        tokio::spawn(async move {
-            let mut interval = time::interval(time::Duration::from_secs(ONE_MINUTE));
-            loop {
-                //db_jobs::backup_data(&ctx).await;
-                // this job should use the db client, which MUST be behind
-                // a mutex
-                interval.tick().await;
-            }
-        });
+        eprintln!("Error sending message: {:?}", why);
     };
 }
 
-/*
-TODO:
-when db backup job runs, makes sure all the various collections of in-memory
-storages stay around a given length. i.e. after backing up, trim as neccessary, discarding the oldest entries
+/// Remove players from pug if they joined over 6 hours ago
+pub async fn clear_out_stale_joins(_ctx: Arc<Context>) {
+    let current_time = Utc::now();
+    let _formatted_time = current_time.to_rfc2822();
 
-When retrieving multiple documents, order by a date field which should indicate the order in which the documents where created
-*/
-
-/*
-
-    Anything with PickingSession needs to be considerately stored
-    and retrieved
-
-
-
-    DesignatedPugChannel:
-    -   on create, add to db first, then memory
-    -   on delete, remove from db first, then remove from mem
-
-    RegisteredGameModes:
-    -   on create, add to db first, then memory
-    -   on delete, remove from db first, then remove from mem
-
-    PugsWaitingToFill:
-    -   on join, add to memory
-    -   on leave, remove from memory
-
-    FilledPug, CompletedPug:
-    -   .reset alters mem only
-    -   .pick alters mem only
-    -   .leave alters mem only
-    -   .quit command, SIGTERM, SIGINT attempt to add to db before shutdown
-
-
-    DefaultVoiceChannels:
-    -   on create, add to db first, then memory
-    -   on delete, remove from db first, then remove from mem
-
-    * On cache_ready, load all from db into memory:
-    -   DesignatedPugChannel
-    -   RegisteredGameModes
-    -   PugsWaitingToFill
-    -   DefaultVoiceChannels
-
-    * On cache_ready, load last 20 (use global? MAX_HISTORY) for each guild:
-    -   PugsWaitingToFill
-    -   FilledPug
-            - if one or both captain captain spot is unfilled,
-            send a message to start timer
-    -   CompletedPug
-
-
-    * DB storage job every 1 min:
-    >>>>If it has an id in mem, overwrite playerlist, if not, create new
-    -   PugsWaitingToFill
-    -   FilledPug
-    -   CompletedPug
-    -   Only store if item type has more than 5 (save as const) elements currently in memory
-
-    * DB storage on .quit command, SIGTERM, SIGINT signals:
-    -   PugsWaitingToFill
-    -   FilledPug
-    -   CompletedPug
-
-*/
+    // _ctx.set_activity(Activity::playing(&_formatted_time)).await;
+}
