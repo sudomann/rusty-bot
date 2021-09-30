@@ -20,9 +20,28 @@ impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
+/// A handle to the spawned task that will try connecting to a
+/// database deployment/cluster while the bot starts up.
+///
+/// Intended for ONE TIME USE only. Insert once, and retrieve once.
+///
+/// When the bot is ready, the handle can be used to join the thread
+/// and retrieve the [`mongodb::Client`], provided nothing went wrong.
 pub struct DbClientSetupHandle;
 impl TypeMapKey for DbClientSetupHandle {
     type Value = JoinHandle<mongodb::Client>;
+}
+/// An object to use in reading/writing to/from the database.
+///
+/// From [docs](https://docs.rs/mongodb/2.0.0/mongodb/struct.Client.html):
+///
+/// "[`mongodb::Client`] uses [`std::sync::Arc`] internally, so it can safely be shared across threads or async tasks."
+///
+/// Thus we do not wrap this with [`Arc`] and [`Mutex`]/[`RwLock`], instead retrieving and cloning
+/// in all threads/functions database operations are necessary.
+pub struct DbClient;
+impl TypeMapKey for DbClient {
+    type Value = mongodb::Client;
 }
 
 #[tokio::main]
