@@ -25,8 +25,9 @@ use std::{
     },
     time::Duration,
 };
-use tracing::info;
+use tracing::{error, info, instrument};
 
+#[derive(Debug)]
 pub struct Handler {
     pub(crate) is_loop_running: AtomicBool,
 }
@@ -102,8 +103,9 @@ impl EventHandler for Handler {
 
     // We use the cache_ready event just in case some cache operation is required in whatever use
     // case you have for this.
-    async fn cache_ready(&self, ctx: Context, _guilds: Vec<GuildId>) {
-        println!("Cache built successfully!");
+    #[instrument(skip(self, ctx))]
+    async fn cache_ready(&self, ctx: Context, guilds: Vec<GuildId>) {
+        info!("Cache built successfully!");
 
         // it's safe to clone Context, but Arc is cheaper for this use case.
         // Untested claim, just theoretically. :P
