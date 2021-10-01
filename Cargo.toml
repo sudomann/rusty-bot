@@ -8,6 +8,7 @@ edition = "2018"
 async-trait = "0.1.50"
 chrono = "0.4"
 dotenv = "0.15"
+futures = "0.3"
 itertools = "0.10.0"
 linked_hash_set = "0.1.4"
 sys-info = "0.7"
@@ -18,7 +19,11 @@ tracing-subscriber = "0.2"
 [dependencies.mongodb]
 version = "2.0.0"
 default-features = false
-features = ["tokio-runtime"]
+features = ["bson-chrono-0_4", "tokio-runtime"]
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
 
 [dependencies.serenity]
 version = "0.10"
