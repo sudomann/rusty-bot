@@ -1,6 +1,8 @@
-use chrono::Utc;
-use serenity::{model::id::UserId, prelude::*};
 use std::sync::Arc;
+
+use chrono::Utc;
+use serenity::model::id::UserId;
+use serenity::prelude::*;
 
 pub async fn log_system_load(ctx: Arc<Context>) {
     let cpu_load = sys_info::loadavg().unwrap();

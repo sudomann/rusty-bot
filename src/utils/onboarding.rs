@@ -1,8 +1,12 @@
-use crate::{db::read::get_registered_guilds, DbRef};
-use mongodb::error::Error;
-use serenity::{client::Context, model::id::GuildId};
 use std::sync::Arc;
+
+use mongodb::error::Error;
+use serenity::client::Context;
+use serenity::model::id::GuildId;
 use tracing::{info, instrument};
+
+use crate::db::read::get_registered_guilds;
+use crate::DbRef;
 
 /// Check whether provideds guilds are saved in database. For those are not,
 /// create a new document for them in database, then create the initial guild commands.

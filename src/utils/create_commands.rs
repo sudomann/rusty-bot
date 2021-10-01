@@ -1,7 +1,8 @@
 use serenity::client::Context;
 use serenity::model::id::GuildId;
 use serenity::model::interactions::application_command::{
-    ApplicationCommand, ApplicationCommandOptionType,
+    ApplicationCommand,
+    ApplicationCommandOptionType,
 };
 use serenity::prelude::SerenityError;
 

@@ -1,5 +1,10 @@
-use serenity::{http::Http, model::id::UserId, Error};
-use std::{collections::HashSet, env, str::FromStr};
+use std::collections::HashSet;
+use std::env;
+use std::str::FromStr;
+
+use serenity::http::Http;
+use serenity::model::id::UserId;
+use serenity::Error;
 use tracing::{info, instrument, warn};
 
 pub struct CrucialUserIds {

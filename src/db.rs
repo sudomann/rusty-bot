@@ -1,8 +1,10 @@
 pub mod model;
 pub mod read;
 pub mod write;
-use mongodb::{options::ClientOptions, Client};
 use std::env;
+
+use mongodb::options::ClientOptions;
+use mongodb::Client;
 use tracing::{info, instrument};
 
 /// Name of the default Mongo database in which to do anything with collections.

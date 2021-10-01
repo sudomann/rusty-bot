@@ -4,12 +4,14 @@ mod event_handler;
 pub mod interaction_handlers;
 pub mod jobs;
 pub mod utils;
+use std::env;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
 use event_handler::Handler;
-use serenity::{client::bridge::gateway::ShardManager, http::Http, prelude::*};
-use std::{
-    env,
-    sync::{atomic::AtomicBool, Arc},
-};
+use serenity::client::bridge::gateway::ShardManager;
+use serenity::http::Http;
+use serenity::prelude::*;
 use tokio::task::JoinHandle;
 use tracing::error;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};

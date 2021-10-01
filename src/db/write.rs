@@ -1,5 +1,6 @@
-use super::model::*;
 use serenity::model::id::GuildId;
+
+use super::model::*;
 
 // can these be combined with the picking_session module?
 pub async fn write_new_game_mode() -> Result<(), ()> {

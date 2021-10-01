@@ -1,34 +1,28 @@
+use std::panic;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+use serenity::async_trait;
+use serenity::builder::{CreateApplicationCommand, CreateApplicationCommands};
+use serenity::model::channel::Message;
+use serenity::model::gateway::{Activity, Ready};
+use serenity::model::id::GuildId;
+use serenity::model::interactions::application_command::{
+    ApplicationCommand,
+    ApplicationCommandInteractionDataOptionValue,
+    ApplicationCommandOptionType,
+};
+use serenity::model::interactions::{Interaction, InteractionResponseType};
+use serenity::prelude::*;
+use tracing::{error, info, instrument};
+
 use crate::db::{DEFAULT_DB_NAME, DEFAULT_MONGO_READY_MAX_WAIT};
+use crate::interaction_handlers::*;
 use crate::jobs::{clear_out_stale_joins, log_system_load};
 use crate::utils::create_commands::create_slash_commands;
 use crate::utils::onboarding::ensure_guild_registration;
-use crate::{interaction_handlers::*, DbClientSetupHandle, DbRef};
-use serenity::builder::{CreateApplicationCommand, CreateApplicationCommands};
-use serenity::{
-    async_trait,
-    model::{
-        channel::Message,
-        gateway::{Activity, Ready},
-        id::GuildId,
-        interactions::{
-            application_command::{
-                ApplicationCommand, ApplicationCommandInteractionDataOptionValue,
-                ApplicationCommandOptionType,
-            },
-            Interaction, InteractionResponseType,
-        },
-    },
-    prelude::*,
-};
-use std::panic;
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-use tracing::{error, info, instrument};
+use crate::{DbClientSetupHandle, DbRef};
 
 #[derive(Debug)]
 pub struct Handler {
