@@ -5,6 +5,13 @@ use mongodb::{options::ClientOptions, Client};
 use std::env;
 use tracing::{info, instrument};
 
+/// Name of the default Mongo database in which to do anything with collections.
+pub const DEFAULT_DB_NAME: &str = "data";
+
+/// Default number of seconds to wait for a useable/ready MongoDB client
+/// after this application's discord client is ready.
+pub const DEFAULT_MONGO_READY_MAX_WAIT: u8 = 30;
+
 /// Creates a [`mongodb::Client`] connected to the database cluster and store a client
 #[instrument]
 pub async fn setup() -> Client {

@@ -1,6 +1,8 @@
-use crate::interaction_handlers::*;
+use crate::db::{DEFAULT_DB_NAME, DEFAULT_MONGO_READY_MAX_WAIT};
 use crate::jobs::{clear_out_stale_joins, log_system_load};
 use crate::utils::create_commands::create_slash_commands;
+use crate::utils::onboarding::ensure_guild_registration;
+use crate::{interaction_handlers::*, DbClientSetupHandle, DbRef};
 use serenity::builder::{CreateApplicationCommand, CreateApplicationCommands};
 use serenity::{
     async_trait,
@@ -18,6 +20,7 @@ use serenity::{
     },
     prelude::*,
 };
+use std::panic;
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -142,6 +145,46 @@ impl EventHandler for Handler {
 
             // Now that the loop is running, we set the bool to true
             self.is_loop_running.swap(true, Ordering::Relaxed);
+        }
+        let db_client_handle = {
+            let mut data = ctx.data.write().await;
+            data.remove::<DbClientSetupHandle>()
+                .expect("Expected DbClientSetupHandle in TypeMap")
+        };
+        // TODO: put a 30 second time-out on db setup wait
+        //  let await_timeout =
+        //      std::env::var("MONGO_READY_MAX_WAIT").unwrap_or(DEFAULT_MONGO_READY_MAX_WAIT);
+        // tokio::time::timeout(Duration::from_secs(await_timeout), db_client_handle).await???;
+        match db_client_handle.await {
+            Ok(client) => {
+                info!("MongoDB client constructed successfully");
+                // Get a handle to a database.
+                let db = client.database(DEFAULT_DB_NAME);
+                let mut data = ctx.data.write().await;
+                data.insert::<DbRef>(db);
+            }
+            Err(err) => {
+                if err.is_panic() {
+                    // TODO: does this actually halt the bot during stack unwinding?
+                    // Resume the panic on the main task
+                    // panic::resume_unwind(err.into_panic());
+                    err.into_panic();
+                } else {
+                    // TODO: handle this case where joining thread failed for some reason other
+                    // than db::setup() panicking
+                    panic!(
+                        "Failed to join the thread that was supposed to create the \
+                    mongodb client object. Perhaps it was cancelled?"
+                    );
+                }
+            }
+        }
+
+        if let Err(err) = ensure_guild_registration(ctx, guilds).await {
+            error!(
+                "Error occured when checking guild registrations:\n{:#}",
+                err
+            );
         }
     }
 }

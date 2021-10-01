@@ -33,15 +33,15 @@ impl TypeMapKey for DbClientSetupHandle {
 }
 /// An object to use in reading/writing to/from the database.
 ///
-/// From [docs](https://docs.rs/mongodb/2.0.0/mongodb/struct.Client.html):
+/// From [docs](https://docs.rs/mongodb/2.0.0/mongodb/struct.Database.html):
 ///
-/// "[`mongodb::Client`] uses [`std::sync::Arc`] internally, so it can safely be shared across threads or async tasks."
+/// "[`mongodb::Database`] uses [`std::sync::Arc`] internally, so it can safely be shared across threads or async tasks."
 ///
 /// Thus we do not wrap this with [`Arc`] and [`Mutex`]/[`RwLock`], instead retrieving and cloning
-/// in all threads/functions database operations are necessary.
-pub struct DbClient;
-impl TypeMapKey for DbClient {
-    type Value = mongodb::Client;
+/// in all threads/functions where database operations are necessary.
+pub struct DbRef;
+impl TypeMapKey for DbRef {
+    type Value = mongodb::Database;
 }
 
 #[tokio::main]
