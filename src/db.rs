@@ -31,3 +31,8 @@ pub async fn setup() -> Client {
     Client::with_options(client_options)
         .expect("Expected a new mongodb::Client connected to the cluster/deployment")
 }
+
+// TODO: investigate if you can use the following to make reusable/composable read/write
+// functions to handle db collections:
+// https://doc.rust-lang.org/std/iter/trait.Iterator.html
+// https://doc.rust-lang.org/std/ops/trait.Index.html
