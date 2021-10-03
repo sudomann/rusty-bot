@@ -14,7 +14,7 @@ pub async fn get_known_guilds(db: Database) -> Result<Vec<Guild>, Error> {
 }
 
 /// Fetch a known guild by it's guild id
-pub async fn get_guild(db: Database, guild_id: GuildId) -> Result<Option<Guild>, Error> {
+pub async fn get_guild(db: Database, guild_id: &GuildId) -> Result<Option<Guild>, Error> {
     let collection = db.collection::<Guild>("guilds");
     let filter = doc! {
         "guild_id": *guild_id.as_u64() as i64,
