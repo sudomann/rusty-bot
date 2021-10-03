@@ -1,3 +1,6 @@
+use mongodb::error::Error;
+use mongodb::results::InsertOneResult;
+use mongodb::Database;
 use serenity::model::id::GuildId;
 
 use super::model::*;
@@ -35,8 +38,11 @@ pub async fn exclude_player_from_random_captaining() -> Result<(), ()> {
     Ok(())
 }
 
-pub async fn register_guild(_guild_id: GuildId) -> Result<(), ()> {
-    // how to handle a not yet set pug channel, and how to handle setting it?
-    // should pug commands be disabled while no pug channel set?
-    Ok(())
+pub async fn register_guild(db: Database, guild_id: &GuildId) -> Result<InsertOneResult, Error> {
+    let collection = db.collection::<Guild>("guilds");
+    let new_guild = Guild {
+        guild_id: *guild_id.as_u64(),
+        disabled: false,
+    };
+    Ok(collection.insert_one(new_guild, None).await?)
 }
