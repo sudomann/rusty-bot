@@ -3,28 +3,28 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Guild {
-    guild_id: u64,
-    enabled: bool,
+    pub guild_id: u64,
+    pub disabled: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PugChannel {
-    guild_id: u64,
-    channel_id: u64,
-    name: String,
+    pub guild_id: u64,
+    pub channel_id: u64,
+    pub name: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GameMode {
-    guild_id: Guild,
-    label: String,
-    name: String,
-    player_count: u8,
-    enlisted_players: Vec<Player>,
+    pub guild_id: Guild,
+    pub label: String,
+    pub name: String,
+    pub player_count: u8,
+    pub enlisted_players: Vec<Player>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Player {
-    user_id: u64,
-    join_datetime: DateTime<Utc>,
+    pub user_id: u64,
+    pub join_datetime: DateTime<Utc>,
 }
