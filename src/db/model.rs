@@ -24,7 +24,7 @@ pub struct GameMode {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct Player {
+pub struct Player {
     pub user_id: u64,
     pub join_datetime: DateTime<Utc>,
 }
