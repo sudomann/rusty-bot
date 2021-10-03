@@ -1,26 +1,8 @@
-# This Dockerfile is composed of two steps: the first one builds the release
-# binary, and then the binary is copied inside another, empty image.
-
 #################
 #  Build image  #
 #################
 
-FROM ubuntu:bionic AS build
-
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  curl \
-  build-essential
-
-# Install the currently pinned toolchain with rustup
-RUN curl https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init >/tmp/rustup-init && \
-  chmod +x /tmp/rustup-init && \
-  /tmp/rustup-init -y --no-modify-path --default-toolchain stable
-ENV PATH=/root/.cargo/bin:$PATH
-
-# Build the dependencies in a separate step to avoid rebuilding all of them
-# every time the source code changes. This takes advantage of Docker's layer
-# caching, and it works by copying the Cargo.{toml,lock} with dummy source code
-# and doing a full build with it.
+FROM rust:1.54.0 as build
 WORKDIR /tmp/source
 COPY Cargo.lock Cargo.toml /tmp/source/
 RUN mkdir -p /tmp/source/src && \
@@ -38,9 +20,7 @@ RUN find -name "*.rs" -exec touch {} \; && cargo build --release
 ##################
 #  Output image  #
 ##################
-
-FROM ubuntu:bionic AS binary
-
+FROM debian:buster-slim
 COPY --from=build /tmp/source/target/release/rusty-bot /usr/local/bin/
 
 ENV RUST_LOG=info

@@ -1,31 +1,47 @@
-/*
-use crate::{ban::unban_users, command_history::clear_command_history, SendSyncError, HOUR};
-use serenity::client::Context;
-use std::{
-    sync::atomic::{AtomicBool, Ordering},
-    thread::sleep,
-    time::Duration,
-};
+use std::sync::Arc;
 
-static JOBS_THREAD_INITIALIZED: AtomicBool = AtomicBool::new(false);
+use chrono::Utc;
+use serenity::model::id::UserId;
+use serenity::prelude::*;
 
-pub(crate) fn start_jobs(cx: Context) {
-    if !JOBS_THREAD_INITIALIZED.load(Ordering::SeqCst) {
-        JOBS_THREAD_INITIALIZED.store(true, Ordering::SeqCst);
-        std::thread::spawn(move || -> Result<(), SendSyncError> {
-            loop {
-                unban_users(&cx)?;
-                clear_command_history(&cx)?;
+pub async fn log_system_load(ctx: Arc<Context>) {
+    let cpu_load = sys_info::loadavg().unwrap();
+    let mem_use = sys_info::mem_info().unwrap();
 
-                sleep(Duration::new(HOUR, 0));
-            }
-        });
-    }
+    if let Err(why) = UserId(209721904662183937)
+        .create_dm_channel(&*ctx)
+        .await
+        .expect("expected opened dm channel with sudomann")
+        .send_message(&ctx, |m| {
+            m.embed(|e| {
+                e.title("System Resource Load");
+                e.field(
+                    "CPU Load Average",
+                    format!("{:.2}%", cpu_load.one * 10.0),
+                    false,
+                );
+                e.field(
+                    "Memory Usage",
+                    format!(
+                        "{:.2} MB Free out of {:.2} MB",
+                        mem_use.free as f32 / 1000.0,
+                        mem_use.total as f32 / 1000.0
+                    ),
+                    false,
+                );
+                e
+            })
+        })
+        .await
+    {
+        eprintln!("Error sending message: {:?}", why);
+    };
 }
-*/
 
-/*
-TODO:
-when db backup job runs, makes sure all the various collections of in-memory
-storages stay around a given length. i.e. after backing up, trim as neccessary, discarding the oldest entries
-*/
+/// Remove players from pug if they joined over 6 hours ago
+pub async fn clear_out_stale_joins(_ctx: Arc<Context>) {
+    let current_time = Utc::now();
+    let _formatted_time = current_time.to_rfc2822();
+
+    // _ctx.set_activity(Activity::playing(&_formatted_time)).await;
+}

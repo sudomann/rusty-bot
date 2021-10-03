@@ -1,15 +1,1 @@
-pub mod add;
-pub mod captain;
-pub mod game_mode;
-pub mod join;
-pub mod leave;
-pub mod list;
-pub mod meta;
-pub mod owner;
-pub mod pick;
-pub mod promote;
-pub mod pug_channel;
-pub mod remove;
-pub mod reset;
-pub mod teams;
-pub mod voices;
+
