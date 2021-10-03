@@ -55,7 +55,7 @@ async fn main() {
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to start the logger");
 
-    let handle_to_db_client_setup = tokio::spawn(async { db::setup().await });
+    let handle_to_db_client_setup = tokio::spawn(db::setup());
 
     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
 
