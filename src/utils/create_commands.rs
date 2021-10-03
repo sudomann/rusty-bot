@@ -1,18 +1,21 @@
-use serenity::client::Context;
+use std::sync::Arc;
+
+use serenity::http::Http;
 use serenity::model::id::GuildId;
 use serenity::model::interactions::application_command::{
-    ApplicationCommand,
-    ApplicationCommandOptionType,
+    ApplicationCommand, ApplicationCommandOptionType,
 };
 use serenity::prelude::SerenityError;
 
-/// Utility for creating guild slash commands set of defined commands in some guild
-pub async fn create_slash_commands(
-    ctx: &Context,
-    guild_id: GuildId,
+/// Utility for setting the salsh commands of a guild.
+///
+/// Uses other guild data such as registered game modes, to customize the options if possible.
+pub async fn construct_guild_commands(
+    http: Arc<Http>,
+    guild_id: &GuildId,
 ) -> Result<Vec<ApplicationCommand>, SerenityError> {
     guild_id
-        .set_application_commands(&ctx.http, |commands| {
+        .set_application_commands(&http, |commands| {
             commands
               .create_application_command(|command| {
                 command.name("ping").description("A ping command")
@@ -124,62 +127,4 @@ pub async fn create_slash_commands(
               })
         })
         .await
-}
-
-pub async fn create_global_slash_commands(
-    ctx: &Context,
-) -> Result<Vec<ApplicationCommand>, SerenityError> {
-    ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
-        commands
-            .create_application_command(|command| {
-                command
-                    .name("ping_global")
-                    .description("A global ping command")
-            })
-            .create_application_command(|command| {
-                command
-                    .name("id")
-                    .description("Get a user id")
-                    .create_option(|option| {
-                        option
-                            .name("id")
-                            .description("The user to lookup")
-                            .kind(ApplicationCommandOptionType::User)
-                            .required(true)
-                    })
-            })
-            .create_application_command(|command| {
-                command
-                    .name("welcome")
-                    .description("Welcome a user")
-                    .create_option(|option| {
-                        option
-                            .name("user")
-                            .description("The user to welcome")
-                            .kind(ApplicationCommandOptionType::User)
-                            .required(true)
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("message")
-                            .description("The message to send")
-                            .kind(ApplicationCommandOptionType::String)
-                            .required(true)
-                            .add_string_choice(
-                                "Welcome to our cool server! Ask me if you need help",
-                                "pizza",
-                            )
-                            .add_string_choice("Hey, do you want a coffee?", "coffee")
-                            .add_string_choice(
-                                "Welcome to the club, you're now a good person. Well, I hope.",
-                                "club",
-                            )
-                            .add_string_choice(
-                                "I hope that you brought a controller to play together!",
-                                "game",
-                            )
-                    })
-            })
-    })
-    .await
 }

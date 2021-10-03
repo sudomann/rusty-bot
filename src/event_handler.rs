@@ -9,9 +9,7 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::{Activity, Ready};
 use serenity::model::id::GuildId;
 use serenity::model::interactions::application_command::{
-    ApplicationCommand,
-    ApplicationCommandInteractionDataOptionValue,
-    ApplicationCommandOptionType,
+    ApplicationCommand, ApplicationCommandInteractionDataOptionValue,
 };
 use serenity::model::interactions::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
@@ -20,7 +18,6 @@ use tracing::{error, info, instrument};
 use crate::db::{DEFAULT_DB_NAME, DEFAULT_MONGO_READY_MAX_WAIT};
 use crate::interaction_handlers::*;
 use crate::jobs::{clear_out_stale_joins, log_system_load};
-use crate::utils::create_commands::create_slash_commands;
 use crate::utils::onboarding::ensure_guild_registration;
 use crate::{DbClientSetupHandle, DbRef};
 
@@ -82,10 +79,6 @@ impl EventHandler for Handler {
         info!("Connected as {}", ready.user.name);
         ctx.set_activity(Activity::playing("Bugs? Message sudomann#9568"))
             .await;
-        for guild_id in ctx.cache.guilds().await {
-            // TODO spawn async tasks for do all of these in parallel
-            // let _ = create_slash_commands(&ctx, guild_id).await;
-        }
 
         // WARNING: This was annoying to figure out
         // DO NOT DISCARD THE FOLLOWING
@@ -100,7 +93,7 @@ impl EventHandler for Handler {
 
     // We use the cache_ready event just in case some cache operation is required in whatever use
     // case you have for this.
-    #[instrument(skip(self, ctx))]
+    #[instrument(skip(self, ctx, guilds))]
     async fn cache_ready(&self, ctx: Context, guilds: Vec<GuildId>) {
         info!("Cache built successfully!");
 
