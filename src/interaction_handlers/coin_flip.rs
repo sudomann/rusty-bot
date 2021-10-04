@@ -1,10 +1,10 @@
 use rand::Rng;
 
-pub async fn coin_flip() -> Result<String, ()> {
+pub fn coin_flip() -> String {
     let is_heads: bool = rand::thread_rng().gen();
     if is_heads {
-        Ok("Heads".to_string())
+        "Heads".to_string()
     } else {
-        Ok("Tails".to_string())
+        "Tails".to_string()
     }
 }
