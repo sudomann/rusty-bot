@@ -40,7 +40,8 @@ impl EventHandler for Handler {
         if let Interaction::ApplicationCommand(command) = interaction {
             let content = match command.data.name.as_str() {
                 "ping" => "Pong!".to_string(),
-                "coinflip" => coin_flip::coin_flip().await.expect("a"),
+                "coinflip" => coin_flip::coin_flip(),
+                "setpugchannel" => pug_channel::set(&ctx, &command).await,
                 "id" => {
                     let options = command
                         .data
@@ -70,7 +71,7 @@ impl EventHandler for Handler {
                 })
                 .await
             {
-                println!("Cannot respond to slash command: {}", why);
+                error!("Cannot respond to slash command: {}", why);
             }
         }
     }
