@@ -1,6 +1,5 @@
 use futures::future::join_all;
 use mongodb::Database;
-use serenity::http::Http;
 use std::sync::Arc;
 
 use mongodb::error::Error;
@@ -32,7 +31,7 @@ pub async fn ensure_guild_registration(
     info!("Launching one task per connected guild for conducting inspection");
     for guild_id in guild_ids {
         join_handles.push(tokio::spawn(inspect_and_maybe_update_db(
-            ctx.http.clone(),
+            ctx.clone(),
             guild_id,
             db.clone(),
         )));
@@ -71,7 +70,7 @@ pub async fn ensure_guild_registration(
 ///
 /// When unknown, we register the guild and create guild commands for it.
 async fn inspect_and_maybe_update_db(
-    http: Arc<Http>,
+    ctx: Arc<Context>,
     guild_id: GuildId,
     db: Database,
 ) -> Result<GuildId, Error> {
@@ -80,11 +79,13 @@ async fn inspect_and_maybe_update_db(
     if let Some(known_guild) = get_guild(db.clone(), &guild_id).await.unwrap() {
         if known_guild.disabled {
             // remove commands
-            match &guild_id.get_application_commands(&http).await {
+            match &guild_id.get_application_commands(&ctx.http).await {
                 Ok(commands) => {
                     for command in commands.iter() {
                         // TODO: how to handle failure when deleting commands?
-                        let _ = guild_id.delete_application_command(&http, command.id).await;
+                        let _ = guild_id
+                            .delete_application_command(&ctx.http, command.id)
+                            .await;
                     }
                 }
                 Err(err) => {
@@ -99,10 +100,11 @@ async fn inspect_and_maybe_update_db(
         register_guild(db, &guild_id).await?;
     };
     // Create the guild command set (the function that does this should be aware of registered gamemodes)
-    if let Err(err) = construct_guild_commands(http, &guild_id).await {
+    if let Err(err) = construct_guild_commands(ctx.http.clone(), &guild_id).await {
+        let identifier_for_guild = &guild_id.name(&ctx).await.unwrap_or(guild_id.to_string());
         error!(
-            "Failed to create guild commands for {}: {:?}",
-            &guild_id, err
+            "Failed to create guild commands for Guild: {}\n {:#}",
+            identifier_for_guild, err
         );
     };
     // FIXME: ^ for error above, return an Err Result instead of just logging it
