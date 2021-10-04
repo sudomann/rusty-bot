@@ -21,3 +21,15 @@ pub async fn get_guild(db: Database, guild_id: &GuildId) -> Result<Option<Guild>
     };
     Ok(collection.find_one(Some(filter), None).await?)
 }
+
+/// Fetch a guild's designated pug channels
+pub async fn get_pug_channel(
+    db: Database,
+    guild_id: &GuildId,
+) -> Result<Option<PugChannel>, Error> {
+    let collection = db.collection::<PugChannel>("pug_channels");
+    let filter = doc! {
+        "guild_id": *guild_id.as_u64() as i64,
+    };
+    Ok(collection.find_one(Some(filter), None).await?)
+}
