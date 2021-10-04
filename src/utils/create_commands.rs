@@ -37,11 +37,6 @@ pub async fn construct_guild_commands(
                   command.name("echo").description("What is this, Ben10?")
               })
               .create_application_command(|command| {
-                  command
-                      .name("setactivity")
-                      .description("Set the bot's activity")
-              })
-              .create_application_command(|command| {
                   command.name("addmod").description("Add a new game mode")
               })
               .create_application_command(|command| {
