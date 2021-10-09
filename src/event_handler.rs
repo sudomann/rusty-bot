@@ -148,6 +148,8 @@ impl EventHandler for Handler {
                 info!("MongoDB client constructed successfully");
                 // Get a handle to a database.
                 let db = client.database(DEFAULT_DB_NAME);
+                // FIXME: check that database has the 4 required collections.
+                // If not, WARN, then create any that are missing (on success, print INFO, ERROR otherwise)
                 let mut data = ctx.data.write().await;
                 data.insert::<DbRef>(db);
             }
