@@ -5,6 +5,7 @@ authors = ["Will Fombin <njundongw@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+anyhow = "1.0"
 async-trait = "0.1.50"
 chrono = "0.4"
 dotenv = "0.15"
