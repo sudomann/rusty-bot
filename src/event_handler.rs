@@ -84,16 +84,50 @@ impl EventHandler for Handler {
         // WARNING: This was annoying to figure out
         // DO NOT DISCARD THE FOLLOWING
         // It is useful for cleaning up global commands
-        let empty: Vec<CreateApplicationCommand> = Vec::default();
-        ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
-            CreateApplicationCommands::set_application_commands(commands, empty)
-        })
-        .await
-        .expect("expected successful deletion of all global commands");
+        // let empty: Vec<CreateApplicationCommand> = Vec::default();
+        // ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
+        //     CreateApplicationCommands::set_application_commands(commands, empty)
+        // })
+        // .await
+        // .expect("expected successful deletion of all global commands");
+
+        let db_client_handle = {
+            let mut data = ctx.data.write().await;
+            data.remove::<DbClientSetupHandle>()
+                .expect("Expected DbClientSetupHandle in TypeMap")
+        };
+        // TODO: put a 30 second time-out on db setup wait
+        //  let await_timeout =
+        //      std::env::var("MONGO_READY_MAX_WAIT").unwrap_or(DEFAULT_MONGO_READY_MAX_WAIT);
+        // tokio::time::timeout(Duration::from_secs(await_timeout), db_client_handle).await???;
+        match db_client_handle.await {
+            Ok(client) => {
+                info!("The MongoDB client connection to the database deployment is live");
+                let mut data = ctx.data.write().await;
+                data.insert::<DbClientRef>(client);
+            }
+            Err(err) => {
+                if err.is_panic() {
+                    // TODO: does this actually halt the bot during stack unwinding?
+                    // Resume the panic on the main task
+                    // panic::resume_unwind(err.into_panic());
+                    // err.into_panic();
+                    error!(
+                        "Failed to establish connection between client and database. Exiting..."
+                    );
+                    process::exit(1);
+                } else {
+                    // TODO: handle this case where joining thread failed for some reason other
+                    // than db::setup() panicking
+                    panic!(
+                        "Failed to join the thread that was supposed to create the \
+                    mongodb client object. Perhaps it was cancelled?"
+                    );
+                }
+            }
+        }
     }
 
-    // We use the cache_ready event just in case some cache operation is required in whatever use
-    // case you have for this.
     #[instrument(skip(self, ctx, guilds))]
     async fn cache_ready(&self, ctx: Context, guilds: Vec<GuildId>) {
         info!("Cache built successfully!");
