@@ -111,15 +111,7 @@ async fn inspect_and_maybe_update_db(
             .await?;
 
         // save in db
-        db.collection(guild_id.to_string().as_str())
-            .insert_one(
-                GuildCommand {
-                    command_id: setup_cmd.id.0,
-                    name: setup_cmd.name,
-                },
-                None,
-            )
-            .await?;
+        crate::db::write::register_guild_command(db, &guild_id, &setup_cmd).await?;
     }
 
     Ok(guild_id)
