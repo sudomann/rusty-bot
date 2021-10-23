@@ -170,11 +170,6 @@ impl EventHandler for Handler {
             }
         }
 
-        if let Err(err) = ensure_guild_registration(ctx, guilds).await {
-            error!(
-                "Error occured when checking guild registrations:\n{:#}",
-                err
-            );
-        }
+        inspect_guild_commands(ctx, guilds).await;
     }
 }
