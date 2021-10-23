@@ -2,7 +2,6 @@ use mongodb::bson::doc;
 use mongodb::error::Error;
 use mongodb::results::{DeleteResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
-use serenity::model::id::{ChannelId, GuildId};
 use serenity::model::interactions::application_command::ApplicationCommand;
 
 use super::model::*;
@@ -55,10 +54,10 @@ pub async fn set_pug_channel(
     channel_id: u64,
     channel_name: Option<String>,
 ) -> Result<UpdateResult, Error> {
-    let collection = db.collection::<PugChannel>("pug_channels");
+    let collection = db.collection("pug_channels");
 
     let desired_pug_channel = PugChannel {
-        channel_id: channel_id,
+        channel_id,
         name: channel_name,
     };
 
@@ -72,11 +71,10 @@ pub async fn set_pug_channel(
 
 pub async fn register_guild_command(
     db: Database,
-    guild_id: &GuildId,
     guild_command: &ApplicationCommand,
 ) -> Result<InsertOneResult, Error> {
     Ok(db
-        .collection(guild_id.to_string().as_str())
+        .collection("commands")
         .insert_one(
             GuildCommand {
                 command_id: guild_command.id.0,
