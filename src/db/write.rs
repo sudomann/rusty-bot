@@ -52,23 +52,21 @@ pub async fn exclude_player_from_random_captaining() -> Result<(), ()> {
 
 pub async fn set_pug_channel(
     db: Database,
-    guild_id: &GuildId,
-    channel_id: &ChannelId,
+    channel_id: u64,
+    channel_name: Option<String>,
 ) -> Result<UpdateResult, Error> {
     let collection = db.collection::<PugChannel>("pug_channels");
 
     let desired_pug_channel = PugChannel {
-        guild_id: *guild_id.as_u64(),
-        channel_id: *channel_id.as_u64(),
-        name: None,
+        channel_id: channel_id,
+        name: channel_name,
     };
 
-    let query = doc! {
-        "guild_id": *guild_id.as_u64() as i64,
-    };
+    // since we currently only permit one pug channel at a time
+    let any = doc! {};
 
     Ok(collection
-        .replace_one(query, desired_pug_channel, None)
+        .replace_one(any, desired_pug_channel, None)
         .await?)
 }
 
