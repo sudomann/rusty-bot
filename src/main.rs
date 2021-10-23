@@ -4,6 +4,7 @@ mod event_handler;
 pub mod interaction_handlers;
 pub mod jobs;
 pub mod utils;
+pub mod error;
 use std::env;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
