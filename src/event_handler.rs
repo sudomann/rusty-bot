@@ -176,36 +176,6 @@ impl EventHandler for Handler {
             data.remove::<DbClientSetupHandle>()
                 .expect("Expected DbClientSetupHandle in TypeMap")
         };
-        // TODO: put a 30 second time-out on db setup wait
-        //  let await_timeout =
-        //      std::env::var("MONGO_READY_MAX_WAIT").unwrap_or(DEFAULT_MONGO_READY_MAX_WAIT);
-        // tokio::time::timeout(Duration::from_secs(await_timeout), db_client_handle).await???;
-        match db_client_handle.await {
-            Ok(client) => {
-                info!("MongoDB client constructed successfully");
-                // Get a handle to a database.
-                let db = client.database(DEFAULT_DB_NAME);
-                // FIXME: check that database has the 4 required collections.
-                // If not, WARN, then create any that are missing (on success, print INFO, ERROR otherwise)
-                let mut data = ctx.data.write().await;
-                data.insert::<DbRef>(db);
-            }
-            Err(err) => {
-                if err.is_panic() {
-                    // TODO: does this actually halt the bot during stack unwinding?
-                    // Resume the panic on the main task
-                    // panic::resume_unwind(err.into_panic());
-                    err.into_panic();
-                } else {
-                    // TODO: handle this case where joining thread failed for some reason other
-                    // than db::setup() panicking
-                    panic!(
-                        "Failed to join the thread that was supposed to create the \
-                    mongodb client object. Perhaps it was cancelled?"
-                    );
-                }
-            }
-        }
 
         inspect_guild_commands(ctx, guilds).await;
     }
