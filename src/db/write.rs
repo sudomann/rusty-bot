@@ -1,6 +1,6 @@
 use mongodb::bson::doc;
 use mongodb::error::Error;
-use mongodb::results::{InsertOneResult, UpdateResult};
+use mongodb::results::{DeleteResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
 use serenity::model::id::{ChannelId, GuildId};
 use serenity::model::interactions::application_command::ApplicationCommand;
@@ -84,5 +84,13 @@ pub async fn register_guild_command(
             },
             None,
         )
+        .await?)
+}
+
+pub async fn clear_guild_commands(db: Database) -> Result<DeleteResult, Error> {
+    let all = doc! {};
+    Ok(db
+        .collection::<GuildCommand>("guild_commands".to_string().as_str())
+        .delete_many(all, None)
         .await?)
 }
