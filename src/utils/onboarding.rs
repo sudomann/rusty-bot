@@ -103,12 +103,23 @@ async fn inspect_and_maybe_update_db(
 
     if saved_commands.is_empty() {
         // create /setup command
-        guild_id.create_application_command(&ctx.http, |c| {
-            c.name("setup")
-                .description("Use this to register the bot's commands in this guild")
-        });
+        let setup_cmd = guild_id
+            .create_application_command(&ctx.http, |c| {
+                c.name("setup")
+                    .description("Use this to register the bot's commands in this guild")
+            })
+            .await?;
 
         // save in db
+        db.collection(guild_id.to_string().as_str())
+            .insert_one(
+                GuildCommand {
+                    command_id: setup_cmd.id.0,
+                    name: setup_cmd.name,
+                },
+                None,
+            )
+            .await?;
     }
 
     Ok(guild_id)
