@@ -1,39 +1,43 @@
 use futures::future::join_all;
-use mongodb::Database;
+use futures::stream::TryStreamExt;
+use mongodb::Client;
 use std::sync::Arc;
 
-use mongodb::error::Error;
 use serenity::client::Context;
 use serenity::model::id::GuildId;
 use tokio::task::JoinHandle;
+use tokio::time::{interval, Duration};
 use tracing::{error, info, instrument};
 
-use crate::db::read::get_guild;
-use crate::db::write::register_guild;
-use crate::DbRef;
+use crate::db::model::GuildCommand;
+use crate::DbClientRef;
 
-use super::create_commands::construct_guild_commands;
-
-/// Check whether provideds guilds are saved in database. For those that are not,
-/// create a new document for them in database, then create the initial guild commands.
+/// For each guild, check for presence of guild application commands created by this bot.
+/// If there aren't suitable existing commands, create a `/setup` command
 #[instrument(skip(ctx, guild_ids))]
-pub async fn ensure_guild_registration(
-    ctx: Arc<Context>,
-    guild_ids: Vec<GuildId>,
-) -> Result<(), Error> {
-    let db = {
+pub async fn inspect_guild_commands(ctx: Arc<Context>, guild_ids: Vec<GuildId>) {
+    let mut interval = interval(Duration::from_secs(1));
+
+    // loop/block until the Client is available in storage
+    let db_client = loop {
         let data = ctx.data.read().await;
-        data.get::<DbRef>().unwrap().clone()
+        match data.get::<DbClientRef>() {
+            Some(c) => break c.clone(),
+            None => {
+                info!("Waiting for database client ready");
+                interval.tick().await;
+            }
+        }
     };
 
-    let mut join_handles: Vec<JoinHandle<Result<GuildId, Error>>> = Vec::default();
+    let mut join_handles: Vec<JoinHandle<Result<GuildId, crate::error::Error>>> = Vec::default();
 
     info!("Launching one task per connected guild for conducting inspection");
     for guild_id in guild_ids {
         join_handles.push(tokio::spawn(inspect_and_maybe_update_db(
             ctx.clone(),
             guild_id,
-            db.clone(),
+            db_client.clone(),
         )));
     }
 
@@ -59,54 +63,53 @@ pub async fn ensure_guild_registration(
         }
     }
     info!("Inspections complete!");
-
-    Ok(())
 }
 
-/// Checks whether the `guild_id` provided is known (previously saved to database) and whether
-/// it is marked as "disabled" in the database.
+/// Register /setup command as necessary for guilds
 ///
-/// When known, we ensure that guilds marked as disabled don't have any guild commands registered.
-///
-/// When unknown, we register the guild and create guild commands for it.
+/// TODO: ensure that guilds marked as disabled don't have/get any guild commands registered.
 async fn inspect_and_maybe_update_db(
     ctx: Arc<Context>,
     guild_id: GuildId,
-    db: Database,
-) -> Result<GuildId, Error> {
-    // FIXME: irresponsible unwrap
-    // If guild is in database
-    if let Some(known_guild) = get_guild(db.clone(), &guild_id).await.unwrap() {
-        if known_guild.disabled {
-            // remove commands
-            match &guild_id.get_application_commands(&ctx.http).await {
-                Ok(commands) => {
-                    for command in commands.iter() {
-                        // TODO: how to handle failure when deleting commands?
-                        let _ = guild_id
-                            .delete_application_command(&ctx.http, command.id)
-                            .await;
-                    }
-                }
-                Err(err) => {
-                    error!("Serenity could not fetch guild slash commands: {:?}", err)
-                }
-            };
-            return Ok(guild_id);
-        }
-    } else {
-        // Guild is NOT in database so add it.
-        // Unknown guilds connected to the bot at startup are by default added to the database as enabled
-        register_guild(db, &guild_id).await?;
-    };
-    // Create the guild command set (the function that does this should be aware of registered gamemodes)
-    if let Err(err) = construct_guild_commands(ctx.http.clone(), &guild_id).await {
-        let identifier_for_guild = &guild_id.name(&ctx).await.unwrap_or(guild_id.to_string());
-        error!(
-            "Failed to create guild commands for Guild: {}\n {:#}",
-            identifier_for_guild, err
-        );
-    };
-    // FIXME: ^ for error above, return an Err Result instead of just logging it
+    db_client: Client,
+) -> Result<GuildId, crate::error::Error> {
+    let commands = guild_id.get_application_commands(&ctx.http).await?;
+
+    let db = db_client.database("guild_commands");
+
+    // get commands saved in db
+    let mut cursor = db
+        .collection(guild_id.to_string().as_str())
+        .find(None, None)
+        .await?;
+    let mut saved_commands: Vec<GuildCommand> = Vec::default();
+
+    let current_commands = guild_id.get_application_commands(&ctx.http).await?;
+
+    while let Some(saved_command) = cursor.try_next().await? {
+        saved_commands.push(saved_command);
+    }
+
+    // if there is a mismatch between the commands saved in the database vs the ones currently
+    // registered with discord, clear out the guild's commands
+    let commands_match = saved_commands.len() == current_commands.len()
+        && current_commands
+            .iter()
+            .all(|current| saved_commands.iter().any(|saved| saved.eq(current)));
+    if !commands_match {
+        // clear guild commands
+        guild_id.set_application_commands(&ctx.http, |c| c).await?;
+    }
+
+    if saved_commands.is_empty() {
+        // create /setup command
+        guild_id.create_application_command(&ctx.http, |c| {
+            c.name("setup")
+                .description("Use this to register the bot's commands in this guild")
+        });
+
+        // save in db
+    }
+
     Ok(guild_id)
 }
