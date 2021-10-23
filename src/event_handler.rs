@@ -5,20 +5,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serenity::async_trait;
-use serenity::builder::{CreateApplicationCommand, CreateApplicationCommands};
 use serenity::model::channel::Message;
 use serenity::model::gateway::{Activity, Ready};
-use serenity::model::guild::Member;
 use serenity::model::id::GuildId;
-use serenity::model::interactions::application_command::{
-    ApplicationCommand, ApplicationCommandInteractionDataOptionValue,
-};
 use serenity::model::interactions::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
 use tracing::{error, info, instrument};
 
 use crate::db::DEFAULT_MONGO_READY_MAX_WAIT;
-use crate::interaction_handlers::setup::create_guild_commands;
 use crate::interaction_handlers::*;
 use crate::jobs::{clear_out_stale_joins, log_system_load};
 use crate::utils::onboarding::inspect_guild_commands;
@@ -45,25 +39,8 @@ impl EventHandler for Handler {
                 "ping" => "Pong!".to_string(),
                 "coinflip" => coin_flip::coin_flip(),
                 "setpugchannel" => pug_channel::set(&ctx, &command).await,
-                "id" => {
-                    let options = command
-                        .data
-                        .options
-                        .get(0)
-                        .expect("Expected user option")
-                        .resolved
-                        .as_ref()
-                        .expect("Expected user object");
-
-                    if let ApplicationCommandInteractionDataOptionValue::User(user, _member) =
-                        options
-                    {
-                        format!("{}'s id is {}", user.tag(), user.id)
-                    } else {
-                        "Please provide a valid user".to_string()
-                    }
-                }
-                _ => "not implemented :(".to_string(),
+                // "setup" => create_guild_commands().await,
+                _ => "Not useable. Sorry :(".to_string(),
             };
 
             if let Err(why) = command
@@ -171,11 +148,6 @@ impl EventHandler for Handler {
             // Now that the loop is running, we set the bool to true
             self.is_loop_running.swap(true, Ordering::Relaxed);
         }
-        let db_client_handle = {
-            let mut data = ctx.data.write().await;
-            data.remove::<DbClientSetupHandle>()
-                .expect("Expected DbClientSetupHandle in TypeMap")
-        };
 
         inspect_guild_commands(ctx, guilds).await;
     }
