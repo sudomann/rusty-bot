@@ -9,9 +9,8 @@ pub struct Guild {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PugChannel {
-    pub guild_id: u64,
     pub channel_id: u64,
-    pub name: String,
+    pub name: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
