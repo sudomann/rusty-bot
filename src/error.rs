@@ -8,7 +8,7 @@ use thiserror::Error as ThisError;
 /// This is to avoid repetitive verbose error handling for both types in
 /// command handlers by facilitating/enabling the use of the `?` operator on [`Result`] returns.
 #[derive(ThisError, Debug)]
-enum RustyError {
+pub enum RustyError {
     #[error("mongodb returned an error")]
     Mongo(mongodb::error::Error),
     #[error("serenity returned an error")]
