@@ -4,6 +4,7 @@ use mongodb::results::{DeleteResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
 
+use super::collection_name::COMMANDS;
 use super::model::*;
 
 /// The "policy" or "method" to use when writing to the database.
@@ -74,7 +75,7 @@ pub async fn register_guild_command(
     guild_command: &ApplicationCommand,
 ) -> Result<InsertOneResult, Error> {
     Ok(db
-        .collection("commands")
+        .collection(COMMANDS)
         .insert_one(
             GuildCommand {
                 command_id: guild_command.id.0,
@@ -88,7 +89,7 @@ pub async fn register_guild_command(
 pub async fn clear_guild_commands(db: Database) -> Result<DeleteResult, Error> {
     let all = doc! {};
     Ok(db
-        .collection::<GuildCommand>("guild_commands".to_string().as_str())
+        .collection::<GuildCommand>(COMMANDS)
         .delete_many(all, None)
         .await?)
 }

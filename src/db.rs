@@ -7,12 +7,16 @@ use mongodb::options::ClientOptions;
 use mongodb::Client;
 use tracing::{info, instrument};
 
-/// Name of the default Mongo database in which to do anything with collections.
-pub const DEFAULT_DB_NAME: &str = "data";
-
 /// Default number of seconds to wait for a useable/ready MongoDB client
 /// after this application's discord client is ready.
 pub const DEFAULT_MONGO_READY_MAX_WAIT: u8 = 30;
+
+pub mod collection_name {
+    pub const COMMANDS: &str = "commands";
+    pub const PUG_CHANNELS: &str = "pug_channel";
+    pub const GAME_MODES: &str = "game_modes";
+    pub const PUG_SESSIONS: &str = "pug_sessions";
+}
 
 /// Creates a [`mongodb::Client`] connected to the database cluster and store a client
 #[instrument]
