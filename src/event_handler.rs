@@ -1,4 +1,5 @@
 use std::panic;
+use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,6 +8,7 @@ use serenity::async_trait;
 use serenity::builder::{CreateApplicationCommand, CreateApplicationCommands};
 use serenity::model::channel::Message;
 use serenity::model::gateway::{Activity, Ready};
+use serenity::model::guild::Member;
 use serenity::model::id::GuildId;
 use serenity::model::interactions::application_command::{
     ApplicationCommand, ApplicationCommandInteractionDataOptionValue,
@@ -15,11 +17,12 @@ use serenity::model::interactions::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
 use tracing::{error, info, instrument};
 
-use crate::db::{DEFAULT_DB_NAME, DEFAULT_MONGO_READY_MAX_WAIT};
+use crate::db::DEFAULT_MONGO_READY_MAX_WAIT;
+use crate::interaction_handlers::setup::create_guild_commands;
 use crate::interaction_handlers::*;
 use crate::jobs::{clear_out_stale_joins, log_system_load};
-use crate::utils::onboarding::ensure_guild_registration;
-use crate::{DbClientSetupHandle, DbRef};
+use crate::utils::onboarding::inspect_guild_commands;
+use crate::{DbClientRef, DbClientSetupHandle};
 
 #[derive(Debug)]
 pub struct Handler {
