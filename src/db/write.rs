@@ -1,6 +1,6 @@
 use mongodb::bson::doc;
 use mongodb::error::Error;
-use mongodb::results::{DeleteResult, InsertOneResult, UpdateResult};
+use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
 
@@ -91,5 +91,15 @@ pub async fn clear_guild_commands(db: Database) -> Result<DeleteResult, Error> {
     Ok(db
         .collection::<GuildCommand>(COMMANDS)
         .delete_many(all, None)
+        .await?)
+}
+
+pub async fn save_guild_commands(
+    db: Database,
+    commands: Vec<GuildCommand>,
+) -> Result<InsertManyResult, Error> {
+    Ok(db
+        .collection::<GuildCommand>(COMMANDS)
+        .insert_many(commands, None)
         .await?)
 }

@@ -16,11 +16,9 @@ pub struct PugChannel {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GameMode {
-    pub guild_id: Guild,
     pub label: String,
-    pub name: String,
+    pub key: String,
     pub player_count: u8,
-    pub enlisted_players: Vec<Player>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
