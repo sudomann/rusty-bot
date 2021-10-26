@@ -67,13 +67,15 @@ async fn inspect_and_maybe_update_db(
     let db = db_client.database(guild_id.to_string().as_str());
 
     let current_commands = guild_id.get_application_commands(&ctx.http).await?;
-    let saved_commands: Vec<GuildCommand> = crate::db::read::get_commands(db.clone()).await?;
+    let mut saved_commands: Vec<GuildCommand> = crate::db::read::get_commands(db.clone()).await?;
 
     // if there is a mismatch between the commands saved in the database vs the ones currently
     // registered with discord, clear out the guild's commands
     // We do this because it suggests the arrangement of registered commands in the database
     // has grown apart from what the code expects.
     // Thus the code is likely faulty and should not be allowed to quietly continue corrupting data
+    // info!("SAVED COMMANDS: {:#?}", &saved_commands);
+    // info!("CURRENT COMMANDS: {:#?}", &current_commands);
     let commands_match = saved_commands.len() == current_commands.len()
         && current_commands
             .iter()
@@ -86,16 +88,19 @@ async fn inspect_and_maybe_update_db(
         );
         // clear guild commands
         guild_id.set_application_commands(&ctx.http, |c| c).await?;
+        // clear db also
         clear_guild_commands(db.clone()).await?;
+        // and empty the vec that might contain old results
+        // from the db which we just ^ cleared
+        saved_commands.clear();
     }
 
     if saved_commands.is_empty() {
-        info!("Creating /setup command for {:?}", &guild_id);
         // create /setup command
         let setup_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
                 c.name("setup")
-                    .description("Use this to register the bot's commands in this guild")
+                    .description("Use this to setup my commands in this guild")
             })
             .await?;
 
