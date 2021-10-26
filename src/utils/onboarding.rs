@@ -1,5 +1,4 @@
 use futures::future::join_all;
-use futures::stream::TryStreamExt;
 use mongodb::Client;
 use std::sync::Arc;
 
@@ -17,7 +16,7 @@ use crate::DbClientRef;
 /// If there aren't suitable existing commands, create a `/setup` command
 #[instrument(skip(ctx, guild_ids))]
 pub async fn inspect_guild_commands(ctx: Arc<Context>, guild_ids: Vec<GuildId>) {
-    let mut interval = interval(Duration::from_secs(3));
+    let mut interval = interval(Duration::from_secs(5));
 
     // loop/block until the Client is available in storage
     let db_client = loop {
@@ -67,27 +66,22 @@ async fn inspect_and_maybe_update_db(
 ) -> Result<GuildId, crate::error::Error> {
     let db = db_client.database(guild_id.to_string().as_str());
 
-    // get commands saved in db
-    let mut cursor = db
-        .collection::<GuildCommand>("guild_commands")
-        .find(None, None)
-        .await?;
-
     let current_commands = guild_id.get_application_commands(&ctx.http).await?;
-    let mut saved_commands: Vec<GuildCommand> = Vec::default();
-    while let Some(saved_command) = cursor.try_next().await? {
-        saved_commands.push(saved_command);
-    }
+    let saved_commands: Vec<GuildCommand> = crate::db::read::get_commands(db.clone()).await?;
 
     // if there is a mismatch between the commands saved in the database vs the ones currently
     // registered with discord, clear out the guild's commands
+    // We do this because it suggests the arrangement of registered commands in the database
+    // has grown apart from what the code expects.
+    // Thus the code is likely faulty and should not be allowed to quietly continue corrupting data
     let commands_match = saved_commands.len() == current_commands.len()
         && current_commands
             .iter()
             .all(|current| saved_commands.iter().any(|saved| saved.eq(current)));
+
     if !commands_match {
         warn!(
-            "Guild command mismatch for guild: {}. Clearing all existing from guild and database...",
+            "Guild command mismatch for {:?}. Clearing all existing from guild and database...",
             &guild_id
         );
         // clear guild commands
@@ -96,7 +90,7 @@ async fn inspect_and_maybe_update_db(
     }
 
     if saved_commands.is_empty() {
-        info!("Creating /setup command for guild: {}", &guild_id);
+        info!("Creating /setup command for {:?}", &guild_id);
         // create /setup command
         let setup_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
