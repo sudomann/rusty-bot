@@ -2,25 +2,16 @@ use futures::stream::TryStreamExt;
 use mongodb::bson::doc;
 use mongodb::error::Error;
 use mongodb::Database;
-use serenity::model::id::GuildId;
 
-use super::collection_name::COMMANDS;
+use super::collection_name::{COMMANDS, GAME_MODES};
 use super::model::*;
 
-/// Get list of known guilds
-pub async fn get_known_guilds(db: Database) -> Result<Vec<Guild>, Error> {
-    let collection = db.collection::<Guild>("guilds");
-    let cursor = collection.find(None, None).await?;
+/// Get added game modes
+pub async fn get_game_modes(db: Database) -> Result<Vec<GameMode>, Error> {
+    let collection = db.collection::<GameMode>(GAME_MODES);
+    let all = doc! {};
+    let cursor = collection.find(all, None).await?;
     Ok(cursor.try_collect().await?)
-}
-
-/// Fetch a known guild by it's guild id
-pub async fn get_guild(db: Database, guild_id: &GuildId) -> Result<Option<Guild>, Error> {
-    let collection = db.collection::<Guild>("guilds");
-    let filter = doc! {
-        "guild_id": *guild_id.as_u64() as i64,
-    };
-    Ok(collection.find_one(Some(filter), None).await?)
 }
 
 /// Get saved guild commands
@@ -35,16 +26,4 @@ pub async fn get_commands(db: Database) -> Result<Vec<GuildCommand>, Error> {
         saved_commands.push(saved_command);
     }
     Ok(saved_commands)
-}
-
-/// Fetch a guild's designated pug channels
-pub async fn get_pug_channel(
-    db: Database,
-    guild_id: &GuildId,
-) -> Result<Option<PugChannel>, Error> {
-    let collection = db.collection::<PugChannel>("pug_channels");
-    let filter = doc! {
-        "guild_id": *guild_id.as_u64() as i64,
-    };
-    Ok(collection.find_one(Some(filter), None).await?)
 }
