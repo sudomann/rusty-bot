@@ -1,32 +1,38 @@
 use futures::future::join_all;
 use mongodb::Database;
 use nanoid::nanoid;
-use serenity::builder::CreateApplicationCommand;
+use serenity::builder::{CreateApplicationCommand, CreateApplicationCommandOption};
 use serenity::client::Context;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::interactions::application_command::{
+    ApplicationCommandInteraction, ApplicationCommandOptionType,
+};
 use serenity::utils::MessageBuilder;
 use tokio::spawn;
 use tracing::error;
 
+use crate::db::model::GuildCommand;
 use crate::DbClientRef;
 
-/// Creates base guild command set.
-/// Checks to ensure that caller has bot admin role, then kicks off creation of guild command set (overwrites any existing).
+/// Composes and applies base command set for a guild.
+/// TODO: Checks to ensure that caller has bot admin role
+/// then kicks off creation of guild command set (overwriting any existing).
 ///
 /// The database is checked for existing data
 /// such as game modes, so the commands created can be customized for the guild.
-pub async fn create_guild_commands(
+pub async fn set_guild_base_command_set(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> String {
     let _working = interaction.channel_id.start_typing(&ctx.http);
+    let mut response = MessageBuilder::new();
+
+    let guild_id = interaction.guild_id.unwrap();
+
     let client = {
         let data = ctx.data.read().await;
         data.get::<DbClientRef>().unwrap().clone()
     };
-    let guild_id = interaction.guild_id.unwrap();
     let db = client.database(guild_id.0.to_string().as_str());
-    let mut response = MessageBuilder::new();
 
     let mut command_set: Vec<CreateApplicationCommand> = Vec::default();
     // spawn all command builders
@@ -43,14 +49,19 @@ pub async fn create_guild_commands(
                 Ok(command_creation) => {
                     command_set.push(command_creation);
                 }
-                Err(_err) => {
-                    // TODO: implement a response here
+                Err(err) => {
+                    let id = nanoid!(6);
+                    error!("Error [{}] panic in a command builder: {:?}", id, err);
+                    response
+                        .push("Sorry, an error occured when communicating with the database. Incident ID: ")
+                        .push(id);
+                    return response.build();
                 }
             },
             Err(err) => {
                 if err.is_panic() {
                     let id = nanoid!(6);
-                    error!("Error [{}] during command building: {:?}", id, err);
+                    error!("Error [{}] panic in a command builder: {:?}", id, err);
                     response
                         .push("Sorry, an error occured. Incident ID: ")
                         .push(id);
@@ -59,6 +70,7 @@ pub async fn create_guild_commands(
             }
         }
     }
+
     // set (overwrite) current guild commands with the built set
     match guild_id
         .set_application_commands(&ctx.http, move |c| {
@@ -69,14 +81,38 @@ pub async fn create_guild_commands(
         })
         .await
     {
-        Ok(_created_commands) => {
+        Ok(created_commands) => {
+            let commands_to_save: Vec<GuildCommand> = created_commands
+                .iter()
+                .map(|c| GuildCommand {
+                    command_id: c.id.0,
+                    name: c.name.clone(),
+                })
+                .collect();
+            if let Err(err) = crate::db::write::save_guild_commands(db, commands_to_save).await {
+                let id = nanoid!(6);
+                error!(
+                    "Error [{}] saving newly created guild commands to databse: {:?}",
+                    id, err
+                );
+                return response
+                    .push_line("Commands have been set, but saving them to the database failed.")
+                    .push(
+                        "A future launch/startup of the bot will result in \
+                        my commands in this servers being cleared/reset",
+                    )
+                    .push("Incident ID: ")
+                    .push(id)
+                    .build();
+            };
             return response.push("All done").build();
         }
         Err(err) => {
             let id = nanoid!(6);
-            error!("Error [{}] when overwriting guild commands: {:?}", id, err);
+            error!("Error [{}] when setting guild commands: {:?}", id, err);
             response
-                .push("Sorry, an error occured. Incident ID: ")
+                .push_line("Something went wrong when setting commands for this guild.")
+                .push("Incident ID: ")
                 .push(id);
             return response.build();
         }
@@ -88,26 +124,87 @@ pub async fn create_guild_commands(
 // -----------------
 
 pub async fn build_pugchannel(
-    db: Database,
+    _db: Database,
 ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
-    Ok(CreateApplicationCommand::default())
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("setpugchannel")
+        .description("Designate a channel to be used for pugs");
+    Ok(cmd)
 }
-pub async fn build_addmod(db: Database) -> Result<CreateApplicationCommand, mongodb::error::Error> {
-    // read db for 2 commands, "addmod" and "join"
 
-    // use the id to recover the corresponding command in serenity
+pub async fn build_addmod(
+    _db: Database,
+) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    let mut label_option = CreateApplicationCommandOption::default();
+    label_option
+        .name("label")
+        .description("Name of the game mode")
+        .kind(ApplicationCommandOptionType::String)
+        .required(true);
 
-    // addmod command options:
-    // - game name field
-    // - player count choices field
-    //    - allowed value range: 2-24 (even only)
+    let mut player_count_option = CreateApplicationCommandOption::default();
+    player_count_option
+        .name("player_count")
+        .description(
+            "Number of players required to fill the game mode. Must be even, minimum 2, maximum 24",
+        )
+        .kind(ApplicationCommandOptionType::Integer)
+        .add_int_choice("2", 2)
+        .add_int_choice("4", 4)
+        .add_int_choice("6", 6)
+        .add_int_choice("8", 8)
+        .add_int_choice("10", 10)
+        .add_int_choice("12", 12)
+        .add_int_choice("14", 14)
+        .add_int_choice("16", 16)
+        .add_int_choice("18", 18)
+        .add_int_choice("20", 20)
+        .add_int_choice("22", 22)
+        .add_int_choice("24", 24)
+        .required(true);
 
-    // after addmod is used, we edit the join command
-    Ok(CreateApplicationCommand::default())
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("addmod")
+        .description("Add a new game mode")
+        .add_option(label_option)
+        .add_option(player_count_option);
+
+    Ok(cmd)
 }
+
 pub async fn build_delmod(db: Database) -> Result<CreateApplicationCommand, mongodb::error::Error> {
-    Ok(CreateApplicationCommand::default())
+    let mut game_mode_option = CreateApplicationCommandOption::default();
+
+    // load existing game modes
+    for existing_game_mode in crate::db::read::get_game_modes(db).await?.iter() {
+        game_mode_option.add_string_choice(&existing_game_mode.label, &existing_game_mode.key);
+    }
+
+    game_mode_option
+        .name("game_mode")
+        .description("The label of the game mode you want to delete")
+        .kind(ApplicationCommandOptionType::String)
+        .required(true);
+
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("delmod")
+        .description("Delete an existing game mode")
+        .add_option(game_mode_option);
+    Ok(cmd)
 }
-pub async fn build_last(db: Database) -> Result<CreateApplicationCommand, mongodb::error::Error> {
-    Ok(CreateApplicationCommand::default())
+
+pub async fn build_last(_db: Database) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    let mut history_count_option = CreateApplicationCommandOption::default();
+    history_count_option
+        .name("match_age")
+        .description(
+            "How many steps/matches to traverse into match history when searching for a match to display",
+        )
+        .kind(ApplicationCommandOptionType::Integer);
+
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("last")
+        .description("Display info about a previous pug")
+        .add_option(history_count_option);
+    Ok(cmd)
 }
