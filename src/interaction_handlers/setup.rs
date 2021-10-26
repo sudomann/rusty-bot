@@ -1,4 +1,5 @@
 use futures::future::join_all;
+use futures::{try_join, TryFutureExt};
 use mongodb::Database;
 use nanoid::nanoid;
 use serenity::builder::{CreateApplicationCommand, CreateApplicationCommandOption};
@@ -11,6 +12,7 @@ use tokio::spawn;
 use tracing::error;
 
 use crate::db::model::GuildCommand;
+use crate::db::write::{clear_guild_commands, save_guild_commands};
 use crate::DbClientRef;
 
 /// Composes and applies base command set for a guild.
@@ -89,23 +91,35 @@ pub async fn set_guild_base_command_set(
                     name: c.name.clone(),
                 })
                 .collect();
-            if let Err(err) = crate::db::write::save_guild_commands(db, commands_to_save).await {
-                let id = nanoid!(6);
-                error!(
-                    "Error [{}] saving newly created guild commands to databse: {:?}",
-                    id, err
-                );
-                return response
-                    .push_line("Commands have been set, but saving them to the database failed.")
-                    .push(
+
+            let clearing_fut = clear_guild_commands(db.clone())
+                .map_err(|e| format!("Unable to clear {:?} commands: {:#?}", guild_id, e));
+
+            let saving_fut = save_guild_commands(db, commands_to_save).map_err(|e| {
+                format!(
+                    "Cleared {:?} commands, but was unable to save created base command set: {:#?}",
+                    guild_id, e
+                )
+            });
+
+            match try_join!(clearing_fut, saving_fut) {
+                Ok(_r) => {
+                    return response.push("All done").build();
+                }
+                Err(err) => {
+                    let id = nanoid!(6);
+                    error!("Error [{}] updating command documents: {:?}", id, err);
+                    return response
+                    .push_line("Commands have been set, but something went wrong recording the changes.")
+                    .push_line(
                         "A future launch/startup of the bot will result in \
-                        my commands in this servers being cleared/reset",
+                        my commands in this servers being cleared/reset.",
                     )
                     .push("Incident ID: ")
                     .push(id)
                     .build();
+                }
             };
-            return response.push("All done").build();
         }
         Err(err) => {
             let id = nanoid!(6);
