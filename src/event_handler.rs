@@ -41,7 +41,6 @@ impl EventHandler for Handler {
                 "coinflip" => coin_flip::coin_flip(),
                 "setpugchannel" => pug_channel::set(&ctx, &command).await,
                 "setup" => set_guild_base_command_set(&ctx, &command).await,
-                // NOTE: max number of gamemodes: 25
                 "addmod" => game_mode::create(&ctx, &command).await,
                 _ => "Not useable. Sorry :(".to_string(),
             };
