@@ -138,19 +138,22 @@ impl EventHandler for Handler {
         // An AtomicBool is used because it doesn't require a mutable reference to be changed, as
         // we don't have one due to self being an immutable reference.
         if !self.is_loop_running.load(Ordering::Relaxed) {
+            // We have to clone the Arc, as it gets moved into the new thread.
+            let ctx1 = Arc::clone(&ctx);
+            let ctx2 = Arc::clone(&ctx);
+
             tokio::spawn(async move {
                 loop {
                     // We clone Context again here, because Arc is owned, so it moves to the
                     // new function.
-                    log_system_load(Arc::clone(&ctx)).await;
+                    log_system_load(Arc::clone(&ctx1)).await;
                     tokio::time::sleep(Duration::from_secs(120)).await;
                 }
             });
 
-            // And of course, we can run more than one thread at different timings.
             tokio::spawn(async move {
                 loop {
-                    clear_out_stale_joins(Arc::clone(&ctx)).await;
+                    clear_out_stale_joins(Arc::clone(&ctx2)).await;
                     tokio::time::sleep(Duration::from_secs(60)).await;
                 }
             });
