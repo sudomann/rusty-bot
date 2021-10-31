@@ -1,6 +1,9 @@
 // -----------------
 // Base command set
 // -----------------
+
+// FIXME: do these really need their own submodule?
+// interaction_handlers::setup module determines which of these are called
 pub mod base {
     use mongodb::Database;
     use serenity::builder::{CreateApplicationCommand, CreateApplicationCommandOption};
@@ -108,11 +111,16 @@ pub mod base {
         Ok(cmd)
     }
 
+    /// When no `Vec<GameMode>` is provided, this function will fetch from the db
     pub async fn build_join(
         db: Database,
+        maybe_game_modes: Option<Vec<GameMode>>,
     ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
-        let game_modes = crate::db::read::get_game_modes(db).await?;
-        let game_mode_option = generate_join_command_option(game_modes).await?;
+        let game_modes = match maybe_game_modes {
+            Some(game_modes) => game_modes,
+            None => crate::db::read::get_game_modes(db).await?,
+        };
+        let game_mode_option = generate_join_command_option(&game_modes).await?;
         let mut cmd = CreateApplicationCommand::default();
         cmd.name("join")
             .description("Join a pug")
@@ -126,7 +134,7 @@ pub mod base {
     /// The choices are game mode labels that are obtained from the [`Vec<GameMode>`] provided
     /// to this function. No choices are added to the option if the [`Vec`] is empty.
     pub async fn generate_join_command_option(
-        game_modes: Vec<GameMode>,
+        game_modes: &Vec<GameMode>,
     ) -> Result<CreateApplicationCommandOption, mongodb::error::Error> {
         let mut game_mode_option = CreateApplicationCommandOption::default();
         game_mode_option
