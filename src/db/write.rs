@@ -21,9 +21,14 @@ pub enum Method {
 
 pub async fn write_new_game_mode(
     db: Database,
-    game_mode: GameMode,
+    label: String,
+    player_count: u64,
 ) -> Result<InsertOneResult, Error> {
     let collection = db.collection(GAME_MODES);
+    let game_mode = GameMode {
+        label,
+        player_count,
+    };
     collection.insert_one(game_mode, None).await
 }
 
