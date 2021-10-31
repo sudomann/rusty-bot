@@ -62,30 +62,35 @@ pub async fn create(
 
     if game_modes.is_empty() {
         // we assume no join command should exist in this case so we will create it
-        let built_join_command = build_join(db.clone()).await?;
-        guild_id
+        let built_join_command = build_join(db.clone(), None).await?;
+        let new_join_cmd = guild_id
             .create_application_command(&ctx.http, |command_builder| {
                 // hackity hack hack ;)
                 // side-steps the unresolved issues with calling the async building in here,
                 // `move`ing variables, and lifetimes
-                std::mem::replace(command_builder, built_join_command);
+                let unwanted_default = std::mem::replace(command_builder, built_join_command);
+                std::mem::drop(unwanted_default);
                 command_builder
             })
             .await
             .context(
                 "Attempted to create a `join` command since the database did not have any saved game modes",
             )?;
+        crate::db::write::register_guild_command(db.clone(), &new_join_cmd)
+            .await
+            // this failure causes the bot to clear out the guild's commands on next launch
+            .context("Attempted to save newly created `join` command to database")?;
     } else {
         // try to retrieve the existing join command
         let saved_cmd = db::read::find_command(db.clone(), doc!("name": "join"))
             .await?
-            .context("At least one game mode exists in the database, but no join command")?;
+            .context("At least one game mode exists in the database, but no join command was found in the database")?;
         let current_join_cmd = guild_id
             .get_application_command(&ctx.http, CommandId(saved_cmd.command_id))
             .await
             .context(
                 "Attempted to fetch and application command object for `join` from discord \
-            using the CommandId from a `join` command that was saved in the database",
+                using the CommandId from a `join` command that was saved in the database",
             )?;
 
         /*
@@ -102,7 +107,7 @@ pub async fn create(
             label: label.to_string(),
             player_count: *player_count,
         });
-        let new_option = generate_join_command_option(game_modes).await?;
+        let new_option = generate_join_command_option(&game_modes).await?;
         guild_id
             .edit_application_command(&ctx.http, current_join_cmd.id, |c| {
                 c.set_options(vec![new_option])
@@ -110,8 +115,8 @@ pub async fn create(
             .await
             .context(
                 "Attempted to edit existing join application command to \
-            overwrite its options with a new one which has an \
-            up to date list of game mode choices",
+                overwrite its options with a new one which has an \
+                up to date list of game mode choices",
             )?;
     };
 
