@@ -36,16 +36,23 @@ pub async fn set_guild_base_command_set(
     let db = client.database(guild_id.0.to_string().as_str());
 
     let mut command_set: Vec<CreateApplicationCommand> = Vec::default();
-    // spawn all command builders
-    for handle in join_all(vec![
+    let game_modes = crate::db::read::get_game_modes(db.clone()).await?;
+    let mut builders = vec![
         spawn(build_pugchannel(db.clone())),
         spawn(build_addmod(db.clone())),
         spawn(build_delmod(db.clone())),
         spawn(build_last(db.clone())),
-        spawn(build_join(db.clone())),
-    ])
-    .await
-    {
+    ];
+    if !game_modes.is_empty() {
+        // the following commands are only useable if game modes exist
+        builders.extend(vec![
+            spawn(build_join(db.clone(), Some(game_modes.clone()))),
+            // spawn(build_leave(db.clone(), &game_modes)),
+            // ...
+        ]);
+    }
+    // spawn all command builders
+    for handle in join_all(builders).await {
         match handle {
             Ok(result) => match result {
                 Ok(command_creation) => {
