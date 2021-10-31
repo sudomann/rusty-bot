@@ -4,7 +4,7 @@ use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateRe
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
 
-use super::collection_name::COMMANDS;
+use super::collection_name::{COMMANDS, GAME_MODES, PUG_CHANNELS};
 use super::model::*;
 
 /// The "policy" or "method" to use when writing to the database.
@@ -18,8 +18,13 @@ pub enum Method {
 }
 
 // can these be combined with the picking_session module?
-pub async fn write_new_game_mode() -> Result<(), ()> {
-    Ok(())
+
+pub async fn write_new_game_mode(
+    db: Database,
+    game_mode: GameMode,
+) -> Result<InsertOneResult, Error> {
+    let collection = db.collection(GAME_MODES);
+    collection.insert_one(game_mode, None).await
 }
 
 pub async fn delete_game_mode() -> Result<(), ()> {
@@ -55,7 +60,7 @@ pub async fn set_pug_channel(
     channel_id: u64,
     channel_name: Option<String>,
 ) -> Result<UpdateResult, Error> {
-    let collection = db.collection("pug_channels");
+    let collection = db.collection(PUG_CHANNELS);
 
     let desired_pug_channel = PugChannel {
         channel_id,
@@ -65,17 +70,14 @@ pub async fn set_pug_channel(
     // since we currently only permit one pug channel at a time
     let any = doc! {};
 
-    Ok(collection
-        .replace_one(any, desired_pug_channel, None)
-        .await?)
+    collection.replace_one(any, desired_pug_channel, None).await
 }
 
 pub async fn register_guild_command(
     db: Database,
     guild_command: &ApplicationCommand,
 ) -> Result<InsertOneResult, Error> {
-    Ok(db
-        .collection(COMMANDS)
+    db.collection(COMMANDS)
         .insert_one(
             GuildCommand {
                 command_id: guild_command.id.0,
@@ -83,23 +85,21 @@ pub async fn register_guild_command(
             },
             None,
         )
-        .await?)
+        .await
 }
 
 pub async fn clear_guild_commands(db: Database) -> Result<DeleteResult, Error> {
     let all = doc! {};
-    Ok(db
-        .collection::<GuildCommand>(COMMANDS)
+    db.collection::<GuildCommand>(COMMANDS)
         .delete_many(all, None)
-        .await?)
+        .await
 }
 
 pub async fn save_guild_commands(
     db: Database,
     commands: Vec<GuildCommand>,
 ) -> Result<InsertManyResult, Error> {
-    Ok(db
-        .collection::<GuildCommand>(COMMANDS)
+    db.collection::<GuildCommand>(COMMANDS)
         .insert_many(commands, None)
-        .await?)
+        .await
 }
