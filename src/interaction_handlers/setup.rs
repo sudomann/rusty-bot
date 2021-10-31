@@ -1,12 +1,10 @@
+use anyhow::Context as AnyhowContext;
 use futures::future::join_all;
-use futures::{try_join, TryFutureExt};
-use nanoid::nanoid;
+use futures::try_join;
 use serenity::builder::CreateApplicationCommand;
 use serenity::client::Context;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
-use serenity::utils::MessageBuilder;
 use tokio::spawn;
-use tracing::error;
 
 use crate::command_builder::base::*;
 use crate::db::model::GuildCommand;
@@ -23,9 +21,7 @@ pub async fn set_guild_base_command_set(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    // FIXME: replace the verbose error handling with anyhow sugar
     let _working = interaction.channel_id.start_typing(&ctx.http);
-    let mut response = MessageBuilder::new();
 
     let guild_id = interaction.guild_id.unwrap();
 
@@ -53,35 +49,16 @@ pub async fn set_guild_base_command_set(
     }
     // spawn all command builders
     for handle in join_all(builders).await {
-        match handle {
-            Ok(result) => match result {
-                Ok(command_creation) => {
-                    command_set.push(command_creation);
-                }
-                Err(err) => {
-                    let id = nanoid!(6);
-                    error!("Error [{}] panic in a command builder: {:?}", id, err);
-                    response
-                        .push("Sorry, an error occured when communicating with the database. Incident ID: ")
-                        .push(id);
-                    return Ok(response.build());
-                }
-            },
-            Err(err) => {
-                if err.is_panic() {
-                    let id = nanoid!(6);
-                    error!("Error [{}] panic in a command builder: {:?}", id, err);
-                    response
-                        .push("Sorry, an error occured. Incident ID: ")
-                        .push(id);
-                    return Ok(response.build());
-                }
-            }
-        }
+        let join_result = handle.context("A command builder panicked")?;
+        let built_command = join_result.context(
+            "An error occured during command building. \
+            It likely came from an attempt to communicate with the database",
+        )?;
+        command_set.push(built_command);
     }
 
     // set (overwrite) current guild commands with the built set
-    match guild_id
+    let created_commands = guild_id
         .set_application_commands(&ctx.http, move |c| {
             for command in command_set.into_iter() {
                 c.add_application_command(command);
@@ -89,53 +66,21 @@ pub async fn set_guild_base_command_set(
             c
         })
         .await
-    {
-        Ok(created_commands) => {
-            let commands_to_save: Vec<GuildCommand> = created_commands
-                .iter()
-                .map(|c| GuildCommand {
-                    command_id: c.id.0,
-                    name: c.name.clone(),
-                })
-                .collect();
+        .context(format!(
+            "Failed to overwrite guild commands for: {:?}",
+            &guild_id
+        ))?;
 
-            let clearing_fut = clear_guild_commands(db.clone())
-                .map_err(|e| format!("Unable to clear {:?} commands: {:#?}", guild_id, e));
+    let commands_to_save: Vec<GuildCommand> = created_commands
+        .iter()
+        .map(|c| GuildCommand {
+            command_id: c.id.0,
+            name: c.name.clone(),
+        })
+        .collect();
 
-            let saving_fut = save_guild_commands(db, commands_to_save).map_err(|e| {
-                format!(
-                    "Cleared {:?} commands, but was unable to save created base command set: {:#?}",
-                    guild_id, e
-                )
-            });
-
-            match try_join!(clearing_fut, saving_fut) {
-                Ok(_r) => {
-                    return Ok(response.push("All done").build());
-                }
-                Err(err) => {
-                    let id = nanoid!(6);
-                    error!("Error [{}] updating command documents: {:?}", id, err);
-                    return Ok(response
-                    .push_line("Commands have been set, but something went wrong recording the changes.")
-                    .push_line(
-                        "A future launch/startup of the bot will result in \
-                        my commands in this servers being cleared/reset.",
-                    )
-                    .push("Incident ID: ")
-                    .push(id)
-                    .build());
-                }
-            };
-        }
-        Err(err) => {
-            let id = nanoid!(6);
-            error!("Error [{}] when setting guild commands: {:?}", id, err);
-            response
-                .push_line("Something went wrong when setting commands for this server.")
-                .push("Incident ID: ")
-                .push(id);
-            return Ok(response.build());
-        }
-    };
+    let clearing_fut = clear_guild_commands(db.clone());
+    let saving_fut = save_guild_commands(db, commands_to_save);
+    try_join!(clearing_fut, saving_fut).context("Guild commands have been set, but something went wrong updating command records in the database")?;
+    Ok("All done".to_string())
 }
