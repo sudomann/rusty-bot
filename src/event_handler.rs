@@ -52,7 +52,7 @@ impl EventHandler for Handler {
                     let event_id = nanoid!(6);
                     error!("Error Event [{}]\n{:#?}", event_id, err);
                     format!(
-                        "Sorry, went wrong, and this incident has been logged. Incident ID: {}",
+                        "Sorry, something went wrong and this incident has been logged. Incident ID: {}",
                         event_id
                     )
                 }
