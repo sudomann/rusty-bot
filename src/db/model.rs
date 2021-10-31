@@ -17,7 +17,7 @@ pub struct PugChannel {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GameMode {
     pub label: String,
-    pub player_count: u8,
+    pub player_count: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
