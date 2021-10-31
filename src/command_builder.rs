@@ -6,6 +6,8 @@ pub mod base {
     use serenity::builder::{CreateApplicationCommand, CreateApplicationCommandOption};
     use serenity::model::interactions::application_command::ApplicationCommandOptionType;
 
+    use crate::db::model::GameMode;
+
     pub async fn build_pugchannel(
         _db: Database,
     ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
@@ -71,7 +73,8 @@ pub mod base {
 
         // load existing game modes
         for existing_game_mode in crate::db::read::get_game_modes(db).await?.iter() {
-            game_mode_option.add_string_choice(&existing_game_mode.label, &existing_game_mode.key);
+            game_mode_option
+                .add_string_choice(&existing_game_mode.label, &existing_game_mode.label);
         }
 
         game_mode_option
@@ -108,5 +111,32 @@ pub mod base {
     pub async fn build_join(
         db: Database,
     ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+        let game_modes = crate::db::read::get_game_modes(db).await?;
+        let game_mode_option = generate_join_command_option(game_modes).await?;
+        let mut cmd = CreateApplicationCommand::default();
+        cmd.name("join")
+            .description("Join a pug")
+            .add_option(game_mode_option);
+        Ok(cmd)
+    }
+
+    /// The join command only has one option, which is also required.
+    /// This helper builds that option.
+    ///
+    /// The choices are game mode labels that are obtained from the [`Vec<GameMode>`] provided
+    /// to this function. No choices are added to the option if the [`Vec`] is empty.
+    pub async fn generate_join_command_option(
+        game_modes: Vec<GameMode>,
+    ) -> Result<CreateApplicationCommandOption, mongodb::error::Error> {
+        let mut game_mode_option = CreateApplicationCommandOption::default();
+        game_mode_option
+            .name("game_mode")
+            .description("You can type-to-search for more if you don't see all choices")
+            .kind(ApplicationCommandOptionType::String)
+            .required(true);
+        for game_mode in game_modes {
+            game_mode_option.add_string_choice(&game_mode.label, &game_mode.label);
+        }
+        Ok(game_mode_option)
     }
 }
