@@ -21,8 +21,9 @@ pub struct GameMode {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Player {
-    pub user_id: u64,
+pub struct GameModeJoin {
+    pub game_mode_label: String,
+    pub player_user_id: u64,
     pub join_datetime: DateTime<Utc>,
 }
 
