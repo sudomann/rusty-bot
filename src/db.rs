@@ -15,6 +15,7 @@ pub mod collection_name {
     pub const COMMANDS: &str = "commands";
     pub const PUG_CHANNELS: &str = "pug_channel";
     pub const GAME_MODES: &str = "game_modes";
+    pub const GAME_MODE_JOINS: &str = "game_mode_joins";
     pub const PUG_SESSIONS: &str = "pug_sessions";
 }
 

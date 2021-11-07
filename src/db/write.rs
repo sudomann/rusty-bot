@@ -1,10 +1,11 @@
+use chrono::Utc;
 use mongodb::bson::doc;
 use mongodb::error::Error;
 use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
 
-use super::collection_name::{COMMANDS, GAME_MODES, PUG_CHANNELS};
+use super::collection_name::{COMMANDS, GAME_MODES, GAME_MODE_JOINS, PUG_CHANNELS};
 use super::model::*;
 
 /// The "policy" or "method" to use when writing to the database.
@@ -36,15 +37,35 @@ pub async fn delete_game_mode() -> Result<(), ()> {
     Ok(())
 }
 
-pub async fn insert_player_in_pug() -> Result<(), ()> {
-    Ok(())
+pub async fn add_player_to_game_mode_queue(
+    db: Database,
+    game_mode_label: String,
+    player_user_id: u64,
+) -> Result<InsertOneResult, Error> {
+    let collection = db.collection(GAME_MODE_JOINS);
+    let player = GameModeJoin {
+        game_mode_label,
+        player_user_id,
+        join_datetime: Utc::now(),
+    };
+    collection.insert_one(player, None).await
 }
 
-pub async fn remove_player_from_pug() -> Result<(), ()> {
-    Ok(())
+pub async fn remove_player_from_game_mode_queue(
+    db: Database,
+    game_mode_label: String,
+    player_user_id: u64,
+) -> Result<Option<GameModeJoin>, Error> {
+    let collection = db.collection(GAME_MODE_JOINS);
+    let filter = doc! {
+        "game_mode_label": game_mode_label,
+        // casting because bson doesn't seem to work out of the box with primitive u64
+        "player_user_id": player_user_id as i64
+    };
+    collection.find_one_and_delete(filter, None).await
 }
 
-pub async fn pick_player_for_pug_team() -> Result<(), ()> {
+pub async fn pick_player_for_team() -> Result<(), ()> {
     Ok(())
 }
 
