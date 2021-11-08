@@ -6,8 +6,7 @@ use crate::interaction_handlers::picking_session::Team;
 ///
 /// For game modes with more players, it determines which captain picks first
 /// and is used to validate picking order/turns when choosing players from the roster.
-pub fn generate(player_count: &u64) -> Vec<Team> {
-    let player_count = *player_count;
+pub fn generate(&player_count: &u64) -> Vec<Team> {
     let mut pick_sequence: Vec<Team>;
     let options = [Team::Blue, Team::Red];
     let random_first_pick = &options[rand::Rng::gen_range(&mut rand::thread_rng(), 0..2)];
@@ -26,7 +25,7 @@ pub fn generate(player_count: &u64) -> Vec<Team> {
         // Since the player count is 1-based,
         // the counter for this loop is also 1-based for the sake consistency
 
-        let mut iter = 2..player_count;
+        let iter = 2..player_count;
         for _ in iter.step_by(2) {
             // This loop operates on the indexes between the first and last
             // Captains alternate double picks when its not first/last pick round,
