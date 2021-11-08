@@ -136,7 +136,6 @@ pub async fn join(
             .await?;
     }
 
-    // I think a blank string results in no message being sent to the channel
     return Ok(
         "If these participants were in the queue of any other game mode, \
     they have been removed"
