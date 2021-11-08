@@ -14,7 +14,6 @@ use serenity::prelude::*;
 use tracing::{error, info, instrument};
 
 // use crate::db::DEFAULT_MONGO_READY_MAX_WAIT;
-use crate::interaction_handlers::setup::set_guild_base_command_set;
 use crate::interaction_handlers::*;
 use crate::jobs::{clear_out_stale_joins, log_system_load};
 use crate::utils::onboarding::inspect_guild_commands;
@@ -41,8 +40,11 @@ impl EventHandler for Handler {
                 "ping" => Ok("Pong!".to_string()),
                 "coinflip" => Ok(coin_flip::coin_flip()),
                 "setpugchannel" => pug_channel::set(&ctx, &command).await,
-                "setup" => set_guild_base_command_set(&ctx, &command).await,
+                "setup" => setup::set_guild_base_command_set(&ctx, &command).await,
                 "addmod" => game_mode::create(&ctx, &command).await,
+                "delmod" => game_mode::delete(&ctx, &command).await,
+                "join" => queue::join(&ctx, &command).await,
+                "leave" => queue::leave(&ctx, &command).await,
                 _ => Ok("Not usable. Sorry :(".to_string()),
             };
 
