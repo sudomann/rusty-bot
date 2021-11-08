@@ -16,7 +16,9 @@ pub mod collection_name {
     pub const PUG_CHANNELS: &str = "pug_channel";
     pub const GAME_MODES: &str = "game_modes";
     pub const GAME_MODE_JOINS: &str = "game_mode_joins";
-    pub const PUG_SESSIONS: &str = "pug_sessions";
+    pub const GAME_MODE_ROSTER: &str = "game_mode_roster";
+    pub const PICKING_SESSIONS: &str = "picking_sessions";
+    pub const COMPLETED_PUGS: &str = "completed_pugs";
 }
 
 /// Creates a [`mongodb::Client`] connected to the database cluster and store a client
@@ -36,8 +38,3 @@ pub async fn setup() -> Client {
     Client::with_options(client_options)
         .expect("Expected a new mongodb::Client connected to the cluster/deployment")
 }
-
-// TODO: investigate if you can use the following to make reusable/composable read/write
-// functions to handle db collections:
-// https://doc.rust-lang.org/std/iter/trait.Iterator.html
-// https://doc.rust-lang.org/std/ops/trait.Index.html
