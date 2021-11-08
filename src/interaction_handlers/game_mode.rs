@@ -30,12 +30,12 @@ pub async fn create(
         .options
         .iter()
         .find(|option| option.name.eq("label"))
-        .context("The label option is missing")?
+        .context("The `label` option is missing")?
         .value
         .as_ref()
-        .context("The label option does not have a value")?
+        .context("The `label` option does not have a value")?
         .as_str()
-        .context("Somehow, the value of the label option is not a string")?;
+        .context("Somehow, the value of the `label` option is not a string")?;
 
     let player_count = &interaction
         .data
@@ -126,7 +126,10 @@ pub async fn create(
 }
 
 /// Delete a registered game mode
-pub async fn delete() {
+pub async fn delete(
+    _ctx: &Context,
+    _interaction: &ApplicationCommandInteraction,
+) -> anyhow::Result<String> {
     // for this game mode to be deleted:
 
     // if a pug is in "picking" state
@@ -134,4 +137,5 @@ pub async fn delete() {
 
     // if players have joined the queue for it
     // instruct caller to remove them all first
+    Ok("Deleted successfully".to_string())
 }
