@@ -1,11 +1,17 @@
 use chrono::Utc;
 use mongodb::bson::doc;
 use mongodb::error::Error;
+use mongodb::options::FindOneAndReplaceOptions;
 use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
 
-use super::collection_name::{COMMANDS, GAME_MODES, GAME_MODE_JOINS, PUG_CHANNELS};
+use crate::db::collection_name::GAME_MODE_ROSTER;
+use crate::interaction_handlers::picking_session::Team;
+
+use super::collection_name::{
+    COMMANDS, COMPLETED_PUGS, GAME_MODES, GAME_MODE_JOINS, PICKING_SESSIONS, PUG_CHANNELS,
+};
 use super::model::*;
 
 /// The "policy" or "method" to use when writing to the database.
@@ -37,18 +43,29 @@ pub async fn delete_game_mode() -> Result<(), ()> {
     Ok(())
 }
 
+/// Add player to queue of a game mode. This can be used repeatedly without
+/// creating duplicate join records. If the user is already in the queue, the
+/// join timestamp is merely updated.
 pub async fn add_player_to_game_mode_queue(
     db: Database,
-    game_mode_label: String,
-    player_user_id: u64,
-) -> Result<InsertOneResult, Error> {
+    game_mode_label: &String,
+    player_user_id: &u64,
+) -> Result<Option<GameModeJoin>, Error> {
     let collection = db.collection(GAME_MODE_JOINS);
-    let player = GameModeJoin {
-        game_mode_label,
-        player_user_id,
-        join_datetime: Utc::now(),
+    let filter = doc! {
+        "game_mode_label": game_mode_label.clone(),
+        "player_user_id": player_user_id.clone() as i64,
     };
-    collection.insert_one(player, None).await
+    let join_record = GameModeJoin {
+        game_mode_label: game_mode_label.clone(),
+        player_user_id: player_user_id.clone(),
+        joined: Utc::now(),
+    };
+    // create document if no existing
+    let options = FindOneAndReplaceOptions::builder().upsert(true).build();
+    collection
+        .find_one_and_replace(filter, join_record, options)
+        .await
 }
 
 pub async fn remove_player_from_game_mode_queue(
@@ -59,10 +76,86 @@ pub async fn remove_player_from_game_mode_queue(
     let collection = db.collection(GAME_MODE_JOINS);
     let filter = doc! {
         "game_mode_label": game_mode_label,
-        // casting because bson doesn't seem to work out of the box with primitive u64
         "player_user_id": player_user_id as i64
     };
     collection.find_one_and_delete(filter, None).await
+}
+
+/// Remove players from the queue of the specified game mode and put them on
+/// a roster for a picking session.
+/// Players are also removed from the queue of any other game mode they had joined.
+///
+/// Uses mongodb session feature for atomicity.
+pub async fn create_picking_session(
+    db: Database,
+    pug_thread_channel_id: &u64,
+    game_mode_label: &String,
+    players: &Vec<u64>,
+    pick_sequence: Vec<Team>,
+) -> Result<InsertOneResult, Error> {
+    // FIXME: use session for atomicity!
+    let game_mode_join_collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
+    let picking_session_collection = db.collection(PICKING_SESSIONS);
+    let game_mode_roster_collection = db.collection(GAME_MODE_ROSTER);
+
+    let roster = players
+        .iter()
+        .map(|user_id| Player {
+            is_captain: false,
+            user_id: *user_id,
+            team: None,
+            exclude_from_random_captaining: false,
+            channel_id_for_picking_session: *pug_thread_channel_id,
+            pick_position: None,
+        })
+        .collect::<Vec<Player>>();
+
+    game_mode_roster_collection
+        .insert_many(roster, None)
+        .await?;
+
+    let all_joins_for_game_mode = doc! {
+        "game_mode_label": game_mode_label
+    };
+
+    game_mode_join_collection
+        .delete_many(all_joins_for_game_mode, None)
+        .await?;
+
+    let picking_session = PickingSession {
+        created: Utc::now(),
+        game_mode: game_mode_label.to_string(),
+        thread_channel_id: *pug_thread_channel_id,
+        pick_sequence,
+    };
+
+    picking_session_collection
+        .insert_one(picking_session, None)
+        .await
+}
+
+/// Creates a completed pug record and
+/// clears the queue for the game mode
+pub async fn register_completed_pug(
+    db: Database,
+    _picking_session: &PickingSession,
+) -> Result<InsertOneResult, Error> {
+    // TODO: use sessions
+    let collection = db.collection(COMPLETED_PUGS);
+
+    // gather Player documents linked to the picking sessions's thread/channel
+
+    // FIXME: what to do about 2 player game modes which (so far)
+    // do not involve Player documents or a PickingSession?
+    // Perhaps it's also wise to avoid using Player documents for two player game modes,
+    // because some fields like `channel_id_for_picking_session` and `pick_position`
+    // which are required, don't make sense for the situation
+
+    // Use Player "pick positions" to form blue team and red team arrays for CompletedPug
+
+    // TODO:
+    let completed_pug = doc! {};
+    collection.insert_one(completed_pug, None).await
 }
 
 pub async fn pick_player_for_team() -> Result<(), ()> {
