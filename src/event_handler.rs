@@ -8,6 +8,7 @@ use nanoid::nanoid;
 use serenity::async_trait;
 use serenity::model::channel::Message;
 use serenity::model::gateway::{Activity, Ready};
+use serenity::model::guild::Guild;
 use serenity::model::id::GuildId;
 use serenity::model::interactions::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
@@ -165,5 +166,13 @@ impl EventHandler for Handler {
         }
 
         inspect_guild_commands(ctx, guilds).await;
+    }
+
+    async fn guild_create(&self, _ctx: Context, _guild: Guild, is_new: bool) {
+        if !is_new {
+            return;
+        }
+
+        // FIXME: do onboarding for guilds added after the bot was launched
     }
 }
