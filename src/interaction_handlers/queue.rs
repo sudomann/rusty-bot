@@ -91,7 +91,7 @@ pub async fn join(
         .channel_id
         .create_public_thread(&ctx.http, m, |c| {
             c.name(format!("{} - {}", &game_mode.label, Utc::now()))
-                .auto_archive_duration(60)
+                .auto_archive_duration(1440)
                 .kind(ChannelType::PublicThread)
         })
         .await?;
