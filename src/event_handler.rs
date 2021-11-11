@@ -46,6 +46,8 @@ impl EventHandler for Handler {
                 "delmod" => game_mode::delete(&ctx, &command).await,
                 "join" => queue::join(&ctx, &command).await,
                 "leave" => queue::leave(&ctx, &command).await,
+                "captain" => picking_session::captain(&ctx, &command).await,
+                "pick" => picking_session::pick(&ctx, &command).await,
                 _ => Ok("Not usable. Sorry :(".to_string()),
             };
 
