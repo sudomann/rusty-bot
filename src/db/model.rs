@@ -52,6 +52,9 @@ pub struct PickingSession {
     /// a filled pug. This is the primary identifier of a picking session.
     pub thread_channel_id: u64,
     pub pick_sequence: Vec<Team>,
+    /// Timestamp for tracking latest reset if any. This is useful for
+    /// the auto captain countdown to also reset if this value changes.
+    pub last_reset: Option<DateTime<Utc>>,
 }
 
 /// A model that represents a participant/player
@@ -80,4 +83,16 @@ pub struct CompletedPug {
     pub thread_channel_id: u64,
     pub blue_team: Vec<u64>,
     pub red_team: Vec<u64>,
+}
+
+/// This enum is used to represent either a picking session, or a completed game mode instance.
+/// The intent is for the same db handler to be used in commiting a completed pug to the database.
+/// 
+///  Two (2) player game modes do not involve [`Player`] documents or a [`PickingSession`].
+/// 
+/// That is, 2 player game modes do not go through a picking session and it does not tmake sense that 
+/// one should be coerced/shoehorned (for the integrity/accuracy of stats calculated from piking history).
+pub enum PugContainer {
+    PickingSession(PickingSession),
+    CompletedPug(CompletedPug)
 }
