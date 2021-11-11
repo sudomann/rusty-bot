@@ -2,8 +2,11 @@ use futures::stream::TryStreamExt;
 use mongodb::bson::{doc, Document};
 use mongodb::error::Error;
 use mongodb::Database;
+use mongodb::options::FindOneOptions;
 
-use super::collection_name::{COMMANDS, GAME_MODES, GAME_MODE_JOINS};
+use crate::db::collection_name::PLAYER_ROSTER;
+
+use super::collection_name::{COMMANDS, GAME_MODES, GAME_MODE_JOINS, PICKING_SESSIONS};
 use super::model::*;
 
 /// Get added game modes
@@ -47,4 +50,25 @@ pub async fn get_commands(db: Database) -> Result<Vec<GuildCommand>, Error> {
 /// Get a single guild command matching the provided filter.
 pub async fn find_command(db: Database, filter: Document) -> Result<Option<GuildCommand>, Error> {
     db.collection(COMMANDS).find_one(filter, None).await
+}
+
+
+pub async fn get_current_picking_session(db: Database)-> Result<Option<PickingSession>, Error> {
+    // !FIXME: which direction does this sort go in
+    let options = FindOneOptions::builder().sort(doc! { "created": 1 }).build();
+    db.collection(PICKING_SESSIONS).find_one(None, options).await
+}
+
+pub async fn is_captain_position_available(db: Database, &pug_thread_channel_id: &u64) -> Result<bool, Error> {
+ let collection = db.collection::<Player>(PLAYER_ROSTER);
+ let filter = doc!{
+     "channel_id_for_picking_session": pug_thread_channel_id as i64,
+     "is_captain": true,
+ };
+
+ let current_captain_count = collection.count_documents(filter, None).await?;
+ if current_captain_count < 2 {
+    return Ok(true);
+ }
+ Ok(false)
 }

@@ -6,7 +6,7 @@ use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateRe
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
 
-use crate::db::collection_name::GAME_MODE_ROSTER;
+use crate::db::collection_name::PLAYER_ROSTER;
 use crate::interaction_handlers::picking_session::Team;
 
 use super::collection_name::{
@@ -96,7 +96,7 @@ pub async fn create_picking_session(
     // FIXME: use session for atomicity!
     let game_mode_join_collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
     let picking_session_collection = db.collection(PICKING_SESSIONS);
-    let game_mode_roster_collection = db.collection(GAME_MODE_ROSTER);
+    let player_roster_collection = db.collection(PLAYER_ROSTER);
 
     let roster = players
         .iter()
@@ -110,7 +110,7 @@ pub async fn create_picking_session(
         })
         .collect::<Vec<Player>>();
 
-    game_mode_roster_collection
+    player_roster_collection
         .insert_many(roster, None)
         .await?;
 
@@ -127,6 +127,7 @@ pub async fn create_picking_session(
         game_mode: game_mode_label.to_string(),
         thread_channel_id: *pug_thread_channel_id,
         pick_sequence,
+        last_reset: None
     };
 
     picking_session_collection
@@ -134,27 +135,37 @@ pub async fn create_picking_session(
         .await
 }
 
+
 /// Creates a completed pug record and
 /// clears the queue for the game mode
 pub async fn register_completed_pug(
     db: Database,
-    _picking_session: &PickingSession,
+    pug: PugContainer
 ) -> Result<InsertOneResult, Error> {
-    // TODO: use sessions
+    // FIXME: use sessions
     let collection = db.collection(COMPLETED_PUGS);
 
-    // gather Player documents linked to the picking sessions's thread/channel
+    let completed_pug = match pug {
+        PugContainer::PickingSession(picking_session) => {
+            // gather Player documents linked to the picking sessions's thread/channel
 
-    // FIXME: what to do about 2 player game modes which (so far)
-    // do not involve Player documents or a PickingSession?
-    // Perhaps it's also wise to avoid using Player documents for two player game modes,
-    // because some fields like `channel_id_for_picking_session` and `pick_position`
-    // which are required, don't make sense for the situation
+            // Use Player "pick positions" to form blue team and red team arrays for CompletedPug
+            let mut blue_team : Vec<u64> = Vec::default();
+            let mut red_team : Vec<u64> = Vec::default();
 
-    // Use Player "pick positions" to form blue team and red team arrays for CompletedPug
+            CompletedPug { 
+                created: Utc::now() ,
+                game_mode: picking_session.game_mode, 
+                thread_channel_id: picking_session.thread_channel_id, 
+                blue_team,
+                red_team,
+            }
 
-    // TODO:
-    let completed_pug = doc! {};
+        }
+        PugContainer::CompletedPug(c) => c
+    };
+
+    
     collection.insert_one(completed_pug, None).await
 }
 
