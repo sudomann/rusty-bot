@@ -16,7 +16,7 @@ pub mod collection_name {
     pub const PUG_CHANNELS: &str = "pug_channel";
     pub const GAME_MODES: &str = "game_modes";
     pub const GAME_MODE_JOINS: &str = "game_mode_joins";
-    pub const GAME_MODE_ROSTER: &str = "game_mode_roster";
+    pub const PLAYER_ROSTER: &str = "player_roster";
     pub const PICKING_SESSIONS: &str = "picking_sessions";
     pub const COMPLETED_PUGS: &str = "completed_pugs";
 }
