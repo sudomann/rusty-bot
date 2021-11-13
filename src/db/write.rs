@@ -227,9 +227,18 @@ pub async fn clear_guild_commands(db: Database) -> Result<DeleteResult, Error> {
 
 pub async fn save_guild_commands(
     db: Database,
-    commands: Vec<GuildCommand>,
+    commands: Vec<ApplicationCommand>,
 ) -> Result<InsertManyResult, Error> {
+
+    let commands_to_save: Vec<GuildCommand> = commands
+        .iter()
+        .map(|c| GuildCommand {
+            command_id: c.id.0,
+            name: c.name.clone(),
+        })
+        .collect();
+
     db.collection::<GuildCommand>(COMMANDS)
-        .insert_many(commands, None)
+        .insert_many(commands_to_save, None)
         .await
 }

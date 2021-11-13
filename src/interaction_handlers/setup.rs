@@ -71,16 +71,8 @@ pub async fn set_guild_base_command_set(
             &guild_id
         ))?;
 
-    let commands_to_save: Vec<GuildCommand> = created_commands
-        .iter()
-        .map(|c| GuildCommand {
-            command_id: c.id.0,
-            name: c.name.clone(),
-        })
-        .collect();
-
     let clearing_fut = clear_guild_commands(db.clone());
-    let saving_fut = save_guild_commands(db, commands_to_save);
+    let saving_fut = save_guild_commands(db, created_commands);
     try_join!(clearing_fut, saving_fut).context("Guild commands have been set, but something went wrong updating command records in the database")?;
     Ok("All done".to_string())
 }
