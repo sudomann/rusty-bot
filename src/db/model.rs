@@ -58,7 +58,7 @@ pub struct PickingSession {
 }
 
 /// A model that represents a participant/player
-/// during a picking session
+/// involved with a picking session.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Player {
     pub channel_id_for_picking_session: u64,
