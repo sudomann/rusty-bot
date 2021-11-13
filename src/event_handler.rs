@@ -47,6 +47,7 @@ impl EventHandler for Handler {
                 "join" => queue::join(&ctx, &command).await,
                 "leave" => queue::leave(&ctx, &command).await,
                 "captain" => picking_session::captain(&ctx, &command).await,
+                "randomcaptain" => picking_session::random_captains(&ctx, &command).await,
                 "pick" => picking_session::pick(&ctx, &command).await,
                 _ => Ok("Not usable. Sorry :(".to_string()),
             };
