@@ -1,3 +1,6 @@
+use mongodb::Database;
+use serenity::{builder::CreateApplicationCommand, model::id::GuildId};
+
 // -----------------
 // Base command set
 // -----------------
@@ -148,3 +151,53 @@ pub mod base {
         Ok(game_mode_option)
     }
 }
+
+// -----------------
+// Picking session command set
+// -----------------
+
+pub fn build_captain() -> CreateApplicationCommand {
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("captain")
+        .description("Assume captain title in a filled pug");
+    cmd
+}
+
+pub fn build_autocaptain() -> CreateApplicationCommand {
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("autocaptain")
+        .description("Coerce random captains for any available captain spots");
+    cmd
+}
+
+pub fn build_nocaptain() -> CreateApplicationCommand {
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("nocaptain")
+        .description("Exclude yourself from random captain selection");
+    cmd
+}
+
+// TODO: players: Vec<name, id>
+pub fn build_pick(players: Vec<String>) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("pick")
+        .description("Choose a player for your team");
+    // FIXME: add players as options
+    Ok(cmd)
+}
+
+pub fn build_reset() -> CreateApplicationCommand {
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("reset")
+        .description("Reset a pug to be as if it just filled");
+    cmd
+}
+
+// pub async fn build_picking_session_commands(guild_id: &GuildId, players: Vec<()>) -> Result<(), mongodb::error::Error > {
+
+//     guild_id.create_application_command(&ctx.http, |c|c).await?;
+//     guild_id.create_application_command(&ctx.http, |c|c).await?;
+//     guild_id.create_application_command(&ctx.http, |c|c).await?;
+//     guild_id.create_application_command(&ctx.http, |c|c).await?;
+//     guild_id.create_application_command(&ctx.http, |c|c).await?;
+// }
