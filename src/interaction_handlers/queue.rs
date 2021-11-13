@@ -1,3 +1,5 @@
+use std::mem;
+
 use anyhow::Context as AnyhowContext;
 use chrono::Utc;
 use serenity::client::Context;
@@ -6,11 +8,14 @@ use serenity::model::id::UserId;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use serenity::utils::MessageBuilder;
 
-use crate::db::model::PickingSession;
+use crate::command_builder::{build_autocaptain, build_captain, build_nocaptain, build_reset};
+use crate::db::model::{PickingSession, PugContainer};
 use crate::db::read::{find_game_mode, get_game_mode_queue};
 use crate::db::write::{
     add_player_to_game_mode_queue, create_picking_session, register_completed_pug,
+    save_guild_commands,
 };
+use crate::utils::captain_autopick;
 use crate::DbClientRef;
 
 // FIXME: add anyhow context to all ? operator usage
@@ -108,9 +113,14 @@ pub async fn join(
             game_mode: game_mode.label.clone(),
             thread_channel_id: pug_thread.id.0,
             pick_sequence,
+            last_reset: None,
         };
 
-        register_completed_pug(db.clone(), &autocompleted_picking_session).await?;
+        register_completed_pug(
+            db.clone(),
+            PugContainer::PickingSession(autocompleted_picking_session),
+        )
+        .await?;
 
         // then announce auto-picked team colors
         interaction
@@ -130,10 +140,52 @@ pub async fn join(
         )
         .await?;
 
-        // spawn a timer which will auto pick captains if necessary
-        pug_thread
-            .say(&ctx.http, "TODO - captain countdown placeholder")
+        // create commands (and register in db): /captain /autocaptain /nocapt /reset
+
+        // TODO: perhaps it's a good idea to manually handle the error case here
+        // i.e. attempt to delete any commands created so far?
+        let autocaptain_cmd = guild_id
+            .create_application_command(&ctx.http, |c| {
+                let _ = mem::replace(c, build_autocaptain());
+                c
+            })
             .await?;
+        let captain_cmd = guild_id
+            .create_application_command(&ctx.http, |c| {
+                let _ = mem::replace(c, build_captain());
+                c
+            })
+            .await?;
+        let nocaptain_cmd = guild_id
+            .create_application_command(&ctx.http, |c| {
+                let _ = mem::replace(c, build_nocaptain());
+                c
+            })
+            .await?;
+        let reset_cmd = guild_id
+            .create_application_command(&ctx.http, |c| {
+                let _ = mem::replace(c, build_reset());
+                c
+            })
+            .await?;
+
+        save_guild_commands(
+            db.clone(),
+            vec![autocaptain_cmd, captain_cmd, nocaptain_cmd, reset_cmd],
+        )
+        .await?;
+
+        // TODO: update options on the following commands:
+        // /list
+
+        // spawn a timer which will auto pick captains if necessary
+        let ctx_clone = ctx.clone();
+        tokio::spawn(captain_autopick::countdown(
+            ctx_clone,
+            db.clone(),
+            pug_thread.id,
+            interaction.clone(),
+        ));
     }
 
     return Ok(
