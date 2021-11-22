@@ -15,7 +15,7 @@ use crate::db::write::{
     add_player_to_game_mode_queue, create_picking_session, register_completed_pug,
     save_guild_commands,
 };
-use crate::utils::captain_autopick;
+use crate::utils::captain;
 use crate::DbClientRef;
 
 // FIXME: add anyhow context to all ? operator usage
@@ -180,7 +180,7 @@ pub async fn join(
 
         // spawn a timer which will auto pick captains if necessary
         let ctx_clone = ctx.clone();
-        tokio::spawn(captain_autopick::countdown(
+        tokio::spawn(captain::autopick_countdown(
             ctx_clone,
             db.clone(),
             pug_thread.id,
