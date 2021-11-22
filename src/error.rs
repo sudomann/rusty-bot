@@ -28,3 +28,28 @@ impl From<serenity::Error> for RustyError {
 }
 
 pub type Error = RustyError;
+
+pub enum SetCaptainOk {
+    /// Captain needed for blue team
+    NeedBlueCaptain,
+    /// Captain needed for red team
+    NeedRedCaptain,
+    /// Both captains have been selected, and blue team captain picks first
+    StartPickingBlue,
+    /// Both captains have been selected, and red team captain picks first
+    StartPickingRed,
+}
+
+#[derive(ThisError, Debug)]
+pub enum SetCaptainErr {
+    #[error("User is already a captain")]
+    IsCaptainAlready,
+    #[error("There are no captain spots available")]
+    CaptainSpotsFilled { blue_captain: u64, red_captain: u64 },
+    #[error("User is not a participant in pug")]
+    ForeignUser,
+    #[error("An error occured when trying to communicate with the database")]
+    MongoError(mongodb::error::Error),
+    #[error("An invalid result was encountered while checking for available captain spots")]
+    InvalidCount
+}
