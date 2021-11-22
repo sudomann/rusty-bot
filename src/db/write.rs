@@ -1,13 +1,12 @@
 use chrono::Utc;
-use mongodb::bson::doc;
+use mongodb::bson::{doc, Bson};
 use mongodb::error::Error;
-use mongodb::options::FindOneAndReplaceOptions;
+use mongodb::options::{FindOneAndReplaceOptions, FindOneAndUpdateOptions};
 use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
 
 use crate::db::collection_name::PLAYER_ROSTER;
-use crate::interaction_handlers::picking_session::Team;
 
 use super::collection_name::{
     COMMANDS, COMPLETED_PUGS, GAME_MODES, GAME_MODE_JOINS, PICKING_SESSIONS, PUG_CHANNELS,
@@ -110,9 +109,7 @@ pub async fn create_picking_session(
         })
         .collect::<Vec<Player>>();
 
-    player_roster_collection
-        .insert_many(roster, None)
-        .await?;
+    player_roster_collection.insert_many(roster, None).await?;
 
     let all_joins_for_game_mode = doc! {
         "game_mode_label": game_mode_label
@@ -127,7 +124,7 @@ pub async fn create_picking_session(
         game_mode: game_mode_label.to_string(),
         thread_channel_id: *pug_thread_channel_id,
         pick_sequence,
-        last_reset: None
+        last_reset: None,
     };
 
     picking_session_collection
@@ -135,12 +132,11 @@ pub async fn create_picking_session(
         .await
 }
 
-
 /// Creates a completed pug record and
 /// clears the queue for the game mode
 pub async fn register_completed_pug(
     db: Database,
-    pug: PugContainer
+    pug: PugContainer,
 ) -> Result<InsertOneResult, Error> {
     // FIXME: use sessions
     let collection = db.collection(COMPLETED_PUGS);
@@ -150,22 +146,21 @@ pub async fn register_completed_pug(
             // gather Player documents linked to the picking sessions's thread/channel
 
             // Use Player "pick positions" to form blue team and red team arrays for CompletedPug
-            let mut blue_team : Vec<u64> = Vec::default();
-            let mut red_team : Vec<u64> = Vec::default();
+            // FIXME: implement ^
+            let mut blue_team: Vec<u64> = Vec::default();
+            let mut red_team: Vec<u64> = Vec::default();
 
-            CompletedPug { 
-                created: Utc::now() ,
-                game_mode: picking_session.game_mode, 
-                thread_channel_id: picking_session.thread_channel_id, 
+            CompletedPug {
+                created: Utc::now(),
+                game_mode: picking_session.game_mode,
+                thread_channel_id: picking_session.thread_channel_id,
                 blue_team,
                 red_team,
             }
-
         }
-        PugContainer::CompletedPug(c) => c
+        PugContainer::CompletedPug(c) => c,
     };
 
-    
     collection.insert_one(completed_pug, None).await
 }
 
@@ -229,7 +224,6 @@ pub async fn save_guild_commands(
     db: Database,
     commands: Vec<ApplicationCommand>,
 ) -> Result<InsertManyResult, Error> {
-
     let commands_to_save: Vec<GuildCommand> = commands
         .iter()
         .map(|c| GuildCommand {
@@ -240,5 +234,34 @@ pub async fn save_guild_commands(
 
     db.collection::<GuildCommand>(COMMANDS)
         .insert_many(commands_to_save, None)
+        .await
+}
+
+/// Updates a [`Player`] record to grant it captaincy.
+pub async fn set_captain(
+    db: Database,
+    &thread_channel_id: &u64,
+    &user_id: &u64,
+    team: Team,
+) -> Result<Option<Player>, Error> {
+    let collection = db.collection(PLAYER_ROSTER);
+    let filter = doc! {
+        "channel_id_for_picking_session": thread_channel_id as i64,
+        "user_id": user_id as i64,
+    };
+
+    let update = doc! {
+        "team": team,
+        "is_captain": true,
+        // TODO: why does setting pick_position to None not work
+        "pick_position": Bson::Null
+    };
+
+    let options = FindOneAndUpdateOptions::builder()
+        .upsert(Some(false))
+        .build();
+
+    collection
+        .find_one_and_update(filter, update, options)
         .await
 }

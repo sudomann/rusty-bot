@@ -1,8 +1,23 @@
 use chrono::{DateTime, Utc};
+use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 use serenity::model::interactions::application_command::ApplicationCommand;
+use std::convert::From;
 
-use crate::interaction_handlers::picking_session::Team;
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub enum Team {
+    Blue,
+    Red,
+}
+
+impl From<Team> for Bson {
+    fn from(team: Team) -> Self {
+        match team {
+            Team::Blue => Bson::String("blue".to_string()),
+            Team::Red => Bson::String("red".to_string()),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Guild {
@@ -87,12 +102,12 @@ pub struct CompletedPug {
 
 /// This enum is used to represent either a picking session, or a completed game mode instance.
 /// The intent is for the same db handler to be used in commiting a completed pug to the database.
-/// 
+///
 ///  Two (2) player game modes do not involve [`Player`] documents or a [`PickingSession`].
-/// 
-/// That is, 2 player game modes do not go through a picking session and it does not tmake sense that 
+///
+/// That is, 2 player game modes do not go through a picking session and it does not tmake sense that
 /// one should be coerced/shoehorned (for the integrity/accuracy of stats calculated from piking history).
 pub enum PugContainer {
     PickingSession(PickingSession),
-    CompletedPug(CompletedPug)
+    CompletedPug(CompletedPug),
 }

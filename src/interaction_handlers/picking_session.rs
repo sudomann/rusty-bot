@@ -1,20 +1,15 @@
 use anyhow::Context as AnyhowContext;
-use mongodb::Database;
-use serde::{Deserialize, Serialize};
+
 use serenity::model::channel::{Channel, ChannelType};
 use serenity::utils::MessageBuilder;
 use serenity::{
     client::Context, model::interactions::application_command::ApplicationCommandInteraction,
 };
 
-use crate::db::read::{get_current_picking_session, get_picking_session_members};
+use crate::db::read::get_current_picking_session;
+use crate::error::SetCaptainOk;
+use crate::utils::captain::captain_helper;
 use crate::DbClientRef;
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub enum Team {
-    Blue,
-    Red,
-}
 
 // These handlers use the interaction's source channel id to validate whether it is a pug channel/thread,
 // then checks/validates the user (e.g. is part of that pug) before going into effect

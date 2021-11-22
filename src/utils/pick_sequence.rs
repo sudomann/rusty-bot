@@ -1,4 +1,4 @@
-use crate::interaction_handlers::picking_session::Team;
+use crate::db::model::Team;
 
 /// Generate an ordered list of team colors.
 ///
