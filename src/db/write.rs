@@ -238,7 +238,7 @@ pub async fn save_guild_commands(
 }
 
 /// Updates a [`Player`] record to grant it captaincy.
-pub async fn set_captain(
+pub async fn set_one_captain(
     db: Database,
     &thread_channel_id: &u64,
     &user_id: &u64,
@@ -264,4 +264,52 @@ pub async fn set_captain(
     collection
         .find_one_and_update(filter, update, options)
         .await
+}
+
+/// Updates two (for blue and red team) [`Player`] records to grant them captaincy.
+pub async fn set_both_captains(
+    db: Database,
+    &thread_channel_id: &u64,
+    &blue_team_captain_user_id: &u64,
+    &red_team_captain_user_id: &u64,
+) -> Result<(), Error> {
+    // !FIXME: use sessions
+    let collection = db.collection::<Player>(PLAYER_ROSTER);
+    let blue_captain_filter = doc! {
+        "channel_id_for_picking_session": thread_channel_id as i64,
+        "user_id": blue_team_captain_user_id as i64,
+    };
+
+    let blue_captain_update = doc! {
+        "team": Team::Blue,
+        "is_captain": true,
+        // TODO: why does setting pick_position to None not work
+        "pick_position": Bson::Null
+    };
+
+    let red_captain_filter = doc! {
+        "channel_id_for_picking_session": thread_channel_id as i64,
+        "user_id": red_team_captain_user_id as i64,
+    };
+
+    let red_captain_update = doc! {
+        "team": Team::Red,
+        "is_captain": true,
+        // TODO: why does setting pick_position to None not work
+        "pick_position": Bson::Null
+    };
+
+    let options = FindOneAndUpdateOptions::builder()
+        .upsert(Some(false))
+        .build();
+
+    collection
+        .find_one_and_update(blue_captain_filter, blue_captain_update, options.clone())
+        .await?;
+
+    collection
+        .find_one_and_update(red_captain_filter, red_captain_update, options)
+        .await?;
+
+    Ok(())
 }
