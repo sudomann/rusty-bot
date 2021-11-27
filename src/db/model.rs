@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serenity::model::interactions::application_command::ApplicationCommand;
 use std::convert::From;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub enum Team {
     Blue,
     Red,
