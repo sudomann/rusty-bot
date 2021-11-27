@@ -19,8 +19,8 @@ pub fn generate(&player_count: &u64) -> Vec<Team> {
         }
     }
 
-    // loop should only operate if game mode is for more than 2 players
-    if player_count > 2 {
+    // loop should only operate if game mode is for more than 4 players
+    if player_count > 4 {
         // 2 is ACTUALLY the second index and not third
         // Since the player count is 1-based,
         // the counter for this loop is also 1-based for the sake consistency
