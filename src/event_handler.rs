@@ -168,14 +168,40 @@ impl EventHandler for Handler {
             self.is_loop_running.swap(true, Ordering::Relaxed);
         }
 
+        // TODO: maybe calling this with tokio in a blocking manner will enable guild_create handler to
+        // work correctly (in the case that an absent Client causes guild_create handler to panic)
         inspect_guild_commands(ctx, guilds).await;
     }
 
-    async fn guild_create(&self, _ctx: Context, _guild: Guild, is_new: bool) {
+    #[instrument(skip(self, ctx))]
+    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
+        // TODO: test addition of new new guild while inspect_guild_commands() is looping/waiting
+        // for Client to exist. Hopefully, out of the box, this handler never fires until cache_ready completes
+        // and a Client is guaranteed to be in storage
+
         if !is_new {
             return;
         }
 
-        // FIXME: do onboarding for guilds added after the bot was launched
+        info!(
+            "New guild (GuildId: {}) connected - {}",
+            guild.id.0, guild.name
+        );
+
+        // do onboarding for guilds added after the bot was launched
+        let db_client = {
+            let data = ctx.data.read().await;
+            data.get::<DbClientRef>().unwrap().clone()
+        };
+
+        let db = db_client.database(&guild.id.to_string());
+
+        info!("Launching onboarding task (perform an inspection) for the new guild");
+
+        tokio::spawn(crate::utils::onboarding::inspect_and_maybe_update_db(
+            Arc::new(ctx),
+            guild.id,
+            db_client.clone(),
+        ));
     }
 }

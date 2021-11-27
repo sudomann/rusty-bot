@@ -59,12 +59,12 @@ pub async fn inspect_guild_commands(ctx: Arc<Context>, guild_ids: Vec<GuildId>) 
 /// Register /setup command as necessary for guilds
 ///
 /// TODO: ensure that guilds marked as disabled don't have/get any guild commands registered.
-async fn inspect_and_maybe_update_db(
+pub async fn inspect_and_maybe_update_db(
     ctx: Arc<Context>,
     guild_id: GuildId,
     db_client: Client,
 ) -> Result<GuildId, crate::error::Error> {
-    let db = db_client.database(guild_id.to_string().as_str());
+    let db = db_client.database(&guild_id.to_string());
 
     let current_commands = guild_id.get_application_commands(&ctx.http).await?;
     let mut saved_commands: Vec<GuildCommand> = crate::db::read::get_commands(db.clone()).await?;
