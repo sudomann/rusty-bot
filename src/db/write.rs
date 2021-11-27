@@ -172,10 +172,6 @@ pub async fn reset_pug() -> Result<(), ()> {
     Ok(())
 }
 
-pub async fn set_pug_captain() -> Result<(), ()> {
-    Ok(())
-}
-
 pub async fn exclude_player_from_random_captaining() -> Result<(), ()> {
     Ok(())
 }
@@ -266,13 +262,22 @@ pub async fn set_one_captain(
         .await
 }
 
+/// A struct that represents the result of the database operations to:
+///
+/// Search for two particular [`Player`]s (whom are becoming blue and red team captains)
+/// and update their documents to reflect that they are now captains.
+pub struct CaptainPair {
+    pub blue: Option<Player>,
+    pub red: Option<Player>,
+}
+
 /// Updates two (for blue and red team) [`Player`] records to grant them captaincy.
 pub async fn set_both_captains(
     db: Database,
     &thread_channel_id: &u64,
     &blue_team_captain_user_id: &u64,
     &red_team_captain_user_id: &u64,
-) -> Result<(), Error> {
+) -> Result<CaptainPair, Error> {
     // !FIXME: use sessions
     let collection = db.collection::<Player>(PLAYER_ROSTER);
     let blue_captain_filter = doc! {
@@ -303,13 +308,13 @@ pub async fn set_both_captains(
         .upsert(Some(false))
         .build();
 
-    collection
+    let blue = collection
         .find_one_and_update(blue_captain_filter, blue_captain_update, options.clone())
         .await?;
 
-    collection
+    let red = collection
         .find_one_and_update(red_captain_filter, red_captain_update, options)
         .await?;
 
-    Ok(())
+    Ok(CaptainPair { blue, red })
 }
