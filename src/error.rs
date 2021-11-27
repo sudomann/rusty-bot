@@ -43,4 +43,9 @@ pub enum SetCaptainErr {
     InvalidCount,
     #[error("The thread id provided did not yield a valid picking session with players")]
     NoPlayers,
+    #[error(
+        "It seems captaining operations were executed without error but completed \
+    but the current state is unexpected"
+    )]
+    Unknown,
 }
