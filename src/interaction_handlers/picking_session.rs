@@ -7,8 +7,7 @@ use serenity::{
 };
 
 use crate::db::read::get_current_picking_session;
-use crate::error::SetCaptainOk;
-use crate::utils::captain::captain_helper;
+use crate::utils::captain::{captain_helper, PostSetCaptainAction};
 use crate::DbClientRef;
 
 // These handlers use the interaction's source channel id to validate whether it is a pug channel/thread,
@@ -144,10 +143,10 @@ pub async fn random_captains(
 
     let response = match captain_helper(db.clone(), None, &p_s.thread_channel_id).await {
         Ok(result) => match result {
-            SetCaptainOk::NeedBlueCaptain => "",
-            SetCaptainOk::NeedRedCaptain => "",
-            SetCaptainOk::StartPickingBlue => "",
-            SetCaptainOk::StartPickingRed => "",
+            PostSetCaptainAction::NeedBlueCaptain => "",
+            PostSetCaptainAction::NeedRedCaptain => "",
+            PostSetCaptainAction::StartPickingBlue => "",
+            PostSetCaptainAction::StartPickingRed => "",
         },
         Err(err) => "",
     };

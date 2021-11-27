@@ -2,7 +2,6 @@ use crate::db::model::Team;
 use crate::db::read::get_picking_session_members;
 use crate::db::read::{get_current_picking_session, is_captain_position_available};
 use crate::db::write::set_captain;
-use crate::error::{SetCaptainErr, SetCaptainOk};
 use anyhow::Context as AnyhowContext;
 use chrono::{DateTime, Utc};
 use mongodb::Database;
@@ -146,6 +145,18 @@ pub async fn autopick_countdown(
     };
 
     let _ = countdown_timeout_alert.reply(&ctx, response).await;
+}
+
+/// Represents the action to take after performing a captaining operation.
+pub enum PostSetCaptainAction {
+    /// Captain needed for blue team
+    NeedBlueCaptain,
+    /// Captain needed for red team
+    NeedRedCaptain,
+    /// Both captains have been selected, and blue team captain picks first
+    StartPickingBlue,
+    /// Both captains have been selected, and red team captain picks first
+    StartPickingRed,
 }
 
 // Checks:
