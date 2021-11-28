@@ -141,7 +141,7 @@ pub async fn random_captains(
         }
     };
 
-    let response = match captain_helper(db.clone(), None, &p_s.thread_channel_id).await {
+    let response = match captain_helper(&ctx, &guild_id, None, &p_s.thread_channel_id).await {
         Ok(result) => match result {
             PostSetCaptainAction::NeedBlueCaptain => "",
             PostSetCaptainAction::NeedRedCaptain => "",

@@ -1,17 +1,25 @@
-use crate::db::model::Team;
+use std::array::IntoIter;
+use std::collections::HashSet;
+use std::iter::FromIterator;
+
+use crate::db::model::{GuildCommand, PickingSession, Player, Team};
 use crate::db::read::get_picking_session_members;
 use crate::db::read::{get_current_picking_session, is_captain_position_available};
-use crate::db::write::set_captain;
-use anyhow::Context as AnyhowContext;
+use crate::error::SetCaptainErr;
+use crate::{db, DbClientRef};
+use anyhow::{bail, Context as AnyhowContext};
 use chrono::{DateTime, Utc};
 use mongodb::Database;
 use rand::prelude::{IteratorRandom, SliceRandom};
+use serenity::model::id::{CommandId, GuildId};
+use serenity::model::interactions::application_command::ApplicationCommand;
 use serenity::{
     client::Context,
     model::{id::ChannelId, interactions::application_command::ApplicationCommandInteraction},
     utils::MessageBuilder,
 };
 use tokio::time::{interval, Duration};
+use tracing::info;
 
 const MAX_WAIT_SECS: i64 = 30;
 
@@ -134,14 +142,21 @@ pub async fn autopick_countdown(
         .await
         .expect("Expected message declaring timer expiration to send successfully");
 
-    let response = match captain_helper(db.clone(), None, &pug_thread_channel_id.0).await {
+    let response = match captain_helper(
+        &ctx,
+        &interaction.guild_id.unwrap(),
+        None,
+        &pug_thread_channel_id.0,
+    )
+    .await
+    {
         Ok(result) => match result {
-            SetCaptainOk::NeedBlueCaptain => "",
-            SetCaptainOk::NeedRedCaptain => "",
-            SetCaptainOk::StartPickingBlue => "",
-            SetCaptainOk::StartPickingRed => "",
+            PostSetCaptainAction::NeedBlueCaptain => "",
+            PostSetCaptainAction::NeedRedCaptain => "",
+            PostSetCaptainAction::StartPickingBlue => "",
+            PostSetCaptainAction::StartPickingRed => "",
         },
-        Err(err) => "Failed to assign random captains. Sorry, try captaining yourselves.",
+        Err(_err) => "Failed to assign random captains. Sorry, try captaining yourselves.",
     };
 
     let _ = countdown_timeout_alert.reply(&ctx, response).await;
@@ -166,99 +181,181 @@ pub enum PostSetCaptainAction {
 //
 // Updates pick options accordingly or as necessary
 /// Will attempt to assign user(s) provided as captain to randomly
-/// selected team (blue/green) and return the status of the operation.
+/// selected team (blue/red) and return the status of the operation.
 ///
 /// When no user is provided, random captains are assigned to
 /// fill captains spots if there are any available.
 pub async fn captain_helper(
-    db: Database,
+    ctx: &Context,
+    guild_id: &GuildId,
     maybe_user_id: Option<u64>,
     thread_channel_id: &u64,
-) -> Result<SetCaptainOk, SetCaptainErr> {
+) -> anyhow::Result<PostSetCaptainAction> {
+    let client = {
+        let data = ctx.data.read().await;
+        data.get::<DbClientRef>().unwrap().clone()
+    };
+    let db = client.database(&guild_id.to_string());
+
     // get all players of the picking session associated with this thread
 
-    let participants = get_picking_session_members(db.clone(), &thread_channel_id)
+    let participants: Vec<Player> = get_picking_session_members(db.clone(), &thread_channel_id)
         .await
         .context("Tried to fetch a list of `Player`s")?;
 
     if participants.len() == 0 {
         // this shouldn't ever be true, but just in case...
-        return Ok("No players found for this thread".to_string());
+        bail!(SetCaptainErr::NoPlayers);
     }
 
-    // assign captain role depending on whether
-    // blue/red team needs one
+    let mut available_captain_spots =
+        HashSet::<_>::from_iter(IntoIter::new([Team::Blue, Team::Red]));
 
-    let existing_captains = participants.iter().filter(|p| p.is_captain);
-    let captains_needed = 2 - existing_captains.count();
-
-    if captains_needed == 0 {
-        return Err(SetCaptainErr::CaptainSpotsFilled {
-            blue_captain: val,
-            red_captain: val,
-        });
+    for p in &participants {
+        if p.is_captain {
+            available_captain_spots.remove(&p.team.unwrap());
+        }
     }
 
-    match maybe_user_id {
-        Some(user_id) => {
-            // check whether user is in pug
-            let is_a_participant = participants.iter().any(|p| p.user_id == user_id);
-            if !is_a_participant {
-                return Err(SetCaptainErr::ForeignUser);
-            }
+    if available_captain_spots.len() == 0 {
+        bail!(SetCaptainErr::CaptainSpotsFilled);
+    }
 
-            // check whether user is captain already
-            let is_a_captain = participants
-                .iter()
-                .any(|p| p.user_id == user_id && p.is_captain);
-            if is_a_captain {
-                return Err(SetCaptainErr::ForeignUser);
-            }
+    let mut potential_captains = participants.iter().filter(|p| p.is_captain == false);
+    // FIXME: honor /nocapt and exclude players who opted out of being auto-captained
+    // .filter(|(_, user_id)| !excluded_players.contains(user_id))
+    // exclude them from iterator output
 
-            let team_to_assign = if captains_needed == 2 {
-                // assign user as captain of random team
-                vec![Team::Blue, Team::Red]
-                    .choose(&mut rand::thread_rng())
-                    .unwrap()
-                    .clone()
-            } else if captains_needed == 1 {
-                // determine what team color is available for captaining
-                // FIXME: find better way for these errors to bubble up, rather than panic via expect()
-                let captain = existing_captains
-                    .last()
-                    .expect("Expected 1 players in vector of existing captains");
-
-                // assign the user to the team color that is not taken by first captain
-                match captain
-                    .team
-                    .expect("Expected a captained player to have a team designation")
-                {
-                    Team::Blue => Team::Red,
-                    Team::Red => Team::Blue,
+    let operation_outcome = if available_captain_spots.len() == 1 {
+        let player = match maybe_user_id {
+            Some(user_id) => {
+                // check whether user is in pug
+                let is_a_participant = participants.iter().any(|p| p.user_id == user_id);
+                if !is_a_participant {
+                    bail!(SetCaptainErr::ForeignUser);
                 }
-            } else {
-                // FIXME: this should not happen :(
-                return Err(SetCaptainErr::InvalidCount);
-            };
 
-            set_captain(db.clone(), thread_channel_id, &user_id, team_to_assign).await;
+                // check whether user is captain already
+                let is_a_captain = participants
+                    .iter()
+                    .any(|p| p.user_id == user_id && p.is_captain);
+                if is_a_captain {
+                    bail!(SetCaptainErr::ForeignUser);
+                }
+                potential_captains.find(|p| p.user_id == user_id).unwrap()
+            }
+            None => potential_captains.choose(&mut rand::thread_rng()).unwrap(),
+        };
+
+        let team = *available_captain_spots.iter().next().unwrap();
+
+        db::write::set_one_captain(db.clone(), &thread_channel_id, &player.user_id, team)
+            .await
+            .context("Database write operation failed when trying to set user as captain")?;
+
+        match team {
+            Team::Blue => PostSetCaptainAction::NeedRedCaptain,
+            Team::Red => PostSetCaptainAction::NeedBlueCaptain,
         }
-        None => {
-            let potential_captains = participants.iter().filter(|p| p.is_captain == false);
+    } else if available_captain_spots.len() == 2 {
+        match maybe_user_id {
+            Some(user_id) => {
+                // select random team on which to assign user as captain
+                let team = *Vec::from_iter(&available_captain_spots)
+                    .choose(&mut rand::thread_rng())
+                    .unwrap();
 
-            let random_players = potential_captains
-                // FIXME: honor /nocapt and exclude players who opted out of being auto-captained
-                // .filter(|(_, user_id)| !excluded_players.contains(user_id))
-                .choose_multiple(&mut rand::thread_rng(), captains_needed);
+                db::write::set_one_captain(db.clone(), &thread_channel_id, &user_id, *team)
+                    .await
+                    .context(
+                        "Database write operation failed when trying to set user as captain",
+                    )?;
 
-            let mut response = MessageBuilder::default();
-            for p in random_players {
-                set_captain(db.clone(), thread_channel_id, &p.user_id, team).await;
+                match team {
+                    Team::Blue => PostSetCaptainAction::NeedRedCaptain,
+                    Team::Red => PostSetCaptainAction::NeedBlueCaptain,
+                }
+            }
+            None => {
+                let mut two_random_players =
+                    potential_captains.choose_multiple(&mut rand::thread_rng(), 2);
+                let blue_captain = two_random_players.pop().unwrap();
+                let red_captain = two_random_players.pop().unwrap();
+
+                db::write::set_both_captains(
+                    db.clone(),
+                    &thread_channel_id,
+                    &blue_captain.user_id,
+                    &red_captain.user_id,
+                )
+                .await.context(
+                    "Database write operation failed when trying to set both captains using one transaction",
+                )?;
+
+                // get picking session's pick sequence to determine which color to announce
+                // as picking first
+                let picking_session: PickingSession = db::read::get_current_picking_session(db.clone())
+                    .await
+                    .context("")?
+                    .context("Expected there to be an active picking session related to the current captain operation")?;
+
+                let first_pick_team = picking_session.pick_sequence.get(0).unwrap();
+                match first_pick_team {
+                    Team::Blue => PostSetCaptainAction::StartPickingBlue,
+                    Team::Red => PostSetCaptainAction::StartPickingRed,
+                }
             }
         }
-    }
+    } else {
+        // this should never happen :(
+        bail!(SetCaptainErr::InvalidCount);
+    };
 
-    // !FIXME: as necessary, delete /captain /nocapt /autocaptain (from db as well)
+    match operation_outcome {
+        PostSetCaptainAction::StartPickingBlue | PostSetCaptainAction::StartPickingRed => {
+            // TODO: perhaps more specific info in this console message
+            info!("Clearing /captain /nocapt and /autocaptain commands since both captains have been assigned");
 
-    Ok(())
+            // delete /captain /nocapt /autocaptain
+
+            let saved_captain_commands: Vec<GuildCommand> =
+                db::read::get_captain_related_guild_commands(db.clone())
+                    .await
+                    .context("Failed to read saved captain-related guild commands from database")?;
+
+            let current_guild_commands = guild_id
+                .get_application_commands(&ctx.http)
+                .await
+                .context("Failed to retrieve list of guild commands from discord")?;
+
+            let commands_to_remove = current_guild_commands
+                .into_iter()
+                .filter(|c| {
+                    saved_captain_commands
+                        .iter()
+                        .any(|saved_cmd| saved_cmd.command_id == c.id.0)
+                })
+                .collect::<Vec<ApplicationCommand>>();
+
+            for cmd in &commands_to_remove {
+                guild_id
+                    .delete_application_command(&ctx.http, cmd.id)
+                    .await
+                    .context(format!("Failed to remove the {} guild command", cmd.name))?;
+            }
+
+            db::write::find_and_delete_guild_commands(
+                db.clone(),
+                commands_to_remove.into_iter().map(|c| c.name),
+            )
+            .await
+            .context("Attempted and failed to delete captain-related commands from database")?;
+
+            // create /pick
+        }
+        _ => {
+            bail!(SetCaptainErr::Unknown)
+        }
+    };
+    Ok(operation_outcome)
 }
