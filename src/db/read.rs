@@ -90,3 +90,20 @@ pub async fn get_picking_session_members(
     let cursor = collection.find(filter, None).await?;
     cursor.try_collect().await
 }
+
+/// Fetch guild command records for the following guild commands:
+///
+/// - **/captain**
+/// - **/nocapt**
+/// - **/autocaptain**
+pub async fn get_captain_related_guild_commands(db: Database) -> Result<Vec<GuildCommand>, Error> {
+    let collection = db.collection::<GuildCommand>(COMMANDS);
+    let filter = doc! {
+        "name": {
+            "$in": ["captain", "nocapt", "autocaptain"]
+        },
+    };
+
+    let cursor = collection.find(filter, None).await?;
+    cursor.try_collect().await
+}

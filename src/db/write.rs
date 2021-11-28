@@ -209,8 +209,33 @@ pub async fn register_guild_command(
         .await
 }
 
+/// Delete ALL saved guild commands.
 pub async fn clear_guild_commands(db: Database) -> Result<DeleteResult, Error> {
     let all = doc! {};
+    db.collection::<GuildCommand>(COMMANDS)
+        .delete_many(all, None)
+        .await
+}
+
+/// Delete any guild commands with names which match any in the provided iterable.
+pub async fn find_and_delete_guild_commands<C, S>(
+    db: Database,
+    command_names: C,
+) -> Result<DeleteResult, Error>
+where
+    C: IntoIterator<Item = S>,
+    S: Into<String>,
+{
+    let v = command_names
+        .into_iter()
+        .map(|x| x.into())
+        .collect::<Vec<String>>();
+
+    let all = doc! {
+        "name": {
+            "$in": v
+        },
+    };
     db.collection::<GuildCommand>(COMMANDS)
         .delete_many(all, None)
         .await
