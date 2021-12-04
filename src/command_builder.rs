@@ -1,5 +1,7 @@
-use mongodb::Database;
-use serenity::{builder::CreateApplicationCommand, model::id::GuildId};
+use serenity::builder::CreateApplicationCommand;
+use serenity::builder::CreateApplicationCommandOption;
+use serenity::model::interactions::application_command::ApplicationCommandOptionType;
+use serenity::model::prelude::User;
 
 // -----------------
 // Base command set
@@ -177,13 +179,26 @@ pub fn build_nocaptain() -> CreateApplicationCommand {
     cmd
 }
 
-// TODO: players: Vec<name, id>
-pub fn build_pick(players: Vec<String>) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+/// Create a /pick command using a player list to create options.
+pub async fn build_pick(players: &Vec<User>) -> CreateApplicationCommand {
+    let mut player_option = CreateApplicationCommandOption::default();
+
+    player_option
+        .name("player")
+        .description("A user you want to pick for your team")
+        .kind(ApplicationCommandOptionType::String)
+        .required(true);
+
+    for player in players {
+        player_option.add_string_choice(&player.name, &player.id.0);
+    }
+
     let mut cmd = CreateApplicationCommand::default();
     cmd.name("pick")
-        .description("Choose a player for your team");
-    // FIXME: add players as options
-    Ok(cmd)
+        .description("Choose a player for your team")
+        .add_option(player_option);
+
+    cmd
 }
 
 pub fn build_reset() -> CreateApplicationCommand {
@@ -192,12 +207,3 @@ pub fn build_reset() -> CreateApplicationCommand {
         .description("Reset a pug to be as if it just filled");
     cmd
 }
-
-// pub async fn build_picking_session_commands(guild_id: &GuildId, players: Vec<()>) -> Result<(), mongodb::error::Error > {
-
-//     guild_id.create_application_command(&ctx.http, |c|c).await?;
-//     guild_id.create_application_command(&ctx.http, |c|c).await?;
-//     guild_id.create_application_command(&ctx.http, |c|c).await?;
-//     guild_id.create_application_command(&ctx.http, |c|c).await?;
-//     guild_id.create_application_command(&ctx.http, |c|c).await?;
-// }
