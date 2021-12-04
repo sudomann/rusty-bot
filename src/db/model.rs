@@ -111,3 +111,23 @@ pub enum PugContainer {
     PickingSession(PickingSession),
     CompletedPug(CompletedPug),
 }
+
+// EXPERIMENT BELOW:
+// see if the $operation syntax can be used
+// to perform partial/tiny updates so we aren't
+// // always reading and writing the entire struct :/
+// Because several actions to update the session will rely on
+// multiple db operations across several collections, session usage is crucial
+//
+// pub struct Session {
+//     game_mode:
+//     created: Datetime<Utc>
+//     current_pick_position: 0
+//     pick_sequence: Vec<Team>
+//     players: HashSet<user_id> set of players pulled out of queue
+//     blue_captain: Option<user_id>
+//     blue_team: Vec<user_id>
+//     red_captain: Option<user_id>
+//     red_team: Vec<user_id>
+//     captain_opt_outs: HashSet<user_id>
+// }
