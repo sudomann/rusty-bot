@@ -1,5 +1,3 @@
-use std::mem;
-
 use anyhow::Context as AnyhowContext;
 use chrono::Utc;
 use serenity::client::Context;
@@ -146,25 +144,25 @@ pub async fn join(
         // i.e. attempt to delete any commands created so far?
         let autocaptain_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
-                let _ = mem::replace(c, build_autocaptain());
+                *c = build_autocaptain();
                 c
             })
             .await?;
         let captain_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
-                let _ = mem::replace(c, build_captain());
+                *c = build_captain();
                 c
             })
             .await?;
         let nocaptain_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
-                let _ = mem::replace(c, build_nocaptain());
+                *c = build_nocaptain();
                 c
             })
             .await?;
         let reset_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
-                let _ = mem::replace(c, build_reset());
+                *c = build_reset();
                 c
             })
             .await?;
