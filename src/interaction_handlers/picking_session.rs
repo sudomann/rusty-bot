@@ -143,12 +143,18 @@ pub async fn random_captains(
 
     let response = match captain_helper(&ctx, &guild_id, None, &p_s.thread_channel_id).await {
         Ok(result) => match result {
-            PostSetCaptainAction::NeedBlueCaptain => "",
-            PostSetCaptainAction::NeedRedCaptain => "",
-            PostSetCaptainAction::StartPickingBlue => "",
-            PostSetCaptainAction::StartPickingRed => "",
+            PostSetCaptainAction::NeedBlueCaptain => {
+                "You are now the cpatain of the red team. Blue team captain needed."
+            }
+            PostSetCaptainAction::NeedRedCaptain => {
+                "You are now the cpatain of the blue team. Red team captain needed."
+            }
+            PostSetCaptainAction::StartPickingBlue => "Blue captain picks first.",
+            PostSetCaptainAction::StartPickingRed => "Red captain picks first.",
         },
-        Err(err) => "",
+        Err(err) => {
+            bail!("Failed to perform random captain assignment(s): {}", err);
+        }
     };
 
     Ok(response.to_string())
