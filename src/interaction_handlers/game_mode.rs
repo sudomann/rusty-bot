@@ -82,7 +82,7 @@ pub async fn create(
             .context("Attempted to save newly created `join` command to database")?;
     } else {
         // try to retrieve the existing join command
-        let saved_cmd = db::read::find_command(db.clone(), doc!("name": "join"))
+        let saved_cmd = db::read::find_command(db.clone(), "join")
             .await?
             .context("At least one game mode exists in the database, but no join command was found in the database")?;
         let current_join_cmd = guild_id

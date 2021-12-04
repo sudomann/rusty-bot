@@ -47,8 +47,12 @@ pub async fn get_commands(db: Database) -> Result<Vec<GuildCommand>, Error> {
 }
 
 /// Get a single guild command matching the provided filter.
-pub async fn find_command(db: Database, filter: Document) -> Result<Option<GuildCommand>, Error> {
-    db.collection(COMMANDS).find_one(filter, None).await
+pub async fn find_command<S>(db: Database, name: S) -> Result<Option<GuildCommand>, Error>
+where
+    S: ToString,
+{
+    let query = doc! {"name": name.to_string()};
+    db.collection(COMMANDS).find_one(query, None).await
 }
 
 pub async fn get_current_picking_session(db: Database) -> Result<Option<PickingSession>, Error> {
