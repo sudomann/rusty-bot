@@ -180,7 +180,7 @@ pub fn build_nocaptain() -> CreateApplicationCommand {
 }
 
 /// Create a /pick command using a player list to create options.
-pub async fn build_pick(players: &Vec<User>) -> CreateApplicationCommand {
+pub fn build_pick(players: &Vec<User>) -> CreateApplicationCommand {
     let mut player_option = CreateApplicationCommandOption::default();
 
     player_option
