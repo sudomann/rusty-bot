@@ -2,6 +2,7 @@ use std::array::IntoIter;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
+use crate::command_builder::build_pick;
 use crate::db::model::{GuildCommand, PickingSession, Player, Team};
 use crate::db::read::get_picking_session_members;
 use crate::db::read::{get_current_picking_session, is_captain_position_available};
@@ -11,8 +12,9 @@ use anyhow::{bail, Context as AnyhowContext};
 use chrono::{DateTime, Utc};
 use mongodb::Database;
 use rand::prelude::{IteratorRandom, SliceRandom};
-use serenity::model::id::{CommandId, GuildId};
+use serenity::model::id::{GuildId, UserId};
 use serenity::model::interactions::application_command::ApplicationCommand;
+use serenity::model::prelude::User;
 use serenity::{
     client::Context,
     model::{id::ChannelId, interactions::application_command::ApplicationCommandInteraction},
@@ -311,7 +313,7 @@ pub async fn captain_helper(
         bail!(SetCaptainErr::InvalidCount);
     };
 
-    match operation_outcome {
+    match &operation_outcome {
         PostSetCaptainAction::StartPickingBlue | PostSetCaptainAction::StartPickingRed => {
             // TODO: perhaps more specific info in this console message
             info!("Clearing /captain /nocapt and /autocaptain commands since both captains have been assigned");
@@ -352,6 +354,29 @@ pub async fn captain_helper(
             .context("Attempted and failed to delete captain-related commands from database")?;
 
             // create /pick
+            // !FIXME: for the sake of performance, try filtering and reusing existing participant
+            // list from above
+            let participants: Vec<Player> =
+                get_picking_session_members(db.clone(), &thread_channel_id)
+                    .await
+                    .context("Tried to fetch a list of `Player`s")?;
+            let pick_list = participants
+                .into_iter()
+                .filter(|p| p.is_captain == false && p.team.is_none());
+            let pick_list_as_users = super::transform::players_to_users(&ctx, pick_list)
+                .await
+                .context("Failed to convert pick list `Player`s to `User`s")?;
+            let pick_command = build_pick(&pick_list_as_users);
+            let created_pick_command = guild_id
+                .create_application_command(&ctx.http, |c| {
+                    *c = pick_command;
+                    c
+                })
+                .await
+                .context("Failed to create pick command for guild")?;
+            db::write::register_guild_command(db.clone(), &created_pick_command)
+                .await
+                .context("Failed to save a record of a newly created pick command")?;
         }
         _ => {
             bail!(SetCaptainErr::Unknown)
