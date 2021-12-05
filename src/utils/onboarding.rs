@@ -31,21 +31,27 @@ pub async fn inspect_guild_commands(ctx: Arc<Context>, guild_ids: Vec<GuildId>) 
     };
 
     let mut join_handles: Vec<JoinHandle<Result<GuildId, crate::error::Error>>> = Vec::default();
+    let mut ordered_guild_names: Vec<String> = Vec::default();
 
     info!("Launching one task per connected guild for conducting inspection");
     for guild_id in guild_ids {
+        let guild_name = match guild_id.to_guild_cached(&ctx.cache).await {
+            Some(guild) => guild.name,
+            None => "<guild_name_unavailable>".to_string(),
+        };
         join_handles.push(tokio::spawn(inspect_and_maybe_update_db(
             ctx.clone(),
             guild_id,
             db_client.clone(),
         )));
+        ordered_guild_names.push(guild_name);
     }
 
-    for handle in join_all(join_handles).await {
+    for (i, handle) in join_all(join_handles).await.iter().enumerate() {
         match handle {
             Ok(result) => {
                 if let Err(err) = result {
-                    error!("{:?}", err);
+                    error!("{}\n{:?}", ordered_guild_names.get(i).unwrap(), err);
                 }
             }
             Err(join_err) => {
