@@ -53,7 +53,7 @@ pub async fn add_player_to_game_mode_queue(
     let collection = db.collection(GAME_MODE_JOINS);
     let filter = doc! {
         "game_mode_label": game_mode_label.clone(),
-        "player_user_id": player_user_id.clone() as i64,
+        "player_user_id": player_user_id.clone().to_string(), // DIGITS,
     };
     let join_record = GameModeJoin {
         game_mode_label: game_mode_label.clone(),
@@ -75,7 +75,7 @@ pub async fn remove_player_from_game_mode_queue(
     let collection = db.collection(GAME_MODE_JOINS);
     let filter = doc! {
         "game_mode_label": game_mode_label,
-        "player_user_id": player_user_id as i64
+        "player_user_id": player_user_id.to_string(), // DIGITS
     };
     collection.find_one_and_delete(filter, None).await
 }
@@ -164,8 +164,23 @@ pub async fn register_completed_pug(
     collection.insert_one(completed_pug, None).await
 }
 
-pub async fn pick_player_for_team() -> Result<(), ()> {
-    Ok(())
+pub async fn pick_player_for_team(
+    db: Database,
+    &thread_channel_id: &u64,
+    &player_user_id: &u64,
+    &team: &Team,
+    &pick_position: &usize,
+) -> Result<Option<Player>, Error> {
+    let collection = db.collection(PLAYER_ROSTER);
+    let filter = doc! {
+        "channel_id_for_picking_session": thread_channel_id.to_string(), // DIGITS,
+        "user_id": player_user_id.to_string(), // DIGITS
+    };
+    let update = doc! {
+        "team": team,
+        "pick_position": pick_position.to_string(), // DIGITS
+    };
+    collection.find_one_and_update(filter, update, None).await
 }
 
 pub async fn reset_pug() -> Result<(), ()> {
@@ -267,8 +282,8 @@ pub async fn set_one_captain(
 ) -> Result<Option<Player>, Error> {
     let collection = db.collection(PLAYER_ROSTER);
     let filter = doc! {
-        "channel_id_for_picking_session": thread_channel_id as i64,
-        "user_id": user_id as i64,
+        "channel_id_for_picking_session": thread_channel_id.to_string(), // DIGITS,
+        "user_id": user_id.to_string(), // DIGITS,
     };
 
     let update = doc! {
@@ -306,8 +321,8 @@ pub async fn set_both_captains(
     // !FIXME: use sessions
     let collection = db.collection::<Player>(PLAYER_ROSTER);
     let blue_captain_filter = doc! {
-        "channel_id_for_picking_session": thread_channel_id as i64,
-        "user_id": blue_team_captain_user_id as i64,
+        "channel_id_for_picking_session": thread_channel_id.to_string(), // DIGITS,
+        "user_id": blue_team_captain_user_id.to_string(), // DIGITS,
     };
 
     let blue_captain_update = doc! {
@@ -318,8 +333,8 @@ pub async fn set_both_captains(
     };
 
     let red_captain_filter = doc! {
-        "channel_id_for_picking_session": thread_channel_id as i64,
-        "user_id": red_team_captain_user_id as i64,
+        "channel_id_for_picking_session": thread_channel_id.to_string(), // DIGITS
+        "user_id": red_team_captain_user_id.to_string(), // DIGITS
     };
 
     let red_captain_update = doc! {

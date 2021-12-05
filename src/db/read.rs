@@ -71,7 +71,7 @@ pub async fn is_captain_position_available(
 ) -> Result<bool, Error> {
     let collection = db.collection::<Player>(PLAYER_ROSTER);
     let filter = doc! {
-        "channel_id_for_picking_session": pug_thread_channel_id as i64,
+        "channel_id_for_picking_session": pug_thread_channel_id.to_string(), // DIGITS,
         "is_captain": true,
     };
 
@@ -88,7 +88,7 @@ pub async fn get_picking_session_members(
 ) -> Result<Vec<Player>, Error> {
     let collection = db.collection::<Player>(PLAYER_ROSTER);
     let filter = doc! {
-        "channel_id_for_picking_session": pug_thread_channel_id as i64,
+        "channel_id_for_picking_session": pug_thread_channel_id.to_string(), // DIGITS,
     };
 
     let cursor = collection.find(filter, None).await?;
