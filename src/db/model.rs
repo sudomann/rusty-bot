@@ -125,6 +125,8 @@ pub enum PugContainer {
 //     current_pick_position: 0
 //     pick_sequence: Vec<Team>
 //     players: HashSet<user_id> set of players pulled out of queue
+//     !NOTE: for logical compatibility with existing design,
+//     team captain should NOT be included in team Vec
 //     blue_captain: Option<user_id>
 //     blue_team: Vec<user_id>
 //     red_captain: Option<user_id>
