@@ -105,7 +105,7 @@ pub struct CompletedPug {
 ///
 ///  Two (2) player game modes do not involve [`Player`] documents or a [`PickingSession`].
 ///
-/// That is, 2 player game modes do not go through a picking session and it does not tmake sense that
+/// That is, two-player game modes do not go through a picking session and it does not tmake sense that
 /// one should be coerced/shoehorned (for the integrity/accuracy of stats calculated from piking history).
 pub enum PugContainer {
     PickingSession(PickingSession),

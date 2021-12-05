@@ -14,7 +14,6 @@ use mongodb::Database;
 use rand::prelude::{IteratorRandom, SliceRandom};
 use serenity::model::id::{GuildId, UserId};
 use serenity::model::interactions::application_command::ApplicationCommand;
-use serenity::model::prelude::User;
 use serenity::{
     client::Context,
     model::{id::ChannelId, interactions::application_command::ApplicationCommandInteraction},
