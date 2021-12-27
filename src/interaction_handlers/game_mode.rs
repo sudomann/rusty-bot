@@ -118,11 +118,12 @@ pub async fn create(
                 overwrite its options with a new one which has an \
                 up to date list of game mode choices",
             )?;
-        // FIXME: this does not yet update everything it should, e.g. /delmod's game mode choices
+        // FIXME: this does not yet update everything it should,
+        // e.g. game mode choices for /leave, /delmod
         // consult repo README
     };
 
-    Ok("Added successfully".to_string())
+    Ok(format!("Added new game mode {} successfully", label))
 }
 
 /// Delete a registered game mode
