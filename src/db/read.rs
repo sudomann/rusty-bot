@@ -1,5 +1,5 @@
 use futures::stream::TryStreamExt;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::doc;
 use mongodb::error::Error;
 use mongodb::options::FindOneOptions;
 use mongodb::Database;
@@ -21,7 +21,7 @@ pub async fn find_game_mode(
     game_mode_label: &String,
 ) -> Result<Option<GameMode>, Error> {
     let filter = doc! {
-        "game_mode_label": game_mode_label
+        "label": game_mode_label
     };
     db.collection(GAME_MODES).find_one(filter, None).await
 }

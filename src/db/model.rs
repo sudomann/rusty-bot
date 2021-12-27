@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 use serenity::model::interactions::application_command::ApplicationCommand;
 use std::convert::From;
 
+// FIXME: type u64 is not natively supported by mongodb
+// so change all usage to String:
+// `id.to_string()` to convert u64 --> String
+// and
+// `my_string.parse::<u64>().unwrap()` to get u64 value
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub enum Team {
     Blue,
@@ -76,7 +82,7 @@ pub struct PickingSession {
 /// involved with a picking session.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Player {
-    pub channel_id_for_picking_session: u64,
+    pub thread_channel_id: u64,
     pub is_captain: bool,
     pub exclude_from_random_captaining: bool,
     pub user_id: u64,
@@ -92,24 +98,23 @@ pub struct Player {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct TeamVoiceChat {
+    pub category_id: String,
+    pub blue_channel_id: String,
+    pub red_channel_id: String,
+    pub is_deleted_from_guild_channel_list: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct CompletedPug {
     pub created: DateTime<Utc>,
     pub game_mode: String,
-    pub thread_channel_id: u64,
-    pub blue_team: Vec<u64>,
-    pub red_team: Vec<u64>,
-}
-
-/// This enum is used to represent either a picking session, or a completed game mode instance.
-/// The intent is for the same db handler to be used in commiting a completed pug to the database.
-///
-///  Two (2) player game modes do not involve [`Player`] documents or a [`PickingSession`].
-///
-/// That is, two-player game modes do not go through a picking session and it does not tmake sense that
-/// one should be coerced/shoehorned (for the integrity/accuracy of stats calculated from piking history).
-pub enum PugContainer {
-    PickingSession(PickingSession),
-    CompletedPug(CompletedPug),
+    pub thread_channel_id: String,
+    pub blue_team_captain: String,
+    pub blue_team: Vec<String>,
+    pub red_team_captain: String,
+    pub red_team: Vec<String>,
+    pub voice_chat: TeamVoiceChat,
 }
 
 // EXPERIMENT BELOW:

@@ -39,7 +39,7 @@ pub async fn write_new_game_mode(
 }
 
 pub async fn delete_game_mode() -> Result<(), ()> {
-    Ok(())
+    todo!();
 }
 
 /// Add player to queue of a game mode. This can be used repeatedly without
@@ -104,7 +104,7 @@ pub async fn create_picking_session(
             user_id: *user_id,
             team: None,
             exclude_from_random_captaining: false,
-            channel_id_for_picking_session: *pug_thread_channel_id,
+            thread_channel_id: *pug_thread_channel_id,
             pick_position: None,
         })
         .collect::<Vec<Player>>();
@@ -136,31 +136,10 @@ pub async fn create_picking_session(
 /// clears the queue for the game mode
 pub async fn register_completed_pug(
     db: Database,
-    pug: PugContainer,
+    completed_pug: &CompletedPug,
 ) -> Result<InsertOneResult, Error> {
     // FIXME: use sessions
-    let collection = db.collection(COMPLETED_PUGS);
-
-    let completed_pug = match pug {
-        PugContainer::PickingSession(picking_session) => {
-            // gather Player documents linked to the picking sessions's thread/channel
-
-            // Use Player "pick positions" to form blue team and red team arrays for CompletedPug
-            // FIXME: implement ^
-            let mut blue_team: Vec<u64> = Vec::default();
-            let mut red_team: Vec<u64> = Vec::default();
-
-            CompletedPug {
-                created: Utc::now(),
-                game_mode: picking_session.game_mode,
-                thread_channel_id: picking_session.thread_channel_id,
-                blue_team,
-                red_team,
-            }
-        }
-        PugContainer::CompletedPug(c) => c,
-    };
-
+    let collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
     collection.insert_one(completed_pug, None).await
 }
 
@@ -173,22 +152,22 @@ pub async fn pick_player_for_team(
 ) -> Result<Option<Player>, Error> {
     let collection = db.collection(PLAYER_ROSTER);
     let filter = doc! {
-        "channel_id_for_picking_session": thread_channel_id.to_string(), // DIGITS,
-        "user_id": player_user_id.to_string(), // DIGITS
+        "channel_id_for_picking_session": thread_channel_id.to_string(),
+        "user_id": player_user_id.to_string(),
     };
     let update = doc! {
         "team": team,
-        "pick_position": pick_position.to_string(), // DIGITS
+        "pick_position": pick_position.to_string(),
     };
     collection.find_one_and_update(filter, update, None).await
 }
 
 pub async fn reset_pug() -> Result<(), ()> {
-    Ok(())
+    todo!();
 }
 
 pub async fn exclude_player_from_random_captaining() -> Result<(), ()> {
-    Ok(())
+    todo!();
 }
 
 pub async fn set_pug_channel(
