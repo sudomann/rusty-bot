@@ -135,7 +135,7 @@ pub async fn join(
         // with empty team lists
         let first_random_player = players.choose(&mut rand::thread_rng()).unwrap();
         let remaining_player = players.last().unwrap();
-        transform::resolve_to_completed_pug(
+        let completed_pug = transform::resolve_to_completed_pug(
             &ctx,
             db.clone(),
             autocompleted_picking_session,
@@ -151,13 +151,19 @@ pub async fn join(
             status after bypassing picking session",
         )?;
 
+        // Unwrapping like this is probably fine because it comes from a String
+        // (which came from a proper u64) that has not been moved about or tampered with.
+        let red_player = UserId(completed_pug.red_team_captain.parse::<u64>().unwrap());
+        let blue_player = UserId(completed_pug.blue_team_captain.parse::<u64>().unwrap());
+
         // then announce auto-picked team colors in pug thread
         let response = MessageBuilder::new()
             .push_line("Randomly assigned team colors:")
             .push("Red :red_circle: ")
-            .mention("player_red TODO")
+            .mention(&red_player)
+            .push_line("")
             .push("Blue: :blue_circle: ")
-            .mention("player_blue TODO")
+            .mention(&blue_player)
             .build();
 
         interaction.channel_id.say(&ctx.http, response).await?;
