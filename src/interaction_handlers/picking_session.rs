@@ -1,14 +1,14 @@
 use anyhow::{bail, Context as AnyhowContext};
 
 use serenity::model::channel::{Channel, ChannelType};
-use serenity::model::id::CommandId;
+use serenity::model::id::{ChannelId, CommandId};
 use serenity::utils::MessageBuilder;
 use serenity::{
     client::Context, model::interactions::application_command::ApplicationCommandInteraction,
 };
 
 use crate::command_builder::build_pick;
-use crate::db::model::{GuildCommand, PickingSession, Player};
+use crate::db::model::{GuildCommand, PickingSession, Player, Team};
 use crate::db::read::{get_current_picking_session, get_picking_session_members};
 use crate::utils::captain::{captain_helper, PostSetCaptainAction};
 use crate::utils::transform;
@@ -188,7 +188,7 @@ pub async fn pick(
         .context("Tried to obtain `Channel` from a ChannelId")?
     {
         Channel::Guild(channel) => {
-            if let ChannelType::PublicThread = channel.kind {
+            if let ChannelType::Text = channel.kind {
                 channel
             } else {
                 return Ok("You cannot use this command here".to_string());
@@ -216,7 +216,7 @@ pub async fn pick(
         response
             .push_line("This command cannot be used in this thread.")
             .push("Perhaps you are looking for ")
-            .mention(&guild_channel);
+            .mention(&ChannelId(picking_session.thread_channel_id));
         return Ok(response.build());
     }
 
@@ -245,7 +245,7 @@ pub async fn pick(
     // To determine which team captain should be picking
     let pick_turn = participant_count - teamless_participants.len();
 
-    let team = picking_session
+    let team_to_assign = picking_session
         .pick_sequence
         .get(pick_turn - 1)
         .expect("Picking is not being correctly tracked");
@@ -267,7 +267,7 @@ pub async fn pick(
     // The position of the player pick on their team
     let picking_position = participants
         .iter()
-        .filter(|p| p.team.unwrap() == *team)
+        .filter(|p| p.team.unwrap() == *team_to_assign)
         .count()
         + 1;
 
@@ -275,7 +275,7 @@ pub async fn pick(
         db.clone(),
         &picking_session.thread_channel_id,
         &user_id_for_user_to_pick,
-        team,
+        team_to_assign,
         &picking_position,
     )
     .await
@@ -287,6 +287,107 @@ pub async fn pick(
         .position(|p| p.user_id.eq(user_id_for_user_to_pick))
         .unwrap();
     teamless_participants.remove(index);
+
+    // When there's only one player remaining, they get auto assigned
+    // to the team lacking a player, and the active picking session
+    // is resolved as a completed pug
+    if teamless_participants.len() == 1 {
+        let last_player = teamless_participants.pop().unwrap();
+
+        // Player is assigned to whatever the opposite team is
+        let team_with_last_open_spot = match team_to_assign {
+            Team::Blue => Team::Red,
+            Team::Red => Team::Blue,
+        };
+
+        db::write::pick_player_for_team(
+            db.clone(),
+            &picking_session.thread_channel_id,
+            &last_player.user_id,
+            &team_with_last_open_spot,
+            &picking_position,
+        )
+        .await
+        .context("Failed to auto-assign the last player to a team")?;
+
+        // Use Player "pick positions" to form blue team and red team arrays for CompletedPug
+        // FIXME: implement ^
+        let mut blue_team = participants
+            .clone()
+            .into_iter()
+            .filter(|p| !p.is_captain && p.team == Some(Team::Blue))
+            .map(|p| p.user_id.to_string())
+            .collect::<Vec<String>>();
+        let mut red_team = participants
+            .clone()
+            .into_iter()
+            .filter(|p| !p.is_captain && p.team == Some(Team::Red))
+            .map(|p| p.user_id.to_string())
+            .collect::<Vec<String>>();
+
+        // add just picked player and last remaining player to these local,
+        // up-to-date team lists
+        match team_to_assign {
+            Team::Blue => {
+                blue_team.push(user_id_for_user_to_pick.to_string());
+                red_team.push(last_player.user_id.to_string());
+            }
+            Team::Red => {
+                blue_team.push(last_player.user_id.to_string());
+                red_team.push(user_id_for_user_to_pick.to_string());
+            }
+        }
+
+        let blue_team_captain = participants
+            .iter()
+            .find(|p| p.is_captain && p.team == Some(Team::Blue))
+            .unwrap();
+        let red_team_captain = participants
+            .iter()
+            .find(|p| p.is_captain && p.team == Some(Team::Red))
+            .unwrap();
+
+        let completed_pug = transform::resolve_to_completed_pug(
+            &ctx,
+            db.clone(),
+            picking_session,
+            guild_channel.position,
+            blue_team_captain.user_id.to_string(),
+            blue_team,
+            red_team_captain.user_id.to_string(),
+            red_team,
+        )
+        .await
+        .context("Failed to promote active pug to completed pug status")?;
+
+        // Unwrapping like this is probably fine because it comes from a String
+        // (which came from a proper u64) that has not been moved about or tampered with.
+        let red_team_voice_channel = ChannelId(
+            completed_pug
+                .voice_chat
+                .red_channel_id
+                .parse::<u64>()
+                .unwrap(),
+        );
+        let blue_team_voice_channel = ChannelId(
+            completed_pug
+                .voice_chat
+                .blue_channel_id
+                .parse::<u64>()
+                .unwrap(),
+        );
+
+        let response = MessageBuilder::new()
+            .push_line(
+                "All players have been picked. Click your team color to join the voice channel:",
+            )
+            .mention(&red_team_voice_channel)
+            .push_line(" player1 - player2 - TODO")
+            .mention(&blue_team_voice_channel)
+            .push_line(" player1 - player2 - TODO")
+            .build();
+        return Ok(response);
+    }
 
     let saved_pick_command: GuildCommand = db::read::find_command(db.clone(), "pick")
         .await
