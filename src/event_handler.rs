@@ -37,20 +37,21 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
-            let handler_result: anyhow::Result<String> = match command.data.name.as_str() {
-                "ping" => Ok("Pong!".to_string()),
-                "coinflip" => Ok(coin_flip::coin_flip()),
-                "setpugchannel" => pug_channel::set(&ctx, &command).await,
-                "setup" => setup::set_guild_base_command_set(&ctx, &command).await,
-                "addmod" => game_mode::create(&ctx, &command).await,
-                "delmod" => game_mode::delete(&ctx, &command).await,
-                "join" => queue::join(&ctx, &command).await,
-                "leave" => queue::leave(&ctx, &command).await,
-                "captain" => picking_session::captain(&ctx, &command).await,
-                "randomcaptain" => picking_session::random_captains(&ctx, &command).await,
-                "pick" => picking_session::pick(&ctx, &command).await,
-                _ => Ok("Not usable. Sorry :(".to_string()),
-            };
+            let handler_result: anyhow::Result<String> =
+                match command.data.name.as_str().to_lowercase().as_str() {
+                    "ping" => Ok("Pong!".to_string()),
+                    "coinflip" => Ok(coin_flip::coin_flip()),
+                    "setpugchannel" => pug_channel::set(&ctx, &command).await,
+                    "setup" => setup::set_guild_base_command_set(&ctx, &command).await,
+                    "addmod" => game_mode::create(&ctx, &command).await,
+                    "delmod" => game_mode::delete(&ctx, &command).await,
+                    "join" => queue::join(&ctx, &command).await,
+                    "leave" => queue::leave(&ctx, &command).await,
+                    "captain" => picking_session::captain(&ctx, &command).await,
+                    "randomcaptain" => picking_session::random_captains(&ctx, &command).await,
+                    "pick" => picking_session::pick(&ctx, &command).await,
+                    _ => Ok("Not usable. Sorry :(".to_string()),
+                };
 
             let content = match handler_result {
                 Ok(response) => response,
