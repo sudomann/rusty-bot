@@ -151,11 +151,16 @@ pub async fn join(
             status after bypassing picking session",
         )?;
 
-        // then announce auto-picked team colors
-        interaction
-            .channel_id
-            .say(&ctx.http, "TODO: auto-picked teams")
-            .await?;
+        // then announce auto-picked team colors in pug thread
+        let response = MessageBuilder::new()
+            .push_line("Randomly assigned team colors:")
+            .push("Red :red_circle: ")
+            .mention("player_red TODO")
+            .push("Blue: :blue_circle: ")
+            .mention("player_blue TODO")
+            .build();
+
+        interaction.channel_id.say(&ctx.http, response).await?;
     } else {
         let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
 
