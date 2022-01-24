@@ -1,19 +1,19 @@
 use anyhow::Context as AnyhowContext;
 use chrono::Utc;
+use rand::seq::SliceRandom;
 use serenity::client::Context;
-use serenity::model::channel::ChannelType;
+use serenity::model::channel::{Channel, ChannelType};
 use serenity::model::id::UserId;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use serenity::utils::MessageBuilder;
 
 use crate::command_builder::{build_autocaptain, build_captain, build_nocaptain, build_reset};
-use crate::db::model::{PickingSession, PugContainer};
+use crate::db::model::PickingSession;
 use crate::db::read::{find_game_mode, get_game_mode_queue};
 use crate::db::write::{
-    add_player_to_game_mode_queue, create_picking_session, register_completed_pug,
-    save_guild_commands,
+    add_player_to_game_mode_queue, create_picking_session, save_guild_commands,
 };
-use crate::utils::captain;
+use crate::utils::{captain, transform};
 use crate::DbClientRef;
 
 // FIXME: add anyhow context to all ? operator usage
@@ -29,6 +29,23 @@ pub async fn join(
         data.get::<DbClientRef>().unwrap().clone()
     };
     let db = client.database(&guild_id.to_string());
+
+    let guild_channel = match interaction
+        .channel_id
+        .to_channel(&ctx)
+        .await
+        .context("Tried to obtain `Channel` from a ChannelId")?
+    {
+        Channel::Guild(channel) => {
+            if let ChannelType::Text = channel.kind {
+                channel
+            } else {
+                return Ok("You cannot use this command here".to_string());
+            }
+        }
+        _ => return Ok("You cannot use this command here".to_string()),
+    };
+
     let current_user_id = &interaction.user.id.0;
 
     let arg = &interaction
@@ -114,11 +131,25 @@ pub async fn join(
             last_reset: None,
         };
 
-        register_completed_pug(
+        // players assigned to random team,
+        // with empty team lists
+        let first_random_player = players.choose(&mut rand::thread_rng()).unwrap();
+        let remaining_player = players.last().unwrap();
+        transform::resolve_to_completed_pug(
+            &ctx,
             db.clone(),
-            PugContainer::PickingSession(autocompleted_picking_session),
+            autocompleted_picking_session,
+            guild_channel.position,
+            first_random_player.to_string(),
+            vec![],
+            remaining_player.to_string(),
+            vec![],
         )
-        .await?;
+        .await
+        .context(
+            "Failed to auto promote 2 player game mode to completed pug \
+            status after bypassing picking session",
+        )?;
 
         // then announce auto-picked team colors
         interaction
