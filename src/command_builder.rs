@@ -16,9 +16,7 @@ pub mod base {
 
     use crate::db::model::GameMode;
 
-    pub async fn build_pugchannel(
-        _db: Database,
-    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    pub fn build_pugchannel() -> CreateApplicationCommand {
         let mut channel_option = CreateApplicationCommandOption::default();
         channel_option
             .name("channel")
@@ -31,12 +29,10 @@ pub mod base {
             .description("Designate a channel to be used for pugs")
             .add_option(channel_option);
 
-        Ok(cmd)
+        cmd
     }
 
-    pub async fn build_addmod(
-        _db: Database,
-    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    pub fn build_addmod() -> CreateApplicationCommand {
         let mut label_option = CreateApplicationCommandOption::default();
         label_option
             .name("label")
@@ -71,16 +67,14 @@ pub mod base {
             .add_option(label_option)
             .add_option(player_count_option);
 
-        Ok(cmd)
+        cmd
     }
 
-    pub async fn build_delmod(
-        db: Database,
-    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    pub fn build_delmod(game_modes: &Vec<GameMode>) -> CreateApplicationCommand {
         let mut game_mode_option = CreateApplicationCommandOption::default();
 
         // load existing game modes
-        for existing_game_mode in crate::db::read::get_game_modes(db).await?.iter() {
+        for existing_game_mode in game_modes {
             game_mode_option
                 .add_string_choice(&existing_game_mode.label, &existing_game_mode.label);
         }
@@ -95,12 +89,10 @@ pub mod base {
         cmd.name("delmod")
             .description("Delete an existing game mode")
             .add_option(game_mode_option);
-        Ok(cmd)
+        cmd
     }
 
-    pub async fn build_last(
-        _db: Database,
-    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    pub fn build_last() -> CreateApplicationCommand {
         let mut history_count_option = CreateApplicationCommandOption::default();
         history_count_option
       .name("match_age")
@@ -113,14 +105,14 @@ pub mod base {
         cmd.name("last")
             .description("Display info about a previous pug")
             .add_option(history_count_option);
-        Ok(cmd)
+        cmd
     }
 
     /// The join command only has one option, which is required.
     ///
     /// The choices are game mode labels that are obtained from the [`Vec<GameMode>`] provided
     /// to this function. No choices are added to the option if the [`Vec`] is empty.
-    pub async fn build_join(game_modes: Vec<GameMode>) -> CreateApplicationCommand {
+    pub fn build_join(game_modes: &Vec<GameMode>) -> CreateApplicationCommand {
         let game_mode_option = generate_join_command_option(&game_modes);
         let mut cmd = CreateApplicationCommand::default();
         cmd.name("join")
@@ -129,9 +121,7 @@ pub mod base {
         cmd
     }
 
-    pub async fn build_addplayer(
-        db: Database,
-    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    pub fn build_addplayer(game_modes: &Vec<GameMode>) -> CreateApplicationCommand {
         let mut user_option = CreateApplicationCommandOption::default();
         let mut game_mode_option = CreateApplicationCommandOption::default();
 
@@ -142,7 +132,7 @@ pub mod base {
             .required(true);
 
         // load existing game modes
-        for existing_game_mode in crate::db::read::get_game_modes(db).await?.iter() {
+        for existing_game_mode in game_modes {
             game_mode_option
                 .add_string_choice(&existing_game_mode.label, &existing_game_mode.label);
         }
@@ -158,12 +148,10 @@ pub mod base {
             .description("Add a user to the queue for a game mode")
             .add_option(user_option)
             .add_option(game_mode_option);
-        Ok(cmd)
+        cmd
     }
 
-    pub async fn build_delplayer(
-        db: Database,
-    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+    pub fn build_delplayer(game_modes: &Vec<GameMode>) -> CreateApplicationCommand {
         let mut user_option = CreateApplicationCommandOption::default();
         let mut game_mode_option = CreateApplicationCommandOption::default();
 
@@ -174,7 +162,7 @@ pub mod base {
             .required(true);
 
         // load existing game modes
-        for existing_game_mode in crate::db::read::get_game_modes(db).await?.iter() {
+        for existing_game_mode in game_modes {
             game_mode_option
                 .add_string_choice(&existing_game_mode.label, &existing_game_mode.label);
         }
@@ -190,7 +178,7 @@ pub mod base {
             .description("Remove a user from the queue of a game mode")
             .add_option(user_option)
             .add_option(game_mode_option);
-        Ok(cmd)
+        cmd
     }
 
     /// The join command only has one option, which is required.

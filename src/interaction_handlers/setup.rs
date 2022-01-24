@@ -31,29 +31,22 @@ pub async fn set_guild_base_command_set(
     };
     let db = client.database(guild_id.0.to_string().as_str());
 
-    let mut command_set: Vec<CreateApplicationCommand> = Vec::default();
     let game_modes = crate::db::read::get_game_modes(db.clone()).await?;
-    let builders = vec![
-        spawn(build_pugchannel(db.clone())),
-        spawn(build_addmod(db.clone())),
-        spawn(build_delmod(db.clone())),
-        spawn(build_last(db.clone())),
-        spawn(build_join(&game_modes)),
-        spawn(build_addplayer(db.clone())),
-        spawn(build_delplayer(db.clone())),
+
+    // sequentially spawn all command builders
+    // Tried to make them run in parallel by spawning async blocks containing these function calls
+    // then `join_all`ing, but rust complains about the lifetime of game_modes
+    let command_set = vec![
+        build_pugchannel(),
+        build_addmod(),
+        build_delmod(&game_modes),
+        build_last(),
+        build_join(&game_modes),
+        build_addplayer(&game_modes),
+        build_delplayer(&game_modes),
         // spawn(build_leave(db.clone(), &game_modes)),
         // ...
     ];
-
-    // spawn all command builders
-    for handle in join_all(builders).await {
-        let join_result = handle.context("A command builder panicked")?;
-        let built_command = join_result.context(
-            "An error occured during command building. \
-            It likely came from an attempt to communicate with the database",
-        )?;
-        command_set.push(built_command);
-    }
 
     // set (overwrite) current guild commands with the built set
     let created_commands = guild_id
