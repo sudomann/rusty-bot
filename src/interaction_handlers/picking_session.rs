@@ -361,7 +361,8 @@ pub async fn pick(
         .context("Failed to promote active pug to completed pug status")?;
 
         // Unwrapping like this is probably fine because it comes from a String
-        // (which came from a proper u64) that has not been moved about or tampered with.
+        // (which came from a proper u64) that has not been moved about (e.g. transimitted to/from db)
+        // or tampered with.
         let red_team_voice_channel = ChannelId(
             completed_pug
                 .voice_chat
