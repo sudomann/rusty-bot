@@ -95,7 +95,7 @@ pub async fn resolve_to_completed_pug(
     let blue_team_voice_channel = guild_id
         .create_channel(&ctx.http, |c| {
             c.kind(ChannelType::Voice)
-                .name("blue")
+                .name("Blue :blue_circle:")
                 .category(category.id.0)
         })
         .await
@@ -107,7 +107,7 @@ pub async fn resolve_to_completed_pug(
     let red_team_voice_channel = guild_id
         .create_channel(&ctx.http, |c| {
             c.kind(ChannelType::Voice)
-                .name("red")
+                .name("Red :red_circle:")
                 .category(category.id.0)
         })
         .await
@@ -124,6 +124,7 @@ pub async fn resolve_to_completed_pug(
         blue_team,
         red_team_captain,
         red_team,
+        // !FIXME: currently voice channels are created for 2 player game modes as well. They should be exempted.
         voice_chat: TeamVoiceChat {
             category_id: category.id.0.to_string(),
             blue_channel_id: blue_team_voice_channel.id.0.to_string(),
