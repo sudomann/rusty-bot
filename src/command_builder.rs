@@ -116,31 +116,93 @@ pub mod base {
         Ok(cmd)
     }
 
-    /// When no `Vec<GameMode>` is provided, this function will fetch from the db
-    pub async fn build_join(
-        db: Database,
-        maybe_game_modes: Option<Vec<GameMode>>,
-    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
-        let game_modes = match maybe_game_modes {
-            Some(game_modes) => game_modes,
-            None => crate::db::read::get_game_modes(db).await?,
-        };
-        let game_mode_option = generate_join_command_option(&game_modes).await?;
+    /// The join command only has one option, which is required.
+    ///
+    /// The choices are game mode labels that are obtained from the [`Vec<GameMode>`] provided
+    /// to this function. No choices are added to the option if the [`Vec`] is empty.
+    pub async fn build_join(game_modes: Vec<GameMode>) -> CreateApplicationCommand {
+        let game_mode_option = generate_join_command_option(&game_modes);
         let mut cmd = CreateApplicationCommand::default();
         cmd.name("join")
             .description("Join a pug")
             .add_option(game_mode_option);
+        cmd
+    }
+
+    pub async fn build_addplayer(
+        db: Database,
+    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+        let mut user_option = CreateApplicationCommandOption::default();
+        let mut game_mode_option = CreateApplicationCommandOption::default();
+
+        user_option
+            .name("user")
+            .description("Which user to add")
+            .kind(ApplicationCommandOptionType::User)
+            .required(true);
+
+        // load existing game modes
+        for existing_game_mode in crate::db::read::get_game_modes(db).await?.iter() {
+            game_mode_option
+                .add_string_choice(&existing_game_mode.label, &existing_game_mode.label);
+        }
+
+        game_mode_option
+            .name("game_mode")
+            .description("Which game mode queue you want to add the user to")
+            .kind(ApplicationCommandOptionType::String)
+            .required(true);
+
+        let mut cmd = CreateApplicationCommand::default();
+        cmd.name("addplayer")
+            .description("Add a user to the queue for a game mode")
+            .add_option(user_option)
+            .add_option(game_mode_option);
         Ok(cmd)
     }
 
-    /// The join command only has one option, which is also required.
+    pub async fn build_delplayer(
+        db: Database,
+    ) -> Result<CreateApplicationCommand, mongodb::error::Error> {
+        let mut user_option = CreateApplicationCommandOption::default();
+        let mut game_mode_option = CreateApplicationCommandOption::default();
+
+        user_option
+            .name("user")
+            .description("Which user to remove")
+            .kind(ApplicationCommandOptionType::User)
+            .required(true);
+
+        // load existing game modes
+        for existing_game_mode in crate::db::read::get_game_modes(db).await?.iter() {
+            game_mode_option
+                .add_string_choice(&existing_game_mode.label, &existing_game_mode.label);
+        }
+
+        game_mode_option
+            .name("game_mode")
+            .description("Which game mode queue you want to remove the user from")
+            .kind(ApplicationCommandOptionType::String)
+            .required(true);
+
+        let mut cmd = CreateApplicationCommand::default();
+        cmd.name("delplayer")
+            .description("Remove a user from the queue of a game mode")
+            .add_option(user_option)
+            .add_option(game_mode_option);
+        Ok(cmd)
+    }
+
+    /// The join command only has one option, which is required.
     /// This helper builds that option.
     ///
     /// The choices are game mode labels that are obtained from the [`Vec<GameMode>`] provided
     /// to this function. No choices are added to the option if the [`Vec`] is empty.
-    pub async fn generate_join_command_option(
+    ///
+    /// This functionality lives in a separate helper function so it might be reusable.
+    pub fn generate_join_command_option(
         game_modes: &Vec<GameMode>,
-    ) -> Result<CreateApplicationCommandOption, mongodb::error::Error> {
+    ) -> CreateApplicationCommandOption {
         let mut game_mode_option = CreateApplicationCommandOption::default();
         game_mode_option
             .name("game_mode")
@@ -148,9 +210,11 @@ pub mod base {
             .kind(ApplicationCommandOptionType::String)
             .required(true);
         for game_mode in game_modes {
+            // !TODO: verify that having no game modes, and thus no choices to add, does not result
+            // in arbitrary strings allowed as input
             game_mode_option.add_string_choice(&game_mode.label, &game_mode.label);
         }
-        Ok(game_mode_option)
+        game_mode_option
     }
 }
 

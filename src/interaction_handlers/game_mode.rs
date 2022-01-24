@@ -4,7 +4,7 @@ use serenity::client::Context;
 use serenity::model::id::CommandId;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 
-use crate::command_builder::base::{build_join, generate_join_command_option};
+use crate::command_builder::base::generate_join_command_option;
 use crate::db;
 use crate::db::model::GameMode;
 use crate::DbClientRef;
@@ -60,68 +60,46 @@ pub async fn create(
     // save new game mode
     db::write::write_new_game_mode(db.clone(), label.to_string(), *player_count).await?;
 
-    if game_modes.is_empty() {
-        // we assume no join command should exist in this case so we will create it
-        let built_join_command = build_join(db.clone(), None).await?;
-        let new_join_cmd = guild_id
-            .create_application_command(&ctx.http, |command_builder| {
-                // hackity hack hack ;)
-                // side-steps the unresolved issues with calling the async building in here,
-                // `move`ing variables, and lifetimes
-                let unwanted_default = std::mem::replace(command_builder, built_join_command);
-                std::mem::drop(unwanted_default);
-                command_builder
-            })
-            .await
-            .context(
-                "Attempted to create a `join` command since the database did not have any saved game modes",
-            )?;
-        crate::db::write::register_guild_command(db.clone(), &new_join_cmd)
-            .await
-            // this failure causes the bot to clear out the guild's commands on next launch
-            .context("Attempted to save newly created `join` command to database")?;
-    } else {
-        // try to retrieve the existing join command
-        let saved_cmd = db::read::find_command(db.clone(), "join")
+    // try to retrieve the existing join command
+    let saved_cmd = db::read::find_command(db.clone(), "join")
             .await?
             .context("At least one game mode exists in the database, but no join command was found in the database")?;
-        let current_join_cmd = guild_id
-            .get_application_command(&ctx.http, CommandId(saved_cmd.command_id))
-            .await
-            .context(
-                "Attempted to fetch and application command object for `join` from discord \
+    let current_join_cmd = guild_id
+        .get_application_command(&ctx.http, CommandId(saved_cmd.command_id))
+        .await
+        .context(
+            "Attempted to fetch and application command object for `join` from discord \
                 using the CommandId from a `join` command that was saved in the database",
-            )?;
+        )?;
 
-        /*
-            Since there's no nice/practical way to edit a particular option's
-            choices, we:
-            - create a new option (game mode name/label) object
-                which has up-to-date game mode choices
-            - overwrite any existing options with this new one
-        */
+    /*
+        Since there's no nice/practical way to edit a particular option's
+        choices, we:
+        - create a new option (game mode name/label) object
+            which has up-to-date game mode choices
+        - overwrite any existing options with this new one
+    */
 
-        // Must add the desired game mode to the list since it the list only contains
-        // game modes that existed before
-        game_modes.push(GameMode {
-            label: label.to_string(),
-            player_count: *player_count,
-        });
-        let new_option = generate_join_command_option(&game_modes).await?;
-        guild_id
-            .edit_application_command(&ctx.http, current_join_cmd.id, |c| {
-                c.set_options(vec![new_option])
-            })
-            .await
-            .context(
-                "Attempted to edit existing join application command to \
+    // Must add the desired game mode to the list since it the list only contains
+    // game modes that existed before
+    game_modes.push(GameMode {
+        label: label.to_string(),
+        player_count: *player_count,
+    });
+    let new_option = generate_join_command_option(&game_modes);
+    guild_id
+        .edit_application_command(&ctx.http, current_join_cmd.id, |c| {
+            c.set_options(vec![new_option])
+        })
+        .await
+        .context(
+            "Attempted to edit existing join application command to \
                 overwrite its options with a new one which has an \
                 up to date list of game mode choices",
-            )?;
-        // FIXME: this does not yet update everything it should,
-        // e.g. game mode choices for /leave, /delmod
-        // consult repo README
-    };
+        )?;
+    // FIXME: this does not yet update everything it should,
+    // e.g. game mode choices for /leave, /delmod
+    // consult repo README
 
     Ok(format!("Added new game mode {} successfully", label))
 }
