@@ -16,7 +16,7 @@ use tracing::{error, info, instrument};
 
 // use crate::db::DEFAULT_MONGO_READY_MAX_WAIT;
 use crate::interaction_handlers::*;
-use crate::jobs::{clear_out_stale_joins, log_system_load};
+use crate::jobs::{clear_out_stale_joins, log_system_load, remove_stale_team_voice_channels};
 use crate::utils::onboarding::inspect_guild_commands;
 use crate::{DbClientRef, DbClientSetupHandle};
 
@@ -147,6 +147,7 @@ impl EventHandler for Handler {
             // We have to clone the Arc, as it gets moved into the new thread.
             let ctx1 = Arc::clone(&ctx);
             let ctx2 = Arc::clone(&ctx);
+            let ctx3 = Arc::clone(&ctx);
 
             tokio::spawn(async move {
                 loop {
@@ -161,6 +162,14 @@ impl EventHandler for Handler {
                 loop {
                     clear_out_stale_joins(Arc::clone(&ctx2)).await;
                     tokio::time::sleep(Duration::from_secs(60)).await;
+                }
+            });
+
+            let copy_of_guilds = guilds.clone();
+            tokio::spawn(async move {
+                loop {
+                    remove_stale_team_voice_channels(&ctx3, &copy_of_guilds).await;
+                    tokio::time::sleep(Duration::from_secs(3600)).await;
                 }
             });
 
