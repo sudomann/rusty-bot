@@ -27,7 +27,8 @@ pub async fn refresh_commands_with_game_mode_option(
     db: Database,
     game_modes: Vec<GameMode>,
 ) -> anyhow::Result<()> {
-    // !TODO: consider using tokio::spawn + join_all for these if current implementation too slow
+    // !TODO: current implementation is tooo slow
+    // consider using tokio::spawn + join_all to parallelize, so it completes under 3 secs
     for command_name in COMMANDS_WITH_GAME_MODE_OPTION {
         let saved_guild_command = db::read::find_command(db.clone(), &command_name)
             .await?

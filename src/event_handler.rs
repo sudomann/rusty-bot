@@ -60,6 +60,20 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
+            // Send an immediate initial response, so that the interaction token
+            // does not get get invalidated after the initial time limit of 3 secs.
+            // This makes the token valid for 15 mins, allowing the command handlers more than enough time to respond
+            if let Err(why) = command
+                .create_interaction_response(&ctx.http, |response| {
+                    response
+                        .kind(InteractionResponseType::ChannelMessageWithSource)
+                        .interaction_response_data(|message| message.content("Working on it..."))
+                })
+                .await
+            {
+                error!("Cannot respond to slash command: {}", why);
+                return;
+            }
             let handler_result: anyhow::Result<String> =
                 match command.data.name.as_str().to_lowercase().as_str() {
                     "ping" => Ok("Pong!".to_string()),
@@ -81,27 +95,25 @@ impl EventHandler for Handler {
                     _ => Ok("Not usable. Sorry :(".to_string()),
                 };
 
-            let content = match handler_result {
+            let actual_response = match handler_result {
                 Ok(response) => response,
                 Err(err) => {
                     let event_id = nanoid!(6);
                     error!("Error Event [{}]\n{:#?}", event_id, err);
                     format!(
-                        "Sorry, something went wrong and this incident has been logged. \nIncident ID: `{}`",
+                        "Sorry, something went wrong and this incident has been logged.\nIncident ID: `{}`",
                         event_id
                     )
                 }
             };
 
             if let Err(why) = command
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| message.content(content))
+                .edit_original_interaction_response(&ctx.http, |initial_response| {
+                    initial_response.content(actual_response)
                 })
                 .await
             {
-                error!("Cannot respond to slash command: {}", why);
+                error!("Cannot update initial interaction response: {}", why);
             }
         }
     }
@@ -110,16 +122,6 @@ impl EventHandler for Handler {
         info!("Connected as {}", ready.user.name);
         ctx.set_activity(Activity::playing("Bugs? Message sudomann#9568"))
             .await;
-
-        // WARNING: This was annoying to figure out
-        // DO NOT DISCARD THE FOLLOWING
-        // It is useful for cleaning up global commands
-        // let empty: Vec<CreateApplicationCommand> = Vec::default();
-        // ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
-        //     CreateApplicationCommands::set_application_commands(commands, empty)
-        // })
-        // .await
-        // .expect("expected successful deletion of all global commands");
 
         let db_client_handle = {
             let mut data = ctx.data.write().await;
