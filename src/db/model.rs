@@ -47,7 +47,7 @@ pub struct GameMode {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GameModeJoin {
     pub game_mode_label: String,
-    pub player_user_id: u64,
+    pub player_user_id: String,
     pub joined: DateTime<Utc>,
 }
 

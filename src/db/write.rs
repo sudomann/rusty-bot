@@ -61,7 +61,7 @@ pub async fn add_player_to_game_mode_queue(
     };
     let join_record = GameModeJoin {
         game_mode_label: game_mode_label.clone(),
-        player_user_id: player_user_id.clone(),
+        player_user_id: player_user_id.to_string(),
         joined: Utc::now(),
     };
     // create document if no existing

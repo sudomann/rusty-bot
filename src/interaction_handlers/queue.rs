@@ -118,7 +118,7 @@ pub async fn join_helper(
     let mut queue = get_game_mode_queue(db.clone(), &game_mode.label).await?;
     let user_is_in_queue = queue
         .iter()
-        .any(|join_record| join_record.player_user_id == user_to_add);
+        .any(|join_record| join_record.player_user_id == user_to_add.to_string());
 
     if user_is_in_queue {
         return Ok("User is already in the queue".to_string());
@@ -140,7 +140,11 @@ pub async fn join_helper(
 
     let mut players = queue
         .iter_mut()
-        .map(|j| j.player_user_id)
+        .map(|j| {
+            j.player_user_id
+                .parse::<u64>()
+                .expect("Expected user IDs (stored as strings in DB) to be parsable to u64")
+        })
         .collect::<Vec<u64>>();
     // no need to insert this user into the queue
     // at the database level as it'll soon be cleared
