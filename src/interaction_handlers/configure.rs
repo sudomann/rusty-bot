@@ -7,6 +7,10 @@ use crate::command_builder::base::*;
 use crate::db::write::{clear_guild_commands, save_guild_commands};
 use crate::DbClientRef;
 
+// !FIXME: This does not cover the case where there is an active picking session.
+// If someone ran .configure during a picking session
+// because commands became corrupted, or for whatever other reason,
+// The new command set would be lacking pug/picking commands
 /// Composes and applies command set for a guild.
 /// TODO: Checks to ensure that caller has bot admin role
 /// then kicks off creation of guild command set (overwriting all existing).
@@ -37,7 +41,7 @@ pub async fn generate_and_apply_guild_command_set(
         build_pugchannel(),
         build_addmod(),
         build_delmod(&game_modes),
-        build_last(),
+        build_last(&game_modes),
         build_join(&game_modes),
         build_addplayer(&game_modes),
         build_delplayer(&game_modes),
