@@ -97,7 +97,7 @@ pub mod base {
         cmd
     }
 
-    pub fn build_last() -> CreateApplicationCommand {
+    pub fn build_last(game_modes: &Vec<GameMode>) -> CreateApplicationCommand {
         let mut history_count_option = CreateApplicationCommandOption::default();
         history_count_option
       .name("match_age")
@@ -106,10 +106,13 @@ pub mod base {
       )
       .kind(ApplicationCommandOptionType::Integer);
 
+        let game_mode_option = generate_command_option_game_mode(&game_modes, false);
+
         let mut cmd = CreateApplicationCommand::default();
         cmd.name("last")
-            .description("Display info about a previous pug")
-            .add_option(history_count_option);
+            .description("Display info about a previous pug. You can filter results by game mode.")
+            .add_option(history_count_option)
+            .add_option(game_mode_option);
         cmd
     }
 
@@ -118,10 +121,26 @@ pub mod base {
     /// The choices are game mode labels that are obtained from the [`Vec<GameMode>`] provided
     /// to this function. No choices are added to the option if the [`Vec`] is empty.
     pub fn build_join(game_modes: &Vec<GameMode>) -> CreateApplicationCommand {
-        let game_mode_option = generate_join_command_option(&game_modes);
+        // !FIXME: The planned behavior for join is for the game mode option to be optional,
+        // so that when it is ommited, the user is added to all available game modes
+        // Therefore, join handler should be updated accordingly. and `false` passed to the following function
+        let game_mode_option = generate_command_option_game_mode(&game_modes, true);
         let mut cmd = CreateApplicationCommand::default();
         cmd.name("join")
-            .description("Join a pug")
+            .description("Add yourself to all game mode queues, or one you specify")
+            .add_option(game_mode_option);
+        cmd
+    }
+
+    /// The leave command only has one option, which is required.
+    ///
+    /// The choices are game mode labels that are obtained from the [`Vec<GameMode>`] provided
+    /// to this function. No choices are added to the option if the [`Vec`] is empty.
+    pub fn build_leave(game_modes: &Vec<GameMode>) -> CreateApplicationCommand {
+        let game_mode_option = generate_command_option_game_mode(&game_modes, false);
+        let mut cmd = CreateApplicationCommand::default();
+        cmd.name("leave")
+            .description("Remove yourself from all game mode queues, or one you specify")
             .add_option(game_mode_option);
         cmd
     }
@@ -193,15 +212,17 @@ pub mod base {
     /// to this function. No choices are added to the option if the [`Vec`] is empty.
     ///
     /// This functionality lives in a separate helper function so it might be reusable.
-    pub fn generate_join_command_option(
+    // !TODO: since this is apparently no longer useful outside this module. should it be deleted?
+    pub fn generate_command_option_game_mode(
         game_modes: &Vec<GameMode>,
+        is_value_required: bool,
     ) -> CreateApplicationCommandOption {
         let mut game_mode_option = CreateApplicationCommandOption::default();
         game_mode_option
             .name("game_mode")
             .description("You can type-to-search for more if you don't see all choices")
             .kind(ApplicationCommandOptionType::String)
-            .required(true);
+            .required(is_value_required);
         for game_mode in game_modes {
             // !TODO: verify that having no game modes, and thus no choices to add, does not result
             // in arbitrary strings allowed as input
