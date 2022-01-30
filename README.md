@@ -79,6 +79,7 @@ Some commands have options which need to be updated in response to database reco
 /delmod requires the following commands to have the deleted game mode removed from the list of options:
 - /join
 - /leave
+- /delmod
 - /last
 - /addplayer
 - /delplayer
