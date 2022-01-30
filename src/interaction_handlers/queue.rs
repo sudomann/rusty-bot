@@ -58,11 +58,15 @@ pub async fn join(
         .options
         .iter()
         .find(|option| option.name.eq("game_mode"))
-        .context("The `game_mode` option is missing")?
-        .value
     {
-        Some(value) => {
-            let arg = value
+        Some(game_mode_option) => {
+            let arg = game_mode_option
+                .value
+                .as_ref()
+                .expect(
+                    "Expected that when the game_mode option is present in interaction data, \
+                    it always contains a value",
+                )
                 .as_str()
                 .context("Somehow, the value of the `game_mode` option is not a string")?
                 .to_string();
@@ -310,11 +314,15 @@ pub async fn leave(
         .options
         .iter()
         .find(|option| option.name.eq("game_mode"))
-        .context("The `game_mode` option is missing")?
-        .value
     {
-        Some(value) => {
-            let arg = value
+        Some(game_mode_option) => {
+            let arg = game_mode_option
+                .value
+                .as_ref()
+                .expect(
+                    "Expected that when the game_mode option is present in interaction data, \
+                    it always contains a value",
+                )
                 .as_str()
                 .context("Somehow, the value of the `game_mode` option is not a string")?
                 .to_string();

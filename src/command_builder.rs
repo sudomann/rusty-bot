@@ -131,7 +131,7 @@ pub mod base {
         // !FIXME: The planned behavior for join is for the game mode option to be optional,
         // so that when it is ommited, the user is added to all available game modes
         // Therefore, join handler should be updated accordingly. and `false` passed to the following function
-        let game_mode_option = generate_command_option_game_mode(&game_modes, true);
+        let game_mode_option = generate_command_option_game_mode(&game_modes, false);
         let mut cmd = CreateApplicationCommand::default();
         cmd.name("join")
             .description("Add yourself to all game mode queues, or one you specify")
