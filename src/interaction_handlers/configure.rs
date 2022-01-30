@@ -33,6 +33,7 @@ pub async fn generate_and_apply_guild_command_set(
     // Tried to make them run in parallel by spawning async blocks containing these function calls
     // then `join_all`ing, but rust complains about the lifetime of game_modes
     let command_set = vec![
+        build_help(),
         build_pugchannel(),
         build_addmod(),
         build_delmod(&game_modes),
