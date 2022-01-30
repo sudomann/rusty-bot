@@ -105,7 +105,8 @@ pub async fn inspect_and_maybe_update_db(
         // create /help command
         let help_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
-                c.name("help").description("Show the manual for this bot")
+                *c = crate::command_builder::base::build_help();
+                c
             })
             .await?;
 

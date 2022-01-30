@@ -10,11 +10,16 @@ use serenity::model::prelude::User;
 // FIXME: do these really need their own submodule?
 // interaction_handlers::setup module determines which of these are called
 pub mod base {
-    use mongodb::Database;
     use serenity::builder::{CreateApplicationCommand, CreateApplicationCommandOption};
     use serenity::model::interactions::application_command::ApplicationCommandOptionType;
 
     use crate::db::model::GameMode;
+
+    pub fn build_help() -> CreateApplicationCommand {
+        let mut cmd = CreateApplicationCommand::default();
+        cmd.name("help").description("Show the manual for this bot");
+        cmd
+    }
 
     pub fn build_pugchannel() -> CreateApplicationCommand {
         let mut channel_option = CreateApplicationCommandOption::default();
