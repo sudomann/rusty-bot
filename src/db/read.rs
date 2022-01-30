@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use futures::stream::TryStreamExt;
 use mongodb::bson::doc;
 use mongodb::error::Error;
@@ -38,6 +40,12 @@ pub async fn get_game_mode_queue(
     let cursor = collection.find(game_mode, None).await?;
     cursor.try_collect().await
 }
+
+// pub async fn get_all_queues(
+//     db: Database
+// ) -> Result<HashSet<GameMode, Vec<GameModeJoin>>> {
+
+// }
 
 /// Get saved guild commands
 pub async fn get_commands(db: Database) -> Result<Vec<GuildCommand>, Error> {
