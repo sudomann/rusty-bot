@@ -413,7 +413,18 @@ pub async fn pick(
     Ok("Okay".to_string())
 }
 
-pub async fn reset(ctx: &Context, interaction: &ApplicationCommandInteraction) {
+pub async fn reset(
+    _ctx: &Context,
+    _interaction: &ApplicationCommandInteraction,
+) -> anyhow::Result<String> {
     // validate this channel is a GuildChannel
     // with kind PublicThread
+
+    // check for an active pug
+
+    // Clear all captains and picks
+
+    // Restart autocap timer
+
+    Ok("Sorry, this feature is incomplete".to_string())
 }
