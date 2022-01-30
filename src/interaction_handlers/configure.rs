@@ -1,7 +1,7 @@
 use anyhow::Context as AnyhowContext;
 use futures::try_join;
 use serenity::client::Context;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::channel::Message;
 
 use crate::command_builder::base::*;
 use crate::db::write::{clear_guild_commands, save_guild_commands};
@@ -19,11 +19,11 @@ use crate::DbClientRef;
 /// such as game modes, so the commands created can be customized for the guild.
 pub async fn generate_and_apply_guild_command_set(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    original_msg: &Message,
 ) -> anyhow::Result<String> {
-    let _working = interaction.channel_id.start_typing(&ctx.http);
+    let _working = original_msg.channel_id.start_typing(&ctx.http);
 
-    let guild_id = interaction.guild_id.unwrap();
+    let guild_id = original_msg.guild_id.unwrap();
 
     let client = {
         let data = ctx.data.read().await;
@@ -44,6 +44,7 @@ pub async fn generate_and_apply_guild_command_set(
         build_list(),
         build_last(&game_modes),
         build_join(&game_modes),
+        build_leave(&game_modes),
         build_addplayer(&game_modes),
         build_delplayer(&game_modes),
         // spawn(build_leave(db.clone(), &game_modes)),
