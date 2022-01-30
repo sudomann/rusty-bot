@@ -28,13 +28,28 @@ pub struct Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
+        // TODO: clean this up, make it easier to follow
         let msg_content = msg.content.to_lowercase();
         let response = if msg_content.starts_with(".ping") {
             "Pong!".to_string()
         } else if msg_content.starts_with(".help") || msg_content.starts_with("!help") {
             meta::render_help_text()
         } else if msg_content.starts_with(".configure") {
-            "unimplemented".to_string()
+            if msg.guild_id.is_some() {
+                match configure::generate_and_apply_guild_command_set(&ctx, &msg).await {
+                    Ok(x) => x,
+                    Err(err) => {
+                        let event_id = nanoid!(6);
+                        error!("Error Event [{}]\n{:#?}", event_id, err);
+                        format!(
+                        "Sorry, something went wrong and this incident has been logged. Incident ID: {}",
+                        event_id
+                    )
+                    }
+                }
+            } else {
+                return;
+            }
         } else {
             return;
         };
@@ -51,14 +66,18 @@ impl EventHandler for Handler {
                     "help" => Ok(meta::render_help_text()),
                     "coinflip" => Ok(gambling::coin_flip()),
                     "setpugchannel" => pug_channel::set(&ctx, &command).await,
-                    "setup" => configure::generate_and_apply_guild_command_set(&ctx, &command).await,
                     "addmod" => game_mode::create(&ctx, &command).await,
                     "delmod" => game_mode::delete(&ctx, &command).await,
                     "join" => queue::join(&ctx, &command).await,
                     "leave" => queue::leave(&ctx, &command).await,
+                    "addplayer" => player::add_to_pug(&ctx, &command).await,
+                    "delplayer" => player::remove_from_pug(&ctx, &command).await,
+                    "list" => queue::list(&ctx, &command).await,
                     "captain" => picking_session::captain(&ctx, &command).await,
                     "randomcaptain" => picking_session::random_captains(&ctx, &command).await,
                     "pick" => picking_session::pick(&ctx, &command).await,
+                    "reset" => picking_session::reset(&ctx, &command).await,
+                    "last" => meta::pug_history(&ctx, &command).await,
                     _ => Ok("Not usable. Sorry :(".to_string()),
                 };
 
