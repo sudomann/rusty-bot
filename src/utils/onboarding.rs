@@ -13,7 +13,7 @@ use crate::db::write::clear_guild_commands;
 use crate::DbClientRef;
 
 /// For each guild, check for presence of guild application commands created by this bot.
-/// If there aren't suitable existing commands, create a `/setup` command
+/// If there aren't suitable existing commands, create a `/help` command
 #[instrument(skip(ctx, guild_ids))]
 pub async fn inspect_guild_commands(ctx: Arc<Context>, guild_ids: Vec<GuildId>) {
     let mut interval = interval(Duration::from_secs(5));
@@ -62,7 +62,7 @@ pub async fn inspect_guild_commands(ctx: Arc<Context>, guild_ids: Vec<GuildId>) 
     info!("Inspections complete!");
 }
 
-/// Register /setup command as necessary for guilds
+/// Register /help command as necessary for guilds
 ///
 /// TODO: ensure that guilds marked as disabled don't have/get any guild commands registered.
 pub async fn inspect_and_maybe_update_db(
@@ -102,16 +102,15 @@ pub async fn inspect_and_maybe_update_db(
     }
 
     if saved_commands.is_empty() {
-        // create /setup command
-        let setup_cmd = guild_id
+        // create /help command
+        let help_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
-                c.name("setup")
-                    .description("Use this to setup my commands in this guild")
+                c.name("help").description("Show the manual for this bot")
             })
             .await?;
 
         // save in db
-        crate::db::write::register_guild_command(db, &setup_cmd).await?;
+        crate::db::write::register_guild_command(db, &help_cmd).await?;
     }
 
     Ok(guild_id)

@@ -28,10 +28,18 @@ pub struct Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
-        if msg.content.starts_with(".ping") {
-            if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!").await {
-                eprintln!("Error sending message: {:?}", why);
-            }
+        let msg_content = msg.content.to_lowercase();
+        let response = if msg_content.starts_with(".ping") {
+            "Pong!".to_string()
+        } else if msg_content.starts_with(".help") || msg_content.starts_with("!help") {
+            meta::render_help_text()
+        } else if msg_content.starts_with(".configure") {
+            "unimplemented".to_string()
+        } else {
+            return;
+        };
+        if let Err(why) = msg.channel_id.say(&ctx.http, response).await {
+            eprintln!("Error sending message: {:?}", why);
         }
     }
 
@@ -40,9 +48,10 @@ impl EventHandler for Handler {
             let handler_result: anyhow::Result<String> =
                 match command.data.name.as_str().to_lowercase().as_str() {
                     "ping" => Ok("Pong!".to_string()),
-                    "coinflip" => Ok(coin_flip::coin_flip()),
+                    "help" => Ok(meta::render_help_text()),
+                    "coinflip" => Ok(gambling::coin_flip()),
                     "setpugchannel" => pug_channel::set(&ctx, &command).await,
-                    "setup" => setup::set_guild_base_command_set(&ctx, &command).await,
+                    "setup" => configure::generate_and_apply_guild_command_set(&ctx, &command).await,
                     "addmod" => game_mode::create(&ctx, &command).await,
                     "delmod" => game_mode::delete(&ctx, &command).await,
                     "join" => queue::join(&ctx, &command).await,

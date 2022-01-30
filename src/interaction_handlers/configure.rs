@@ -1,23 +1,19 @@
 use anyhow::Context as AnyhowContext;
-use futures::future::join_all;
 use futures::try_join;
-use serenity::builder::CreateApplicationCommand;
 use serenity::client::Context;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
-use tokio::spawn;
 
 use crate::command_builder::base::*;
-use crate::db::model::GuildCommand;
 use crate::db::write::{clear_guild_commands, save_guild_commands};
 use crate::DbClientRef;
 
-/// Composes and applies base command set for a guild.
+/// Composes and applies command set for a guild.
 /// TODO: Checks to ensure that caller has bot admin role
-/// then kicks off creation of guild command set (overwriting any existing).
+/// then kicks off creation of guild command set (overwriting all existing).
 ///
 /// The database is checked for existing data
 /// such as game modes, so the commands created can be customized for the guild.
-pub async fn set_guild_base_command_set(
+pub async fn generate_and_apply_guild_command_set(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
@@ -48,7 +44,7 @@ pub async fn set_guild_base_command_set(
         // ...
     ];
 
-    // set (overwrite) current guild commands with the built set
+    // set (overwrite) current guild commands with the newly built set
     let created_commands = guild_id
         .set_application_commands(&ctx.http, move |c| {
             for command in command_set.into_iter() {

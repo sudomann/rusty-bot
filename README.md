@@ -21,7 +21,7 @@ TODO: docker image build notes
 /help, .help, !help
 Prints this info
 
-/setup *Might be good to deprecate this in favor of .configure*
+.configure
 Creates application commands for the guild, customizing/configuring them using guild data from the database if there is any. If a mismatch if found between the current application commands in the guild and the command records in the database, they are all wiped before this process is carried out
 
 /pugchannel
@@ -71,17 +71,19 @@ Some commands have options which need to be updated in response to database reco
 /addmod requires the following commands to be updated with the new game mode:
 - /join
 - /leave
-- /list
 - /delmod
 - /last
+- /addplayer
+- /delplayer
 
 /delmod requires the following commands to have the deleted game mode removed from the list of options:
 - /join
 - /leave
-- /list
 - /last
+- /addplayer
+- /delplayer
 
-/captain and /randomcaptain might result in the last captain slot getting filled up 
+Since /captain and /randomcaptain can result in the last captain slot getting filled up, they both have the capability to handle 2 player game modes such as *duel*, which do not have a picking process.
 
 
 ## Extra
