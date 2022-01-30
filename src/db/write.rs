@@ -38,8 +38,12 @@ pub async fn write_new_game_mode(
     collection.insert_one(game_mode, None).await
 }
 
-pub async fn delete_game_mode() -> Result<(), ()> {
-    todo!();
+pub async fn delete_game_mode(db: Database, label: String) -> Result<DeleteResult, Error> {
+    let collection = db.collection::<GameMode>(GAME_MODES);
+    let query = doc! {
+        "label": label
+    };
+    collection.delete_one(query, None).await
 }
 
 /// Add player to queue of a game mode. This can be used repeatedly without
