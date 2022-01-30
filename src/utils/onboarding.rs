@@ -103,6 +103,7 @@ pub async fn inspect_and_maybe_update_db(
 
     if saved_commands.is_empty() {
         // create /help command
+
         let help_cmd = guild_id
             .create_application_command(&ctx.http, |c| {
                 *c = crate::command_builder::base::build_help();
