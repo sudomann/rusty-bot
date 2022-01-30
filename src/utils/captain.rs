@@ -12,13 +12,9 @@ use anyhow::{bail, Context as AnyhowContext};
 use chrono::{DateTime, Utc};
 use mongodb::Database;
 use rand::prelude::{IteratorRandom, SliceRandom};
-use serenity::model::id::{GuildId, UserId};
+use serenity::model::id::GuildId;
 use serenity::model::interactions::application_command::ApplicationCommand;
-use serenity::{
-    client::Context,
-    model::{id::ChannelId, interactions::application_command::ApplicationCommandInteraction},
-    utils::MessageBuilder,
-};
+use serenity::{client::Context, model::id::ChannelId, utils::MessageBuilder};
 use tokio::time::{interval, Duration};
 use tracing::info;
 
@@ -29,7 +25,7 @@ pub async fn autopick_countdown(
     ctx: Context,
     db: Database,
     pug_thread_channel_id: ChannelId,
-    interaction: ApplicationCommandInteraction,
+    guild_id: GuildId,
 ) {
     let mut interval = interval(Duration::from_secs(1));
     let mut seconds_elapsed;
@@ -143,14 +139,7 @@ pub async fn autopick_countdown(
         .await
         .expect("Expected message declaring timer expiration to send successfully");
 
-    let response = match captain_helper(
-        &ctx,
-        &interaction.guild_id.unwrap(),
-        None,
-        &pug_thread_channel_id.0,
-    )
-    .await
-    {
+    let response = match captain_helper(&ctx, &guild_id, None, &pug_thread_channel_id.0).await {
         Ok(result) => match result {
             PostSetCaptainAction::NeedBlueCaptain => "",
             PostSetCaptainAction::NeedRedCaptain => "",
