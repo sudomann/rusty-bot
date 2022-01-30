@@ -2,36 +2,89 @@
 
 Discord bot written in **Rust**. Currently being developed specifically for Unreal Carnage discord server. If demand exists and it's feasible, support for other hubs can be taken into consideration.
 
+## What this Bot Does Once Launched
 
-# Get Started
+1. Loops through a list of all currently connected guilds:
+   - Checks the database for any guild application commands created by this bot
+   - if none exist, add /setup command
+   - The only guild commands examined are those created by this bot.
+  
+2. Begins listening for commands
 
-TODO: general info
 
 ## Want to run this bot?
 
 TODO: docker image build notes
 
+## Commands
+
+/help, .help, !help
+Prints this info
+
+/setup *Might be good to deprecate this in favor of .configure*
+Creates application commands for the guild, customizing/configuring them using guild data from the database if there is any. If a mismatch if found between the current application commands in the guild and the command records in the database, they are all wiped before this process is carried out
+
+/pugchannel
+Designate the current channel as a pug channel for all game modes
+
+/addmod
+Add a new game mode
+/delmod
+Delete an existing game mode. Blocks if the game mode's queue is not empty, or picking is in progress for this game mode.
+
+/addplayer
+Add a player to a game mode's queue
+/delplayer
+Remove a player from a game mode's queue
+
+/list
+Show available game modes and queued players
+
+/join
+"Add yourself to all game mode queues, or one you specify"
+/leave
+"Remove yourself from all game mode queues, or one you specify"
+
+*The next four commands only exist during a picking session*
+/captain
+/randomcaptain
+/pick
+/reset
+
+/last
+View info about previous pugs
+e.g. `last [game_mode] [how_many_games_ago]`
+
+/coinflip
+Flip a coin for a 50/50 chance of getting either heads or tails
+
+.ping
+Basic liveness check for the bot
+
+.configure
+A hidden diagnostic command for privileged users to clear then recreate a guild's application commands
+
+
+## Notes
+
+Some commands have options which need to be updated in response to database records being modified by other commands.
+/addmod requires the following commands to be updated with the new game mode:
+- /join
+- /leave
+- /list
+- /delmod
+- /last
+
+/delmod requires the following commands to have the deleted game mode removed from the list of options:
+- /join
+- /leave
+- /list
+- /last
+
+/captain and /randomcaptain might result in the last captain slot getting filled up 
+
+
 ## Extra
 
-Pull requests welcome for bugs, increased code quality/performance!
-Feature requests, or alteration of bot/command structure must come through discord, and have sufficient community/admin desire.
-
-
-# Commands
-
-on launch:
-
-loop through guilds:
-- do a check for presence of application commands by this bot
-- if none exist, add /setup command
-
-
-/setup command:
-- delete all commands (if mismatch) and create command set (save their ids in db)
-- command set is: /pugchannel, /addmod, /delmod, /last
-
-/addmod:
-if this is the first/only gamemode, also create/update /join, /leave, /leaveall, /list, /listall, /captain, /nocaptain, /reset, /forcerandomcaptain, /addplayer, /delplayer, /promote, /pick, /voices
-
-/delmod:
-after running, if no more game modes, remove/update all ^supplementary commands that /addmod created
+Pull requests welcome for bug fixes and code quality/performance improvements!
+Feature requests, or suggestions to alter functionality of command structure must come through discord, backed by sufficient community/admin desire.
