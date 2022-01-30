@@ -41,6 +41,7 @@ pub async fn generate_and_apply_guild_command_set(
         build_pugchannel(),
         build_addmod(),
         build_delmod(&game_modes),
+        build_list(),
         build_last(&game_modes),
         build_join(&game_modes),
         build_addplayer(&game_modes),

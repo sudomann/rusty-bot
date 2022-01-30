@@ -97,6 +97,13 @@ pub mod base {
         cmd
     }
 
+    pub fn build_list() -> CreateApplicationCommand {
+        let mut cmd = CreateApplicationCommand::default();
+        cmd.name("list")
+            .description("Show available game modes and queued players");
+        cmd
+    }
+
     pub fn build_last(game_modes: &Vec<GameMode>) -> CreateApplicationCommand {
         let mut history_count_option = CreateApplicationCommandOption::default();
         history_count_option
