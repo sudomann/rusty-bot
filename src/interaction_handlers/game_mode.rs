@@ -1,12 +1,10 @@
 use anyhow::Context as AnyhowContext;
-use mongodb::bson::doc;
 use serenity::client::Context;
-use serenity::model::id::CommandId;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 
-use crate::command_builder::base::generate_join_command_option;
 use crate::db;
 use crate::db::model::GameMode;
+use crate::utils::application_commands::refresh_commands_with_game_mode_option;
 use crate::DbClientRef;
 
 /// Register a game mode
@@ -60,61 +58,106 @@ pub async fn create(
     // save new game mode
     db::write::write_new_game_mode(db.clone(), label.to_string(), *player_count).await?;
 
-    // try to retrieve the existing join command
-    let saved_cmd = db::read::find_command(db.clone(), "join")
-            .await?
-            .context("At least one game mode exists in the database, but no join command was found in the database")?;
-    let current_join_cmd = guild_id
-        .get_application_command(&ctx.http, CommandId(saved_cmd.command_id))
-        .await
-        .context(
-            "Attempted to fetch and application command object for `join` from discord \
-                using the CommandId from a `join` command that was saved in the database",
-        )?;
-
-    /*
-        Since there's no nice/practical way to edit a particular option's
-        choices, we:
-        - create a new option (game mode name/label) object
-            which has up-to-date game mode choices
-        - overwrite any existing options with this new one
-    */
-
     // Must add the desired game mode to the list since it the list only contains
     // game modes that existed before
     game_modes.push(GameMode {
         label: label.to_string(),
         player_count: *player_count,
     });
-    let new_option = generate_join_command_option(&game_modes);
-    guild_id
-        .edit_application_command(&ctx.http, current_join_cmd.id, |c| {
-            c.set_options(vec![new_option])
-        })
+
+    // Finally, update commands which require an up-to-date game mode list
+    refresh_commands_with_game_mode_option(&ctx, guild_id, db, game_modes)
         .await
         .context(
-            "Attempted to edit existing join application command to \
-                overwrite its options with a new one which has an \
-                up to date list of game mode choices",
+            "Attempted to update relevant commands with an \
+            up to date list of game mode choices",
         )?;
-    // FIXME: this does not yet update everything it should,
-    // e.g. game mode choices for /leave, /delmod
-    // consult repo README
 
     Ok(format!("Added new game mode {} successfully", label))
 }
 
-/// Delete a registered game mode
+/// Delete a registered game mode.
+///
+/// This updates the set of commands which require an up-to-date list of game modes to show as choices.
 pub async fn delete(
-    _ctx: &Context,
-    _interaction: &ApplicationCommandInteraction,
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    // for this game mode to be deleted:
+    let _working = interaction.channel_id.start_typing(&ctx.http);
+    let guild_id = interaction.guild_id.unwrap();
 
-    // if a pug is in "picking" state
-    // inform caller of this as the reason it cannot be deleted
+    let client = {
+        let data = ctx.data.read().await;
+        data.get::<DbClientRef>().unwrap().clone()
+    };
+    let db = client.database(&guild_id.to_string());
 
-    // if players have joined the queue for it
-    // instruct caller to remove them all first
-    Ok("Deleted successfully".to_string())
+    let game_mode_label = &interaction
+        .data
+        .options
+        .iter()
+        .find(|option| option.name.eq("game_mode"))
+        .context("The `game_mode` option is missing")?
+        .value
+        .as_ref()
+        .context("The `game_mode` option does not have a value")?
+        .as_str()
+        .context("Somehow, the value of the `game_mode` option is not a string")?;
+
+    // read existing game modes from db
+    let mut game_modes = db::read::get_game_modes(db.clone()).await?;
+    // Remove matching command
+    let match_position = match game_modes.iter().position(|g| g.label.eq(game_mode_label)) {
+        Some(position) => position,
+        None => {
+            return Ok(format!(
+                "No game mode called **{}** was found",
+                game_mode_label
+            ))
+        }
+    };
+    game_modes.remove(match_position);
+
+    // if the queue for the game mode is not empty,
+    // instruct caller to remove all queued players,
+    // then try to delete again
+    let queue = db::read::get_game_mode_queue(db.clone(), &game_mode_label.to_string()).await?;
+    if !queue.is_empty() {
+        return Ok(format!(
+            "The queue for **{}** is not empty. Remove any players who joined and try again.",
+            game_mode_label
+        ));
+    }
+
+    // if picking is in progess instruct caller
+    // to wait till picking is over before deleting the game made
+    if db::read::get_current_picking_session(db.clone())
+        .await?
+        .is_some()
+    {
+        return Ok(format!(
+            "A picking session for **{}** is currently in progress. Try again after picking is complete.",
+            game_mode_label
+        ));
+    };
+
+    // Remove game mode's record from db
+    let result = db::write::delete_game_mode(db.clone(), game_mode_label.to_string()).await?;
+    match result.deleted_count {
+        0 => anyhow::bail!("Unable to delete the {} game mode", game_mode_label),
+        1 => {
+            // Update game mode choices
+            refresh_commands_with_game_mode_option(&ctx, guild_id, db, game_modes)
+                .await
+                .context(
+                    "Attempted to update relevant commands with an \
+                    up to date list of game mode choices",
+                )?;
+        }
+        _ => anyhow::bail!(
+            "DB function to delete a game mode seems buggy - it deleted more than 1 record."
+        ),
+    }
+
+    Ok(format!("Deleted **{}** successfully", game_mode_label))
 }
