@@ -1,9 +1,10 @@
 use anyhow::Context as AnyhowContext;
 use chrono::Utc;
+use mongodb::Database;
 use rand::seq::SliceRandom;
 use serenity::client::Context;
-use serenity::model::channel::{Channel, ChannelType};
-use serenity::model::id::UserId;
+use serenity::model::channel::{Channel, ChannelType, GuildChannel};
+use serenity::model::id::{GuildId, UserId};
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use serenity::utils::MessageBuilder;
 
@@ -14,9 +15,13 @@ use crate::db::write::{
     add_player_to_game_mode_queue, create_picking_session, save_guild_commands,
 };
 use crate::utils::{captain, transform};
-use crate::DbClientRef;
+use crate::{db, DbClientRef};
+
+use super::IntendedGameMode;
 
 // FIXME: add anyhow context to all ? operator usage
+// !TODO: lots of duplicate code in this whole module
+
 pub async fn join(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
@@ -48,45 +53,85 @@ pub async fn join(
 
     let current_user_id = &interaction.user.id.0;
 
-    let arg = &interaction
+    let game_mode_target = match &interaction
         .data
         .options
         .iter()
         .find(|option| option.name.eq("game_mode"))
         .context("The `game_mode` option is missing")?
         .value
-        .as_ref()
-        .context("The `game_mode` option does not have a value")?
-        .as_str()
-        .context("Somehow, the value of the `game_mode` option is not a string")?;
-    let game_mode_arg = arg.to_string();
-    let maybe_game_mode = find_game_mode(db.clone(), &game_mode_arg).await?;
+    {
+        Some(value) => {
+            let arg = value
+                .as_str()
+                .context("Somehow, the value of the `game_mode` option is not a string")?
+                .to_string();
+            IntendedGameMode::Single(arg)
+        }
+        None => IntendedGameMode::All,
+    };
+
+    join_helper(
+        &ctx,
+        guild_id,
+        guild_channel,
+        db,
+        game_mode_target,
+        *current_user_id,
+    )
+    .await
+}
+
+pub async fn join_helper(
+    ctx: &Context,
+    guild_id: GuildId,
+    guild_channel: GuildChannel,
+    db: Database,
+    target_game_modes: IntendedGameMode,
+    user_to_add: u64,
+) -> anyhow::Result<String> {
+    let game_mode_label = match target_game_modes {
+        IntendedGameMode::Single(desired_game_mode) => desired_game_mode,
+        IntendedGameMode::All => {
+            // !FIXME: for "all" game modes, check all queues' occupancy - if
+            // multiple will fill, respond:
+            // Specify which game mode to join. XX | YY | ZZ only need one more player and
+            // you cannot fill multiple game modes at once.
+
+            return Ok("The ability to join multiple queues at once is not yet ready".to_string());
+
+            // in here, all game mode queues will be checked - if there is one which
+            // will fill, assign pass it label along, so the rest of this functions handles it.
+        }
+    };
+
+    let maybe_game_mode = find_game_mode(db.clone(), &game_mode_label).await?;
     if maybe_game_mode.is_none() {
         return Ok("No game mode found with this name".to_string());
     }
     let game_mode = maybe_game_mode.unwrap();
-    // TODO: maybe add some anyhow context for potential error?
+
     let mut queue = get_game_mode_queue(db.clone(), &game_mode.label).await?;
     let user_is_in_queue = queue
         .iter()
-        .any(|join_record| join_record.player_user_id == *current_user_id);
+        .any(|join_record| join_record.player_user_id == user_to_add);
 
     if user_is_in_queue {
-        return Ok("You already joined".to_string());
+        return Ok("User is already in the queue".to_string());
     }
 
     let queue_not_yet_filled = queue.len() as u64 + 1 < game_mode.player_count;
 
     if queue_not_yet_filled {
         // add player to game mode queue and exit
-        add_player_to_game_mode_queue(db.clone(), &game_mode.label, &current_user_id)
+        add_player_to_game_mode_queue(db.clone(), &game_mode.label, &user_to_add)
             .await
             .context(format!(
                 "Failed to add user {} to {} game mode",
-                &current_user_id, &game_mode.label
+                &user_to_add, &game_mode.label
             ))?;
 
-        return Ok("You were successfully added to the waiting queue".to_string());
+        return Ok("Successfully added to the waiting queue".to_string());
     }
 
     let mut players = queue
@@ -95,7 +140,7 @@ pub async fn join(
         .collect::<Vec<u64>>();
     // no need to insert this user into the queue
     // at the database level as it'll soon be cleared
-    players.push(current_user_id.clone());
+    players.push(user_to_add.clone());
 
     let mut announcement = MessageBuilder::default();
     announcement
@@ -105,10 +150,9 @@ pub async fn join(
         announcement.mention(&UserId(*player));
     }
 
-    let m = interaction.channel_id.say(&ctx.http, announcement).await?;
+    let m = guild_channel.say(&ctx.http, announcement).await?;
 
-    let pug_thread = interaction
-        .channel_id
+    let pug_thread = guild_channel
         .create_public_thread(&ctx.http, m, |c| {
             c.name(format!("{} - {}", &game_mode.label, Utc::now()))
                 .auto_archive_duration(1440)
@@ -166,7 +210,7 @@ pub async fn join(
             .mention(&blue_player)
             .build();
 
-        interaction.channel_id.say(&ctx.http, response).await?;
+        guild_channel.say(&ctx.http, response).await?;
     } else {
         let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
 
@@ -215,26 +259,23 @@ pub async fn join(
         )
         .await?;
 
-        // TODO: update options on the following commands:
-        // /list
-
         // spawn a timer which will auto pick captains if necessary
         let ctx_clone = ctx.clone();
         tokio::spawn(captain::autopick_countdown(
             ctx_clone,
             db.clone(),
             pug_thread.id,
-            interaction.clone(),
+            guild_id,
         ));
     }
 
-    return Ok(
-        "If these participants were in the queue of any other game mode, \
+    return Ok("If these people were in the queue of any other game mode, \
     they have been removed"
-            .to_string(),
-    );
+        .to_string());
 }
 
+/// Remove user from game queue. Currently, this will NOT cancel a picking session if
+/// the user was in one.
 pub async fn leave(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
@@ -246,6 +287,94 @@ pub async fn leave(
         let data = ctx.data.read().await;
         data.get::<DbClientRef>().unwrap().clone()
     };
-    let _db = client.database(&guild_id.to_string());
-    Ok("You were successfully removed from the waiting queue".to_string())
+    let db = client.database(&guild_id.to_string());
+
+    let guild_channel = match interaction
+        .channel_id
+        .to_channel(&ctx)
+        .await
+        .context("Tried to obtain `Channel` from a ChannelId")?
+    {
+        Channel::Guild(channel) => {
+            if let ChannelType::Text = channel.kind {
+                channel
+            } else {
+                return Ok("You cannot use this command here".to_string());
+            }
+        }
+        _ => return Ok("You cannot use this command here".to_string()),
+    };
+
+    let game_modes_to_leave = match &interaction
+        .data
+        .options
+        .iter()
+        .find(|option| option.name.eq("game_mode"))
+        .context("The `game_mode` option is missing")?
+        .value
+    {
+        Some(value) => {
+            let arg = value
+                .as_str()
+                .context("Somehow, the value of the `game_mode` option is not a string")?
+                .to_string();
+            IntendedGameMode::Single(arg)
+        }
+        None => IntendedGameMode::All,
+    };
+
+    super::queue::leave_helper(
+        &ctx,
+        guild_id,
+        guild_channel,
+        db,
+        game_modes_to_leave,
+        interaction.user.id.0,
+    )
+    .await
+}
+
+pub async fn leave_helper(
+    ctx: &Context,
+    _guild_id: GuildId,
+    _guild_channel: GuildChannel,
+    db: Database,
+    target_game_modes: IntendedGameMode,
+    user_to_remove: u64,
+) -> anyhow::Result<String> {
+    // check for picking session which include the user
+    // if found
+    // - remove all captains
+    // - remove all picks
+    // - return everyone except the specified user to the game mode's queue, also removing
+    // (and informing) those who were in the queue
+
+    let game_mode_label = match target_game_modes {
+        IntendedGameMode::Single(desired_game_mode) => desired_game_mode,
+        IntendedGameMode::All => {
+            return Ok("The ability to leave multiple queues at once is not yet ready".to_string());
+        }
+    };
+
+    let name_of_user = match UserId(user_to_remove).to_user_cached(&ctx.cache).await {
+        Some(user) => user.name,
+        None => "User".to_string(),
+    };
+    match db::write::remove_player_from_game_mode_queue(db, game_mode_label, user_to_remove).await?
+    {
+        Some(removed_join_record) => Ok(format!(
+            "{} removed from {}",
+            name_of_user, removed_join_record.game_mode_label
+        )),
+        None => Ok(format!("{} is not in the queue", name_of_user)),
+    }
+}
+
+/// Show available game modes and queued players.
+pub async fn list(
+    _ctx: &Context,
+    _interaction: &ApplicationCommandInteraction,
+) -> anyhow::Result<String> {
+    // db::read::get_all_queues(db.clone())
+    Ok("unimplemented".to_string())
 }
