@@ -89,7 +89,7 @@ pub async fn captain(
 }
 
 /// A command handler to fill any available captain spots
-pub async fn random_captains(
+pub async fn auto_captain(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {

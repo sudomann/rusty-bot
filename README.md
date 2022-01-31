@@ -47,7 +47,7 @@ Show available game modes and queued players
 
 *The next four commands only exist during a picking session*
 /captain
-/randomcaptain
+/autocaptain
 /pick
 /reset
 

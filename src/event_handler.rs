@@ -88,7 +88,7 @@ impl EventHandler for Handler {
                     "delplayer" => player::remove_from_pug(&ctx, &command).await,
                     "list" => queue::list(&ctx, &command).await,
                     "captain" => picking_session::captain(&ctx, &command).await,
-                    "randomcaptain" => picking_session::random_captains(&ctx, &command).await,
+                    "autocaptain" => picking_session::auto_captain(&ctx, &command).await,
                     "pick" => picking_session::pick(&ctx, &command).await,
                     "reset" => picking_session::reset(&ctx, &command).await,
                     "last" => meta::pug_history(&ctx, &command).await,
