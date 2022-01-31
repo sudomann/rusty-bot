@@ -155,7 +155,7 @@ pub async fn join_helper(
         .push_bold(&game_mode.label)
         .push_line(" filled!");
     for player in players.iter() {
-        announcement.mention(&UserId(*player));
+        announcement.mention(&UserId(*player)).push(" ");
     }
 
     let m = guild_channel.say(&ctx.http, announcement).await?;
@@ -277,9 +277,11 @@ pub async fn join_helper(
         ));
     }
 
-    return Ok("If these people were in the queue of any other game mode, \
-    they have been removed"
-        .to_string());
+    return Ok(
+        "If any of the following users were in the queue of any other game mode, \
+    you have been removed"
+            .to_string(),
+    );
 }
 
 /// Remove user from game queue. Currently, this will NOT cancel a picking session if
