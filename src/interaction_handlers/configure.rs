@@ -3,7 +3,8 @@ use futures::try_join;
 use serenity::client::Context;
 use serenity::model::channel::Message;
 
-use crate::command_builder::base::*;
+use crate::command_builder::{base::*, *};
+use crate::db::model::{PickingSession, Player};
 use crate::db::write::{clear_guild_commands, save_guild_commands};
 use crate::DbClientRef;
 
@@ -36,7 +37,7 @@ pub async fn generate_and_apply_guild_command_set(
     // sequentially spawn all command builders
     // Tried to make them run in parallel by spawning async blocks containing these function calls
     // then `join_all`ing, but rust complains about the lifetime of game_modes
-    let command_set = vec![
+    let mut command_set = vec![
         build_help(),
         build_pugchannel(),
         build_addmod(),
@@ -47,9 +48,28 @@ pub async fn generate_and_apply_guild_command_set(
         build_leave(&game_modes),
         build_addplayer(&game_modes),
         build_delplayer(&game_modes),
-        // spawn(build_leave(db.clone(), &game_modes)),
-        // ...
     ];
+
+    // check for an active picking session
+    let active_picking_session: Option<PickingSession> =
+        crate::db::read::get_current_picking_session(db.clone())
+            .await
+            .context("Tried checking for an active picking session")?;
+
+    if let Some(picking_session) = active_picking_session {
+        let players: Vec<Player> = crate::db::read::get_picking_session_members(
+            db.clone(),
+            &picking_session.thread_channel_id.parse::<u64>()?,
+        )
+        .await
+        .context("Failed to obtain list of players in picking session")?;
+
+        let players_as_users = crate::utils::transform::players_to_users(&ctx, players).await?;
+        command_set.push(build_autocaptain());
+        command_set.push(build_captain());
+        command_set.push(build_reset());
+        command_set.push(build_pick(&players_as_users));
+    }
 
     // set (overwrite) current guild commands with the newly built set
     let created_commands = guild_id
