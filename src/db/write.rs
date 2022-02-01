@@ -270,10 +270,12 @@ pub async fn set_one_captain(
     };
 
     let update = doc! {
-        "team": team,
-        "is_captain": true,
-        // TODO: why does setting pick_position to None not work
-        "pick_position": Bson::Null
+        "$set": {
+            "team": team,
+            "is_captain": true,
+            // TODO: why does setting pick_position to None not work
+            "pick_position": Bson::Null
+        }
     };
 
     let options = FindOneAndUpdateOptions::builder()
