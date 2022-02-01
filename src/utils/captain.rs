@@ -183,7 +183,9 @@ pub async fn captain_helper(
 ) -> anyhow::Result<PostSetCaptainAction> {
     let client = {
         let data = ctx.data.read().await;
-        data.get::<DbClientRef>().unwrap().clone()
+        data.get::<DbClientRef>()
+            .expect("Expected MongoDB's `Client` to be available for use")
+            .clone()
     };
     let db = client.database(&guild_id.to_string());
 

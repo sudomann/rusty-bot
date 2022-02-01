@@ -13,7 +13,9 @@ pub async fn set(
     let _working = interaction.channel_id.start_typing(&ctx.http);
     let client = {
         let data = ctx.data.read().await;
-        data.get::<DbClientRef>().unwrap().clone()
+        data.get::<DbClientRef>()
+            .expect("Expected MongoDB's `Client` to be available for use")
+            .clone()
     };
 
     let channel_id = interaction.channel_id;

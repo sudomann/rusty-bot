@@ -28,7 +28,9 @@ pub async fn generate_and_apply_guild_command_set(
 
     let client = {
         let data = ctx.data.read().await;
-        data.get::<DbClientRef>().unwrap().clone()
+        data.get::<DbClientRef>()
+            .expect("Expected MongoDB's `Client` to be available for use")
+            .clone()
     };
     let db = client.database(guild_id.0.to_string().as_str());
 

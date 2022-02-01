@@ -231,10 +231,13 @@ impl EventHandler for Handler {
         // do onboarding for guilds added after the bot was launched
         let db_client = {
             let data = ctx.data.read().await;
-            data.get::<DbClientRef>().unwrap().clone()
-        };
 
-        let db = db_client.database(&guild.id.to_string());
+            // !FIXME: must block at laucnh while waiting for DB. Bot begins listening otherwise,
+            // and will fail on commands that need the db client
+            data.get::<DbClientRef>()
+                .expect("Expected MongoDB's `Client` to be available for use")
+                .clone()
+        };
 
         info!("Launching onboarding task (perform an inspection) for the new guild");
 

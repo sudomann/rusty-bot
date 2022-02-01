@@ -18,7 +18,9 @@ pub async fn add_to_pug(
 
     let client = {
         let data = ctx.data.read().await;
-        data.get::<crate::DbClientRef>().unwrap().clone()
+        data.get::<crate::DbClientRef>()
+            .expect("Expected MongoDB's `Client` to be available for use")
+            .clone()
     };
     let db = client.database(&guild_id.to_string());
 
@@ -78,7 +80,9 @@ pub async fn remove_from_pug(
 
     let client = {
         let data = ctx.data.read().await;
-        data.get::<crate::DbClientRef>().unwrap().clone()
+        data.get::<crate::DbClientRef>()
+            .expect("Expected MongoDB's `Client` to be available for use")
+            .clone()
     };
     let db = client.database(&guild_id.to_string());
 
