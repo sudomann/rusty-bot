@@ -19,8 +19,11 @@ pub enum Team {
 impl From<Team> for Bson {
     fn from(team: Team) -> Self {
         match team {
-            Team::Blue => Bson::String("blue".to_string()),
-            Team::Red => Bson::String("red".to_string()),
+            // It seems the string representation must match character (and case)
+            // of the enum exactly, else obtaining a Team from whatever variant is
+            // stored in the database will fail during conversion
+            Team::Blue => Bson::String("Blue".to_string()),
+            Team::Red => Bson::String("Red".to_string()),
         }
     }
 }
