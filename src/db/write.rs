@@ -108,7 +108,7 @@ pub async fn create_picking_session(
             user_id: user_id.to_string(),
             team: None,
             exclude_from_random_captaining: false,
-            thread_channel_id: pug_thread_channel_id.to_string(),
+            channel_id_for_picking_session: pug_thread_channel_id.to_string(),
             pick_position: None,
         })
         .collect::<Vec<Player>>();
