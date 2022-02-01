@@ -105,10 +105,10 @@ pub async fn create_picking_session(
         .iter()
         .map(|user_id| Player {
             is_captain: false,
-            user_id: *user_id,
+            user_id: user_id.to_string(),
             team: None,
             exclude_from_random_captaining: false,
-            thread_channel_id: *pug_thread_channel_id,
+            thread_channel_id: pug_thread_channel_id.to_string(),
             pick_position: None,
         })
         .collect::<Vec<Player>>();
@@ -126,7 +126,7 @@ pub async fn create_picking_session(
     let picking_session = PickingSession {
         created: Utc::now(),
         game_mode: game_mode_label.to_string(),
-        thread_channel_id: *pug_thread_channel_id,
+        thread_channel_id: pug_thread_channel_id.to_string(),
         pick_sequence,
         last_reset: None,
     };

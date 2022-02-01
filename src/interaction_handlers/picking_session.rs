@@ -58,7 +58,7 @@ pub async fn captain(
         .context("Tried to fetch current picking session (if any)")?
     {
         Some(picking_session) => {
-            let is_pug_thread = picking_session.thread_channel_id == guild_channel.id.0;
+            let is_pug_thread = picking_session.thread_channel_id == guild_channel.id.0.to_string();
             if !is_pug_thread {
                 let mut response = MessageBuilder::default();
                 response
@@ -121,12 +121,13 @@ pub async fn auto_captain(
     };
 
     // ensure this command is being used in the right thread
-    let p_s = match get_current_picking_session(db.clone())
+    let picking_session_thread_channel_id = match get_current_picking_session(db.clone())
         .await
         .context("Tried to fetch current picking session (if any)")?
     {
         Some(picking_session) => {
-            let is_pug_thread = picking_session.thread_channel_id == guild_channel.id.0;
+            let thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+            let is_pug_thread = thread_channel_id == guild_channel.id.0;
             if !is_pug_thread {
                 let mut response = MessageBuilder::default();
                 response
@@ -135,7 +136,7 @@ pub async fn auto_captain(
                     .mention(&guild_channel);
                 return Ok(response.build());
             }
-            picking_session
+            thread_channel_id
         }
         None => {
             // ideally, the random captain slash command should've been
@@ -145,21 +146,22 @@ pub async fn auto_captain(
         }
     };
 
-    let response = match captain_helper(&ctx, &guild_id, None, &p_s.thread_channel_id).await {
-        Ok(result) => match result {
-            PostSetCaptainAction::NeedBlueCaptain => {
-                "You are now the cpatain of the red team. Blue team captain needed."
+    let response =
+        match captain_helper(&ctx, &guild_id, None, &picking_session_thread_channel_id).await {
+            Ok(result) => match result {
+                PostSetCaptainAction::NeedBlueCaptain => {
+                    "You are now the cpatain of the red team. Blue team captain needed."
+                }
+                PostSetCaptainAction::NeedRedCaptain => {
+                    "You are now the cpatain of the blue team. Red team captain needed."
+                }
+                PostSetCaptainAction::StartPickingBlue => "Blue captain picks first.",
+                PostSetCaptainAction::StartPickingRed => "Red captain picks first.",
+            },
+            Err(err) => {
+                bail!("Failed to perform random captain assignment(s): {}", err);
             }
-            PostSetCaptainAction::NeedRedCaptain => {
-                "You are now the cpatain of the blue team. Red team captain needed."
-            }
-            PostSetCaptainAction::StartPickingBlue => "Blue captain picks first.",
-            PostSetCaptainAction::StartPickingRed => "Red captain picks first.",
-        },
-        Err(err) => {
-            bail!("Failed to perform random captain assignment(s): {}", err);
-        }
-    };
+        };
 
     Ok(response.to_string())
 }
@@ -210,13 +212,14 @@ pub async fn pick(
         return Ok("No filled pug available".to_string());
     }
     let picking_session = maybe_current_picking_session.unwrap();
-    let is_pug_thread = picking_session.thread_channel_id == guild_channel.id.0;
+    let picking_session_thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
     if !is_pug_thread {
         let mut response = MessageBuilder::default();
         response
             .push_line("This command cannot be used in this thread.")
             .push("Perhaps you are looking for ")
-            .mention(&ChannelId(picking_session.thread_channel_id));
+            .mention(&ChannelId(picking_session_thread_channel_id));
         return Ok(response.build());
     }
 
@@ -229,7 +232,7 @@ pub async fn pick(
     // check that user is a captain
     let current_user_as_captain = participants
         .iter()
-        .find(|p| p.is_captain && p.user_id == interaction.user.id.0);
+        .find(|p| p.is_captain && p.user_id == interaction.user.id.0.to_string());
     if current_user_as_captain.is_none() {
         return Ok("You cannot use this command because you are not a captain.".to_string());
     }
@@ -273,7 +276,7 @@ pub async fn pick(
 
     db::write::pick_player_for_team(
         db.clone(),
-        &picking_session.thread_channel_id,
+        &picking_session_thread_channel_id,
         &user_id_for_user_to_pick,
         team_to_assign,
         &picking_position,
@@ -284,7 +287,7 @@ pub async fn pick(
     // remove player who was just picked from list
     let index = teamless_participants
         .iter()
-        .position(|p| p.user_id.eq(user_id_for_user_to_pick))
+        .position(|p| p.user_id == user_id_for_user_to_pick.to_string())
         .unwrap();
     teamless_participants.remove(index);
 
@@ -293,6 +296,7 @@ pub async fn pick(
     // is resolved as a completed pug
     if teamless_participants.len() == 1 {
         let last_player = teamless_participants.pop().unwrap();
+        let last_player_user_id = last_player.user_id.parse::<u64>()?;
 
         // Player is assigned to whatever the opposite team is
         let team_with_last_open_spot = match team_to_assign {
@@ -302,8 +306,8 @@ pub async fn pick(
 
         db::write::pick_player_for_team(
             db.clone(),
-            &picking_session.thread_channel_id,
-            &last_player.user_id,
+            &picking_session_thread_channel_id,
+            &last_player_user_id,
             &team_with_last_open_spot,
             &picking_position,
         )

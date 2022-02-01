@@ -65,7 +65,7 @@ pub struct PickingSession {
     pub game_mode: String,
     /// Channel Id of the thread created for managing/organizing  
     /// a filled pug. This is the primary identifier of a picking session.
-    pub thread_channel_id: u64,
+    pub thread_channel_id: String,
     pub pick_sequence: Vec<Team>,
     /// Timestamp for tracking latest reset if any. This is useful for
     /// the auto captain countdown to also reset if this value changes.
@@ -74,12 +74,12 @@ pub struct PickingSession {
 
 /// A model that represents a participant/player
 /// involved with a picking session.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Player {
-    pub thread_channel_id: u64,
+    pub thread_channel_id: String,
     pub is_captain: bool,
     pub exclude_from_random_captaining: bool,
-    pub user_id: u64,
+    pub user_id: String,
     pub team: Option<Team>,
     /// The position of your being picked to a team.
     ///
@@ -119,6 +119,7 @@ pub struct CompletedPug {
 // multiple db operations across several collections, session usage is crucial
 //
 // pub struct Session {
+//     thread_channel_id
 //     game_mode:
 //     created: Datetime<Utc>
 //     current_pick_position: 0
@@ -131,4 +132,5 @@ pub struct CompletedPug {
 //     red_captain: Option<user_id>
 //     red_team: Vec<user_id>
 //     captain_opt_outs: HashSet<user_id>
+//     voice_chat: TeamVoiceChat
 // }

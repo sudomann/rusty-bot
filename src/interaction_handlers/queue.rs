@@ -178,7 +178,7 @@ pub async fn join_helper(
         let autocompleted_picking_session = PickingSession {
             created: Utc::now(),
             game_mode: game_mode.label.clone(),
-            thread_channel_id: pug_thread.id.0,
+            thread_channel_id: pug_thread.id.0.to_string(),
             pick_sequence,
             last_reset: None,
         };

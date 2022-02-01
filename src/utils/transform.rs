@@ -17,11 +17,12 @@ where
 {
     let mut players_as_users: Vec<User> = Vec::default();
     for player in players {
-        let u = UserId(player.user_id).to_user(&ctx).await.context(format!(
+        let user_id = player.user_id.parse::<u64>()?;
+        let user_object = UserId(user_id).to_user(&ctx).await.context(format!(
             "Failed to obtain User object for user id: {}",
             player.user_id
         ))?;
-        players_as_users.push(u);
+        players_as_users.push(user_object);
     }
     Ok(players_as_users)
 }
