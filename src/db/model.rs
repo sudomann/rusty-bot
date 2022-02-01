@@ -26,12 +26,6 @@ impl From<Team> for Bson {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Guild {
-    pub guild_id: u64,
-    pub disabled: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PugChannel {
     pub channel_id: u64,
     pub name: Option<String>,
