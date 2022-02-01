@@ -76,7 +76,7 @@ pub struct PickingSession {
 /// involved with a picking session.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Player {
-    pub thread_channel_id: String,
+    pub channel_id_for_picking_session: String,
     pub is_captain: bool,
     pub exclude_from_random_captaining: bool,
     pub user_id: String,
