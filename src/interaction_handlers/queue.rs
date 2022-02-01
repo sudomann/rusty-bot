@@ -26,7 +26,6 @@ pub async fn join(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    let _working = interaction.channel_id.start_typing(&ctx.http);
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {
@@ -292,7 +291,6 @@ pub async fn leave(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    let _working = interaction.channel_id.start_typing(&ctx.http);
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {

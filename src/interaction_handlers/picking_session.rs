@@ -26,7 +26,7 @@ pub async fn captain(
     // =====================================================================
     // copied
     // =====================================================================
-    let _working = interaction.channel_id.start_typing(&ctx.http);
+
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {
@@ -142,7 +142,6 @@ pub async fn auto_captain(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    let _working = interaction.channel_id.start_typing(&ctx.http);
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {
@@ -251,7 +250,7 @@ pub async fn pick(
     // =====================================================================
     // copied
     // =====================================================================
-    let _working = interaction.channel_id.start_typing(&ctx.http);
+
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {

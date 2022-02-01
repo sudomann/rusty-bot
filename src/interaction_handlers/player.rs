@@ -13,7 +13,6 @@ pub async fn add_to_pug(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    let _working = interaction.channel_id.start_typing(&ctx.http);
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {
@@ -75,7 +74,6 @@ pub async fn remove_from_pug(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    let _working = interaction.channel_id.start_typing(&ctx.http);
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {

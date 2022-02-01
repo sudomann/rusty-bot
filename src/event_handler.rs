@@ -60,6 +60,7 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
+            let _working = command.channel_id.start_typing(&ctx.http);
             // Send an immediate initial response, so that the interaction token
             // does not get get invalidated after the initial time limit of 3 secs.
             // This makes the token valid for 15 mins, allowing the command handlers more than enough time to respond
@@ -115,6 +116,11 @@ impl EventHandler for Handler {
             {
                 error!("Cannot update initial interaction response: {}", why);
             }
+            _working
+                .expect(
+                    "Expected typing to have begun successfully - so that it could now be stopped",
+                )
+                .stop();
         }
     }
 

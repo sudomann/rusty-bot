@@ -10,7 +10,6 @@ pub async fn set(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    let _working = interaction.channel_id.start_typing(&ctx.http);
     let client = {
         let data = ctx.data.read().await;
         data.get::<DbClientRef>()
