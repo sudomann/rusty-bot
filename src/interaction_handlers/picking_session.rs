@@ -269,7 +269,7 @@ pub async fn pick(
         .context("Tried to obtain `Channel` from a ChannelId")?
     {
         Channel::Guild(channel) => {
-            if let ChannelType::Text = channel.kind {
+            if let ChannelType::PublicThread = channel.kind {
                 channel
             } else {
                 return Ok("You cannot use this command here".to_string());
