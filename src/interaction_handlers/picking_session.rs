@@ -98,7 +98,7 @@ pub async fn captain(
             PostSetCaptainAction::NeedRedCaptain => {
                 response.push(" is now captain for the blue team. Need a captain for red team.");
             }
-            PostSetCaptainAction::StartPickingBlue => {
+            PostSetCaptainAction::StartPicking => {
                 response
                     .push("Red Team :red_circle: ")
                     .push_bold("<red_capt> ")
@@ -107,18 +107,7 @@ pub async fn captain(
                     .push_bold("<blue_capt> ")
                     .push_line("<blue_team>")
                     .push_line("")
-                    .push("<@blue_capt> :blue_circle: picks first");
-            }
-            PostSetCaptainAction::StartPickingRed => {
-                response
-                    .push("Red Team :red_circle: ")
-                    .push_bold("<red_capt> ")
-                    .push_line("<red_team>")
-                    .push("Blue Team :blue_circle: ")
-                    .push_bold("<blue_capt> ")
-                    .push_line("<blue_team>")
-                    .push_line("")
-                    .push("<@red_capt> :red_circle: picks first");
+                    .push("<@blue_capt> :blue_circle: picks first <-- sample");
             }
         },
         Err(err) => {
@@ -208,22 +197,28 @@ pub async fn auto_captain(
         }
     };
 
-    let response =
-        match captain_helper(&ctx, &guild_id, None, &picking_session_thread_channel_id).await {
-            Ok(result) => match result {
-                PostSetCaptainAction::NeedBlueCaptain => {
-                    "You are now the cpatain of the red team. Blue team captain needed."
-                }
-                PostSetCaptainAction::NeedRedCaptain => {
-                    "You are now the cpatain of the blue team. Red team captain needed."
-                }
-                PostSetCaptainAction::StartPickingBlue => "Blue captain picks first.",
-                PostSetCaptainAction::StartPickingRed => "Red captain picks first.",
-            },
-            Err(err) => {
-                bail!("Failed to perform random captain assignment(s): {}", err);
+    let response = match captain_helper(&ctx, &guild_id, None, &picking_session_thread_channel_id)
+        .await
+    {
+        Ok(result) => match result {
+            PostSetCaptainAction::NeedBlueCaptain | PostSetCaptainAction::NeedRedCaptain => {
+                bail!(
+                    "Failed to perform random captain assignment(s).\n
+                    The helper returned an unacceptable value: `{:?}`.\n
+                    `{:?}` is the only valid variant, as there should be no captain spots remaining \
+                    after automatic captain selection takes place.",
+                    result,
+                    PostSetCaptainAction::StartPicking
+                );
             }
-        };
+            PostSetCaptainAction::StartPicking => "!FIXME announce teams and first picking captain",
+        },
+        Err(err) => {
+            bail!("Failed to perform random captain assignment(s): {}", err);
+        }
+    };
+    // !FIXME: response here should be to call the helper for the /teams
+    // handler, and just send its output
 
     Ok(response.to_string())
 }

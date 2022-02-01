@@ -143,8 +143,7 @@ pub async fn autopick_countdown(
         Ok(result) => match result {
             PostSetCaptainAction::NeedBlueCaptain => "",
             PostSetCaptainAction::NeedRedCaptain => "",
-            PostSetCaptainAction::StartPickingBlue => "",
-            PostSetCaptainAction::StartPickingRed => "",
+            PostSetCaptainAction::StartPicking => "",
         },
         Err(_err) => "Failed to assign random captains. Sorry, try captaining yourselves.",
     };
@@ -153,15 +152,14 @@ pub async fn autopick_countdown(
 }
 
 /// Represents the action to take after performing a captaining operation.
+#[derive(Debug)]
 pub enum PostSetCaptainAction {
     /// Captain needed for blue team
     NeedBlueCaptain,
     /// Captain needed for red team
     NeedRedCaptain,
-    /// Both captains have been selected, and blue team captain picks first
-    StartPickingBlue,
-    /// Both captains have been selected, and red team captain picks first
-    StartPickingRed,
+    /// Both captains have been selected
+    StartPicking,
 }
 
 // Checks:
@@ -193,7 +191,10 @@ pub async fn captain_helper(
 
     let participants: Vec<Player> = get_picking_session_members(db.clone(), &thread_channel_id)
         .await
-        .context("Tried to fetch a list of `Player`s")?;
+        .context(format!(
+            "Tried to fetch a list of `Player`s who are associated with the thread: {}",
+            thread_channel_id,
+        ))?;
 
     if participants.len() == 0 {
         // this shouldn't ever be true, but just in case...
@@ -210,7 +211,7 @@ pub async fn captain_helper(
     }
 
     if available_captain_spots.len() == 0 {
-        bail!(SetCaptainErr::CaptainSpotsFilled);
+        return Ok(SetCaptainErr::CaptainSpotsFilled);
     }
 
     let mut potential_captains = participants.iter().filter(|p| p.is_captain == false);
@@ -233,7 +234,7 @@ pub async fn captain_helper(
                     .iter()
                     .any(|p| p.user_id == provided_user_id && p.is_captain);
                 if is_a_captain {
-                    bail!(SetCaptainErr::ForeignUser);
+                    bail!(SetCaptainErr::IsCaptainAlready);
                 }
                 potential_captains
                     .find(|p| p.user_id == provided_user_id)
@@ -292,16 +293,17 @@ pub async fn captain_helper(
 
                 // get picking session's pick sequence to determine which color to announce
                 // as picking first
-                let picking_session: PickingSession = db::read::get_current_picking_session(db.clone())
-                    .await
-                    .context("")?
-                    .context("Expected there to be an active picking session related to the current captain operation")?;
+                // let picking_session: PickingSession = db::read::get_current_picking_session(db.clone())
+                //     .await
+                //     .context("")?
+                //     .context("Expected there to be an active picking session related to the current captain operation")?;
 
-                let first_pick_team = picking_session.pick_sequence.get(0).unwrap();
-                match first_pick_team {
-                    Team::Blue => PostSetCaptainAction::StartPickingBlue,
-                    Team::Red => PostSetCaptainAction::StartPickingRed,
-                }
+                // let first_pick_team = picking_session.pick_sequence.get(0).unwrap();
+                // match first_pick_team {
+                //     Team::Blue => PostSetCaptainAction::StartPicking,
+                //     Team::Red => PostSetCaptainAction::StartPickingRed,
+                // }
+                PostSetCaptainAction::StartPicking
             }
         }
     } else {
@@ -310,7 +312,7 @@ pub async fn captain_helper(
     };
 
     match &operation_outcome {
-        PostSetCaptainAction::StartPickingBlue | PostSetCaptainAction::StartPickingRed => {
+        PostSetCaptainAction::StartPicking => {
             // TODO: perhaps more specific info in this console message
             info!("Clearing /captain /nocapt and /autocaptain commands since both captains have been assigned");
 
@@ -355,7 +357,7 @@ pub async fn captain_helper(
             let participants: Vec<Player> =
                 get_picking_session_members(db.clone(), &thread_channel_id)
                     .await
-                    .context("Tried to fetch a list of `Player`s")?;
+                    .context("Tried to fetch a list of `Player`s to convert to `User` objects")?;
             let pick_list = participants
                 .into_iter()
                 .filter(|p| p.is_captain == false && p.team.is_none());
