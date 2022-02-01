@@ -1,4 +1,5 @@
 use anyhow::Context as AnyhowContext;
+use chrono::Datelike;
 use chrono::Utc;
 use mongodb::Database;
 use rand::seq::SliceRandom;
@@ -161,11 +162,18 @@ pub async fn join_helper(
 
     let m = guild_channel.say(&ctx.http, announcement).await?;
 
+    let now = Utc::now();
     let pug_thread = guild_channel
         .create_public_thread(&ctx.http, m, |c| {
-            c.name(format!("{} - {}", &game_mode.label, Utc::now()))
-                .auto_archive_duration(1440)
-                .kind(ChannelType::PublicThread)
+            c.name(format!(
+                "{} | {}-{}-{}",
+                &game_mode.label,
+                now.year(),
+                now.month(),
+                now.day()
+            ))
+            .auto_archive_duration(60)
+            .kind(ChannelType::PublicThread)
         })
         .await?;
 
@@ -177,7 +185,7 @@ pub async fn join_helper(
         // so we simply register a completed pug:
 
         let autocompleted_picking_session = PickingSession {
-            created: Utc::now(),
+            created: now,
             game_mode: game_mode.label.clone(),
             thread_channel_id: pug_thread.id.0.to_string(),
             pick_sequence,
