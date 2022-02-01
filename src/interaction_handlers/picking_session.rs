@@ -10,6 +10,7 @@ use serenity::{
 use crate::command_builder::build_pick;
 use crate::db::model::{GuildCommand, PickingSession, Player, Team};
 use crate::db::read::{get_current_picking_session, get_picking_session_members};
+use crate::error::SetCaptainErr;
 use crate::utils::captain::{captain_helper, PostSetCaptainAction};
 use crate::utils::transform;
 use crate::{db, DbClientRef};
@@ -55,12 +56,13 @@ pub async fn captain(
     };
 
     // ensure this command is being used in the right thread
-    match get_current_picking_session(db.clone())
+    let picking_session_thread_channel_id = match get_current_picking_session(db.clone())
         .await
         .context("Tried to fetch current picking session (if any)")?
     {
         Some(picking_session) => {
-            let is_pug_thread = picking_session.thread_channel_id == guild_channel.id.0.to_string();
+            let thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+            let is_pug_thread = thread_channel_id == guild_channel.id.0;
             if !is_pug_thread {
                 let mut response = MessageBuilder::default();
                 response
@@ -69,6 +71,7 @@ pub async fn captain(
                     .mention(&guild_channel);
                 return Ok(response.build());
             }
+            thread_channel_id
         }
         None => {
             // ideally, the random captain slash command should've been
@@ -76,18 +79,73 @@ pub async fn captain(
             // so this case never happens
             return Ok("No filled pug available".to_string());
         }
-    }
+    };
     // =====================================================================
 
-    // get all players
-
-    // validate player is part of pug'
-
-    // validate captain position is available
-
-    // give captaincy
-
-    Ok("".to_string())
+    let mut response = MessageBuilder::default();
+    match captain_helper(
+        &ctx,
+        &guild_id,
+        Some(interaction.user.id.0),
+        &interaction.channel_id.0,
+    )
+    .await
+    {
+        Ok(result) => match result {
+            PostSetCaptainAction::NeedBlueCaptain => {
+                response.push(" is now captain for the red team. Need a captain for blue team.");
+            }
+            PostSetCaptainAction::NeedRedCaptain => {
+                response.push(" is now captain for the blue team. Need a captain for red team.");
+            }
+            PostSetCaptainAction::StartPickingBlue => {
+                response
+                    .push("Red Team :red_circle: ")
+                    .push_bold("<red_capt> ")
+                    .push_line("<red_team>")
+                    .push("Blue Team :blue_circle: ")
+                    .push_bold("<blue_capt> ")
+                    .push_line("<blue_team>")
+                    .push_line("")
+                    .push("<@blue_capt> :blue_circle: picks first");
+            }
+            PostSetCaptainAction::StartPickingRed => {
+                response
+                    .push("Red Team :red_circle: ")
+                    .push_bold("<red_capt> ")
+                    .push_line("<red_team>")
+                    .push("Blue Team :blue_circle: ")
+                    .push_bold("<blue_capt> ")
+                    .push_line("<blue_team>")
+                    .push_line("")
+                    .push("<@red_capt> :red_circle: picks first");
+            }
+        },
+        Err(err) => {
+            if let Some(set_captain_error) = err.downcast_ref::<crate::error::SetCaptainErr>() {
+                match set_captain_error {
+                    SetCaptainErr::IsCaptainAlready => {
+                        response.push("You are already a captain");
+                    }
+                    SetCaptainErr::CaptainSpotsFilled => {
+                        response.push("Both teams have captains already");
+                    }
+                    SetCaptainErr::ForeignUser => {
+                        response.push("You are not in this pug");
+                    }
+                    SetCaptainErr::MongoError(_)
+                    | SetCaptainErr::InvalidCount
+                    | SetCaptainErr::Unknown
+                    | SetCaptainErr::NoPlayers => {
+                        bail!(err);
+                    }
+                }
+            } else {
+                bail!(err)
+            }
+        }
+    };
+    Ok(response.build())
 }
 
 /// A command handler to fill any available captain spots
