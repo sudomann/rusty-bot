@@ -374,8 +374,8 @@ pub async fn captain_helper(
                 .await
                 .context("Failed to save a record of a newly created pick command")?;
         }
-        _ => {
-            bail!(SetCaptainErr::Unknown)
+        PostSetCaptainAction::NeedBlueCaptain | PostSetCaptainAction::NeedRedCaptain => {
+            // just return - callers should handle these cases completely
         }
     };
     Ok(operation_outcome)
