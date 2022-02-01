@@ -211,7 +211,7 @@ pub async fn captain_helper(
     }
 
     if available_captain_spots.len() == 0 {
-        return Ok(SetCaptainErr::CaptainSpotsFilled);
+        bail!(SetCaptainErr::CaptainSpotsFilled);
     }
 
     let mut potential_captains = participants.iter().filter(|p| p.is_captain == false);

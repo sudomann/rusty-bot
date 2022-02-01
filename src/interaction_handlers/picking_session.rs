@@ -214,7 +214,27 @@ pub async fn auto_captain(
             PostSetCaptainAction::StartPicking => "!FIXME announce teams and first picking captain",
         },
         Err(err) => {
-            bail!("Failed to perform random captain assignment(s): {}", err);
+            if let Some(set_captain_error) = err.downcast_ref::<crate::error::SetCaptainErr>() {
+                match set_captain_error {
+                    SetCaptainErr::CaptainSpotsFilled => "Both teams have captains already",
+                    SetCaptainErr::ForeignUser | SetCaptainErr::IsCaptainAlready => {
+                        bail!(
+                            "An invalid state `{:?}` was returned by the captain helper function \
+                            during auto captaining. The only \"acceptable\" error state after auto captaining is \
+                            `{:?}`. Maybe a `Some(user_id)` was passed to the captain helper function by mistake?",
+                            set_captain_error, SetCaptainErr::CaptainSpotsFilled
+                        );
+                    }
+                    SetCaptainErr::MongoError(_)
+                    | SetCaptainErr::InvalidCount
+                    | SetCaptainErr::Unknown
+                    | SetCaptainErr::NoPlayers => {
+                        bail!(err);
+                    }
+                }
+            } else {
+                bail!(err)
+            }
         }
     };
     // !FIXME: response here should be to call the helper for the /teams
