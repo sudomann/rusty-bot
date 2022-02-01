@@ -11,6 +11,7 @@ use serenity::model::prelude::User;
 use crate::db;
 use crate::db::model::{CompletedPug, PickingSession, TeamVoiceChat};
 
+/// A convenience method to transfor [`Player`]s to [`User`]s.
 pub async fn players_to_users<P>(ctx: &Context, players: P) -> anyhow::Result<Vec<User>>
 where
     P: IntoIterator<Item = crate::db::model::Player>,

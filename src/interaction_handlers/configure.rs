@@ -59,18 +59,28 @@ pub async fn generate_and_apply_guild_command_set(
             .context("Tried checking for an active picking session")?;
 
     if let Some(picking_session) = active_picking_session {
-        let players: Vec<Player> = crate::db::read::get_picking_session_members(
+        let all_players: Vec<Player> = crate::db::read::get_picking_session_members(
             db.clone(),
             &picking_session.thread_channel_id.parse::<u64>()?,
         )
         .await
         .context("Failed to obtain list of players in picking session")?;
+        let player_count = all_players.len();
 
-        let players_as_users = crate::utils::transform::players_to_users(&ctx, players).await?;
+        let non_captain_players = all_players
+            .into_iter()
+            .filter(|p| p.is_captain == false && p.team.is_none());
+        let pickable_users =
+            crate::utils::transform::players_to_users(&ctx, non_captain_players).await?;
+
         command_set.push(build_autocaptain());
         command_set.push(build_captain());
         command_set.push(build_reset());
-        command_set.push(build_pick(&players_as_users));
+
+        let there_are_two_captains = player_count - pickable_users.len() == 2;
+        if there_are_two_captains {
+            command_set.push(build_pick(&pickable_users));
+        }
     }
 
     // set (overwrite) current guild commands with the newly built set
