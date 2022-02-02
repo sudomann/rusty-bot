@@ -160,8 +160,10 @@ pub async fn pick_player_for_team(
         "user_id": player_user_id.to_string(),
     };
     let update = doc! {
-        "team": team,
-        "pick_position": pick_position.to_string(),
+        "$set": {
+            "team": team,
+            "pick_position": pick_position.to_string(),
+        }
     };
     collection.find_one_and_update(filter, update, None).await
 }
@@ -311,10 +313,12 @@ pub async fn set_both_captains(
     };
 
     let blue_captain_update = doc! {
-        "team": Team::Blue,
-        "is_captain": true,
-        // TODO: why does setting pick_position to None not work
-        "pick_position": Bson::Null
+        "$set": {
+            "team": Team::Blue,
+            "is_captain": true,
+            "pick_position": Bson::Null
+        }
+
     };
 
     let red_captain_filter = doc! {
@@ -323,10 +327,12 @@ pub async fn set_both_captains(
     };
 
     let red_captain_update = doc! {
-        "team": Team::Red,
-        "is_captain": true,
-        // TODO: why does setting pick_position to None not work
-        "pick_position": Bson::Null
+        "$set": {
+            "team": Team::Red,
+            "is_captain": true,
+            "pick_position": Bson::Null
+        }
+
     };
 
     let options = FindOneAndUpdateOptions::builder()
