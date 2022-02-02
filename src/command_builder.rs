@@ -275,7 +275,8 @@ pub fn build_pick(players: &Vec<User>) -> CreateApplicationCommand {
         .required(true);
 
     for player in players {
-        player_option.add_string_choice(&player.name, &player.id.0);
+        // Sending the number itself seems to not work, so converting to string
+        player_option.add_string_choice(&player.name, player.id.0.to_string());
     }
 
     let mut cmd = CreateApplicationCommand::default();
