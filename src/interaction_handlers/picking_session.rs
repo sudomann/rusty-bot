@@ -331,7 +331,7 @@ pub async fn pick(
         .get(pick_turn - 1)
         .expect("Picking is not being correctly tracked");
 
-    let user_id_for_user_to_pick = &interaction
+    let player_option_value: String = interaction
         .data
         .options
         .iter()
@@ -340,10 +340,17 @@ pub async fn pick(
         .value
         .as_ref()
         .context("The `player` option does not have a value")?
-        .as_u64()
-        .context(
-            "The value of the `player` option (should be a user id) could not be parsed as u64",
-        )?;
+        // ID is sent to discord as a string, but comes back with probably quotation
+        // marks like \"000000000000\" which derail with idiomatic conversion/parsing techniques.
+        .to_string()
+        .chars()
+        .filter(|c| c.is_digit(10))
+        .collect();
+
+    let user_id_for_user_to_pick = player_option_value.parse::<u64>().context(format!(
+        "The value of the `player` option (should be a user id: {}) could not be parsed as u64",
+        player_option_value
+    ))?;
 
     // The position of the player pick on their team
     let picking_position = participants
