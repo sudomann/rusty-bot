@@ -348,7 +348,7 @@ pub async fn pick(
     // The position of the player pick on their team
     let picking_position = participants
         .iter()
-        .filter(|p| p.team.unwrap() == *team_to_assign)
+        .filter(|p| p.team == Some(*team_to_assign))
         .count()
         + 1;
 
