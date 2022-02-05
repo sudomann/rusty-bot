@@ -16,6 +16,7 @@ use serenity::http::Http;
 use serenity::prelude::*;
 use tokio::task::JoinHandle;
 use tracing::error;
+use tracing::log::info;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 use utils::crucial_user_ids;
 
@@ -24,17 +25,6 @@ impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
-/// A handle to the spawned task that will try connecting to a
-/// database deployment/cluster while the bot starts up.
-///
-/// Intended for ONE TIME USE only. Insert once, and retrieve once.
-///
-/// When the bot is ready, the handle can be used to join the thread
-/// and retrieve the [`mongodb::Client`], provided nothing went wrong.
-pub struct DbClientSetupHandle;
-impl TypeMapKey for DbClientSetupHandle {
-    type Value = JoinHandle<mongodb::Client>;
-}
 /// An object to use in reading/writing to/from the database.
 ///
 /// From [docs](https://docs.rs/mongodb/2.0.0/mongodb/struct.Client.html):
@@ -66,7 +56,7 @@ async fn main() {
         .await
         .expect("Could not access application info: {:?}");
 
-    let mut client = Client::builder(&token)
+    let mut discord_client = Client::builder(&token)
         .event_handler(Handler {
             is_loop_running: AtomicBool::new(false),
         })
@@ -74,12 +64,11 @@ async fn main() {
         .await
         .expect("Error creating client");
     {
-        let mut data = client.data.write().await;
-        data.insert::<ShardManagerContainer>(client.shard_manager.clone());
-        data.insert::<DbClientSetupHandle>(handle_to_db_client_setup);
+        let mut data = discord_client.data.write().await;
+        data.insert::<ShardManagerContainer>(discord_client.shard_manager.clone());
     }
 
-    let shard_manager = client.shard_manager.clone();
+    let shard_manager = discord_client.shard_manager.clone();
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c()
@@ -88,7 +77,32 @@ async fn main() {
         shard_manager.lock().await.shutdown_all().await;
     });
 
-    if let Err(why) = client.start().await {
+    match handle_to_db_client_setup.await {
+        Ok(db_client) => {
+            info!("The MongoDB client connection to the database deployment is live");
+            let mut data = discord_client.data.write().await;
+            data.insert::<DbClientRef>(db_client);
+        }
+        Err(err) => {
+            if err.is_panic() {
+                // TODO: does this actually halt the bot during stack unwinding?
+                // Resume the panic on the main task
+                // panic::resume_unwind(err.into_panic());
+                // err.into_panic();
+                error!("Failed to establish connection between client and database. Exiting...");
+                std::process::exit(1);
+            } else {
+                // TODO: handle this case where joining thread failed for some reason other
+                // than db::setup() panicking
+                panic!(
+                    "Failed to join the thread that was supposed to create the \
+                mongodb client object. Perhaps it was cancelled?"
+                );
+            }
+        }
+    }
+
+    if let Err(why) = discord_client.start().await {
         error!("Client error: {:?}", why);
     }
 }

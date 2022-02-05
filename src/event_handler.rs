@@ -18,7 +18,7 @@ use tracing::{error, info, instrument};
 use crate::interaction_handlers::*;
 use crate::jobs::{clear_out_stale_joins, log_system_load, remove_stale_team_voice_channels};
 use crate::utils::onboarding::inspect_guild_commands;
-use crate::{DbClientRef, DbClientSetupHandle};
+use crate::DbClientRef;
 
 #[derive(Debug)]
 pub struct Handler {
@@ -130,42 +130,6 @@ impl EventHandler for Handler {
         info!("Connected as {}", ready.user.name);
         ctx.set_activity(Activity::playing("Bugs? Message sudomann#9568"))
             .await;
-
-        let db_client_handle = {
-            let mut data = ctx.data.write().await;
-            data.remove::<DbClientSetupHandle>()
-                .expect("Expected DbClientSetupHandle in TypeMap")
-        };
-        // TODO: put a 30 second time-out on db setup wait
-        //  let await_timeout =
-        //      std::env::var("MONGO_READY_MAX_WAIT").unwrap_or(DEFAULT_MONGO_READY_MAX_WAIT);
-        // tokio::time::timeout(Duration::from_secs(await_timeout), db_client_handle).await???;
-        match db_client_handle.await {
-            Ok(client) => {
-                info!("The MongoDB client connection to the database deployment is live");
-                let mut data = ctx.data.write().await;
-                data.insert::<DbClientRef>(client);
-            }
-            Err(err) => {
-                if err.is_panic() {
-                    // TODO: does this actually halt the bot during stack unwinding?
-                    // Resume the panic on the main task
-                    // panic::resume_unwind(err.into_panic());
-                    // err.into_panic();
-                    error!(
-                        "Failed to establish connection between client and database. Exiting..."
-                    );
-                    process::exit(1);
-                } else {
-                    // TODO: handle this case where joining thread failed for some reason other
-                    // than db::setup() panicking
-                    panic!(
-                        "Failed to join the thread that was supposed to create the \
-                    mongodb client object. Perhaps it was cancelled?"
-                    );
-                }
-            }
-        }
     }
 
     #[instrument(skip(self, ctx, guilds))]
