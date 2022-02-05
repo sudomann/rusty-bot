@@ -14,7 +14,6 @@ use event_handler::Handler;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::http::Http;
 use serenity::prelude::*;
-use tokio::task::JoinHandle;
 use tracing::error;
 use tracing::log::info;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
