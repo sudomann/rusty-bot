@@ -143,8 +143,21 @@ pub async fn register_completed_pug(
     completed_pug: &CompletedPug,
 ) -> Result<InsertOneResult, Error> {
     // FIXME: use sessions
-    let collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
-    collection.insert_one(completed_pug, None).await
+    let completed_pug_collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
+    let result = completed_pug_collection
+        .insert_one(completed_pug, None)
+        .await?;
+
+    let picking_session_query = doc! {
+        "thread_channel_id": completed_pug.thread_channel_id.clone()
+    };
+
+    let picking_session_collection = db.collection::<PickingSession>(PICKING_SESSIONS);
+    picking_session_collection
+        .delete_one(picking_session_query, None)
+        .await?;
+
+    Ok(result)
 }
 
 pub async fn pick_player_for_team(

@@ -137,7 +137,11 @@ pub async fn resolve_to_completed_pug(
 
     db::write::register_completed_pug(db.clone(), &completed_pug)
         .await
-        .context("Failed to commit completed pug to database")?;
+        .context(
+            "Something went wrong with db queries when trying to \
+            commit a completed pug to database along with \
+            deleting the picking session record",
+        )?;
 
     Ok(completed_pug)
 }
