@@ -91,7 +91,7 @@ pub struct Player {
     /// and picks you first. Your pick position is `1`. The last picked player in such a game mode
     /// (typically 5 players per team) would have a pick position of `4`.
     /// When a player is a captain, they do not get assigned a pick position.
-    pub pick_position: Option<u8>,
+    pub pick_position: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
