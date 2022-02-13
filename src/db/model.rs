@@ -34,7 +34,7 @@ pub struct PugChannel {
     pub name: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Hash)]
 pub struct GameMode {
     pub label: String,
     pub player_count: u64,

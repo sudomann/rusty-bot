@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use futures::stream::TryStreamExt;
 use mongodb::bson::doc;
@@ -41,11 +41,24 @@ pub async fn get_game_mode_queue(
     cursor.try_collect().await
 }
 
-// pub async fn get_all_queues(
-//     db: Database
-// ) -> Result<HashSet<GameMode, Vec<GameModeJoin>>> {
+pub async fn get_all_queues(db: Database) -> Result<HashMap<GameMode, Vec<GameModeJoin>>, Error> {
+    let game_modes = get_game_modes(db.clone()).await?;
 
-// }
+    let collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
+    let cursor = collection.find(None, None).await?;
+    let mut queued_players: Vec<GameModeJoin> = cursor.try_collect().await?;
+
+    let mut output: HashMap<GameMode, Vec<GameModeJoin>> = HashMap::default();
+
+    for game_mode in game_modes {
+        let (this_game_mode_queue, remaining) = queued_players
+            .into_iter()
+            .partition(|join_record| join_record.game_mode_label == game_mode.label);
+        output.insert(game_mode, this_game_mode_queue);
+        queued_players = remaining;
+    }
+    Ok(output)
+}
 
 /// Get saved guild commands
 pub async fn get_commands(db: Database) -> Result<Vec<GuildCommand>, Error> {
