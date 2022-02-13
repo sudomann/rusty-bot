@@ -1,6 +1,7 @@
 use anyhow::Context as AnyhowContext;
 use chrono::Datelike;
 use chrono::Utc;
+use itertools::Itertools;
 use mongodb::Database;
 use rand::seq::SliceRandom;
 use serenity::client::Context;
@@ -8,9 +9,10 @@ use serenity::model::channel::{Channel, ChannelType, GuildChannel};
 use serenity::model::id::{GuildId, UserId};
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use serenity::utils::MessageBuilder;
+use std::collections::HashMap;
 
 use crate::command_builder::{build_autocaptain, build_captain, build_nocaptain, build_reset};
-use crate::db::model::PickingSession;
+use crate::db::model::{GameMode, GameModeJoin, PickingSession};
 use crate::db::read::{find_game_mode, get_game_mode_queue};
 use crate::db::write::{
     add_player_to_game_mode_queue, create_picking_session, save_guild_commands,
@@ -396,9 +398,63 @@ pub async fn leave_helper(
 
 /// Show available game modes and queued players.
 pub async fn list(
-    _ctx: &Context,
-    _interaction: &ApplicationCommandInteraction,
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    // db::read::get_all_queues(db.clone())
-    Ok("unimplemented".to_string())
+    // TODO: ensure guild channel
+    let guild_id = interaction.guild_id.unwrap();
+
+    let client = {
+        let data = ctx.data.read().await;
+        data.get::<DbClientRef>()
+            .expect("Expected MongoDB's `Client` to be available for use")
+            .clone()
+    };
+    let db = client.database(&guild_id.to_string());
+
+    let mut queues: HashMap<GameMode, Vec<GameModeJoin>> = db::read::get_all_queues(db.clone())
+        .await
+        .context("Tried to get all queues for listing")?;
+
+    let mut response = MessageBuilder::default();
+
+    for (game_mode, game_mode_queue) in queues.drain() {
+        let mut participant_names = Vec::default();
+        for join_record in game_mode_queue.iter() {
+            let player_user_id = UserId(join_record.player_user_id.parse::<u64>().unwrap());
+            let player_as_user = player_user_id
+                .to_user(&ctx)
+                .await
+                .context("An issue occurred when trying to convert `UserIds` to `User`s")?;
+            participant_names.push(player_as_user.name);
+        }
+
+        let formatted_names =
+            participant_names
+                .iter()
+                .format_with(" :small_blue_diamond: ", |name, f| {
+                    // let ht = HumanTime::from(player.time_elapsed_since_join());
+                    f(&format_args!("{} [{}]", name, "_m",))
+                });
+
+        response.push_line(format!(
+            "**{}** [{}/{}]: {}",
+            game_mode.label,
+            game_mode_queue.len(),
+            game_mode.player_count,
+            formatted_names
+        ));
+    }
+
+    Ok(response.build())
+}
+
+// if `verbose` argument is true, this player output text
+// contains names in addition to player counts
+async fn list_helper(
+    ctx: &Context,
+    queues: &HashMap<String, Vec<GameModeJoin>>,
+    verbose: bool,
+) -> String {
+    "".to_string()
 }
