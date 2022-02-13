@@ -76,6 +76,7 @@ async fn main() {
         shard_manager.lock().await.shutdown_all().await;
     });
 
+    info! {"Connecting to database...\n"};
     match handle_to_db_client_setup.await {
         Ok(db_client) => {
             info!("The MongoDB client connection to the database deployment is live");
@@ -101,6 +102,7 @@ async fn main() {
         }
     }
 
+    info! {"Connecting to Discord...\n"};
     if let Err(why) = discord_client.start().await {
         error!("Client error: {:?}", why);
     }

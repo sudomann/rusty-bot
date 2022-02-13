@@ -58,10 +58,9 @@ impl EventHandler for Handler {
         }
     }
 
-    #[instrument(skip(self, ctx))]
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
-            info!("{:#?}", command);
+            info!("Interaction:\n{:?}", command);
             let _working = command.channel_id.start_typing(&ctx.http);
             // Send an immediate initial response, so that the interaction token
             // does not get get invalidated after the initial time limit of 3 secs.
