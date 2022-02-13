@@ -1,13 +1,14 @@
 use anyhow::{bail, Context as AnyhowContext};
 
+use itertools::Itertools;
 use serenity::model::channel::{Channel, ChannelType};
-use serenity::model::id::{ChannelId, CommandId};
+use serenity::model::id::{ChannelId, CommandId, UserId};
 use serenity::utils::MessageBuilder;
 use serenity::{
     client::Context, model::interactions::application_command::ApplicationCommandInteraction,
 };
 
-use crate::command_builder::build_pick;
+use crate::command_builder::{build_pick, build_teams};
 use crate::db::model::{GuildCommand, PickingSession, Player, Team};
 use crate::db::read::{get_current_picking_session, get_picking_session_members};
 use crate::error::SetCaptainErr;
@@ -252,9 +253,17 @@ pub async fn auto_captain(
                         c
                     })
                     .await?;
-                db::write::register_guild_command(db.clone(), &pick_command)
+                let teams_command = guild_id
+                    .create_application_command(&ctx.http, |c| {
+                        *c = build_teams();
+                        c
+                    })
+                    .await?;
+                db::write::save_guild_commands(db.clone(), vec![pick_command, teams_command])
                     .await
-                    .context("Tried to write a db record of just-now created /pick command")?;
+                    .context(
+                        "Tried to write a db record of just-now created /pick and /teams commands",
+                    )?;
                 "!FIXME announce teams and first picking captain"
             }
         },
@@ -522,6 +531,8 @@ pub async fn pick(
             .mention(&blue_team_voice_channel)
             .push_line(" player1 - player2 - TODO")
             .build();
+
+        // !FIXME: delete /captain, /pick and /reset and /teams
         return Ok(response);
     }
 
@@ -559,9 +570,107 @@ pub async fn reset(
 
     // Clear all captains and picks
 
-    // Delete /pick
+    // Delete /pick and /teams
 
     // Restart autocap timer
 
     Ok("Sorry, this feature is incomplete".to_string())
+}
+
+pub async fn teams(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+) -> anyhow::Result<String> {
+    // =====================================================================
+    // copied
+    // =====================================================================
+
+    let guild_id = interaction.guild_id.unwrap();
+
+    let client = {
+        let data = ctx.data.read().await;
+        data.get::<DbClientRef>()
+            .expect("Expected MongoDB's `Client` to be available for use")
+            .clone()
+    };
+    let db = client.database(&guild_id.to_string());
+
+    let guild_channel = match interaction
+        .channel_id
+        .to_channel(&ctx)
+        .await
+        .context("Tried to obtain `Channel` from a ChannelId")?
+    {
+        Channel::Guild(channel) => {
+            if let ChannelType::PublicThread = channel.kind {
+                channel
+            } else {
+                return Ok("You cannot use this command here".to_string());
+            }
+        }
+        _ => return Ok("You cannot use this command here".to_string()),
+    };
+
+    // ===== modified below=========
+    // ensure this command is being used in the right thread
+    let maybe_current_picking_session: Option<PickingSession> =
+        get_current_picking_session(db.clone())
+            .await
+            .context("Tried to fetch current picking session (if any)")?;
+    if maybe_current_picking_session.is_none() {
+        // ideally, the random captain slash command should've been
+        // removed along with the last picking session that completed,
+        // so this case never happens
+        return Ok("No filled pug available".to_string());
+    }
+    let picking_session = maybe_current_picking_session.unwrap();
+    let picking_session_thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
+    if !is_pug_thread {
+        let mut response = MessageBuilder::default();
+        response
+            .push_line("This command cannot be used in this thread.")
+            .push("Perhaps you are looking for ")
+            .mention(&ChannelId(picking_session_thread_channel_id));
+        return Ok(response.build());
+    }
+
+    // =====================================================================
+
+    let roster: Vec<Player> =
+        db::read::get_picking_session_members(db.clone(), &picking_session_thread_channel_id)
+            .await
+            .context("Tried to read player roster to render teams")?;
+
+    let mut response = MessageBuilder::default();
+    let mut blue_team_list: Vec<String> = Vec::default();
+    let mut red_team_list: Vec<String> = Vec::default();
+    for player in roster {
+        if player.team.is_none() {
+            continue;
+        }
+        match player.team {
+            Some(team) => {
+                let player_user_id = UserId(player.user_id.parse::<u64>().unwrap());
+                let player_as_user = player_user_id
+                    .to_user(&ctx)
+                    .await
+                    .context("An issue occurred when trying to convert `UserIds` to `User`s")?;
+                match team {
+                    Team::Blue => blue_team_list.push(player_as_user.name),
+                    Team::Red => red_team_list.push(player_as_user.name),
+                };
+            }
+            _ => continue,
+        }
+    }
+
+    response
+        .push_bold_line(picking_session.game_mode)
+        .push("Red Team: ")
+        .push_line(red_team_list.iter().format_with("sep", |name, f| f(name)))
+        .push("Blue Team: ")
+        .push_line(blue_team_list.iter().format_with("sep", |name, f| f(name)));
+
+    Ok(response.build())
 }

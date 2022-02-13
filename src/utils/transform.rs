@@ -57,13 +57,14 @@ pub async fn resolve_to_completed_pug(
         Database names are *always* guild IDs",
     )?);
 
-    // delete pick command (normally exists only when the pug involves more than two players)
+    // delete pick and teams commands, which (normally exist only
+    // when the pug involves more than two players)
     if blue_team.len() > 0 || red_team.len() > 0 {
-        let search_result = db::read::find_command(db.clone(), "pick")
+        let pick_cmd_search_result = db::read::find_command(db.clone(), "pick")
             .await
             .context("Failed to search for a saved /pick command in database")?;
 
-        let saved_pick_cmd = search_result.context(
+        let saved_pick_cmd = pick_cmd_search_result.context(
             "It appears the current pug involves more than two players, \
         which means there should be a /pick command saved in the database \
         which would be used for advancing the picking session, \
@@ -74,6 +75,25 @@ pub async fn resolve_to_completed_pug(
 
         guild_id
             .delete_application_command(&ctx.http, pick_cmd_id)
+            .await
+            .context(format!(
+                "Attempted and failed to delete pick command in guild: {:?}",
+                guild_id.name(&ctx.cache).await
+            ))?;
+
+        let teams_cmd_search_result = db::read::find_command(db.clone(), "teams")
+            .await
+            .context("Failed to search for a saved /teams command in database")?;
+
+        let saved_teams_cmd = teams_cmd_search_result.context(
+            "It appears the current pug involves more than two players, \
+        which means there should be a /pick command saved in the database \
+        which would be used for advancing the picking session, \
+        but one was not found.",
+        )?;
+        let teams_cmd_id = CommandId(saved_teams_cmd.command_id);
+        guild_id
+            .delete_application_command(&ctx.http, teams_cmd_id)
             .await
             .context(format!(
                 "Attempted and failed to delete pick command in guild: {:?}",

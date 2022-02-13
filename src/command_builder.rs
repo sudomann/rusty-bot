@@ -287,6 +287,13 @@ pub fn build_pick(players: &Vec<User>) -> CreateApplicationCommand {
     cmd
 }
 
+pub fn build_teams() -> CreateApplicationCommand {
+    let mut cmd = CreateApplicationCommand::default();
+    cmd.name("teams")
+        .description("Show teams for the current pug");
+    cmd
+}
+
 pub fn build_reset() -> CreateApplicationCommand {
     let mut cmd = CreateApplicationCommand::default();
     cmd.name("reset")

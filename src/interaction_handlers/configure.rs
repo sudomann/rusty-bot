@@ -73,13 +73,16 @@ pub async fn generate_and_apply_guild_command_set(
         let pickable_users =
             crate::utils::transform::players_to_users(&ctx, non_captain_players).await?;
 
-        command_set.push(build_autocaptain());
-        command_set.push(build_captain());
         command_set.push(build_reset());
 
-        let there_are_two_captains = player_count - pickable_users.len() == 2;
-        if there_are_two_captains {
+        let number_of_captains = player_count - pickable_users.len();
+
+        if number_of_captains < 2 {
+            command_set.push(build_autocaptain());
+            command_set.push(build_captain());
+        } else {
             command_set.push(build_pick(&pickable_users));
+            command_set.push(build_teams());
         }
     }
 

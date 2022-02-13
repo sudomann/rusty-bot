@@ -92,6 +92,7 @@ impl EventHandler for Handler {
                     "captain" => picking_session::captain(&ctx, &command).await,
                     "autocaptain" => picking_session::auto_captain(&ctx, &command).await,
                     "pick" => picking_session::pick(&ctx, &command).await,
+                    "teams" => picking_session::teams(&ctx, &command).await,
                     "reset" => picking_session::reset(&ctx, &command).await,
                     "last" => meta::pug_history(&ctx, &command).await,
                     _ => Ok("Not usable. Sorry :(".to_string()),

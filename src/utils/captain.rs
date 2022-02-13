@@ -2,7 +2,7 @@ use std::array::IntoIter;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use crate::command_builder::build_pick;
+use crate::command_builder::{build_pick, build_teams};
 use crate::db::model::{GuildCommand, PickingSession, Player, Team};
 use crate::db::read::get_picking_session_members;
 use crate::db::read::{get_current_picking_session, is_captain_position_available};
@@ -365,6 +365,7 @@ pub async fn captain_helper(
                 .await
                 .context("Failed to convert pick list `Player`s to `User`s")?;
             let pick_command = build_pick(&pick_list_as_users);
+            let teams_command = build_teams();
             let created_pick_command = guild_id
                 .create_application_command(&ctx.http, |c| {
                     *c = pick_command;
@@ -372,9 +373,19 @@ pub async fn captain_helper(
                 })
                 .await
                 .context("Failed to create pick command for guild")?;
-            db::write::register_guild_command(db.clone(), &created_pick_command)
+            let created_teams_command = guild_id
+                .create_application_command(&ctx.http, |c| {
+                    *c = teams_command;
+                    c
+                })
                 .await
-                .context("Failed to save a record of a newly created pick command")?;
+                .context("Failed to create teams command for guild")?;
+            db::write::save_guild_commands(
+                db.clone(),
+                vec![created_pick_command, created_teams_command],
+            )
+            .await
+            .context("Failed to save a record of a newly created pick command")?;
         }
         PostSetCaptainAction::NeedBlueCaptain | PostSetCaptainAction::NeedRedCaptain => {
             // just return - callers should handle these cases completely
