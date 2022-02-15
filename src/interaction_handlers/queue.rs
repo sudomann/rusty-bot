@@ -132,14 +132,35 @@ pub async fn join_helper(
 
     if queue_not_yet_filled {
         // add player to game mode queue and exit
-        add_player_to_game_mode_queue(db.clone(), &game_mode.label, &user_to_add)
-            .await
-            .context(format!(
-                "Failed to add user {} to {} game mode",
-                &user_to_add, &game_mode.label
-            ))?;
+        queue.push(
+            add_player_to_game_mode_queue(db.clone(), &game_mode.label, &user_to_add)
+                .await
+                .context(format!(
+                    "Failed to add user {} to {} game mode",
+                    &user_to_add, &game_mode.label
+                ))?
+                .unwrap(),
+        );
 
-        return Ok("Successfully added to the waiting queue".to_string());
+        let users_in_queue = transform::queue_to_list_of_names(&ctx, &queue)
+            .await
+            .context("Something went wrong when converting queue players' `UserId`s to `User`s")?;
+
+        let queue_names = users_in_queue
+            .iter()
+            .format_with(" :small_blue_diamond: ", |name, f| {
+                // let ht = HumanTime::from(player.time_elapsed_since_join());
+                f(&format_args!("{} [{}]", name, "_m",))
+            });
+
+        let response = MessageBuilder::new()
+            .push_line("Successfully added to the waiting queue")
+            .push_bold(game_mode.label)
+            .push(format!(" ({}/{}) ", queue.len(), game_mode.player_count))
+            .push(queue_names)
+            .build();
+
+        return Ok(response);
     }
 
     let mut players = queue

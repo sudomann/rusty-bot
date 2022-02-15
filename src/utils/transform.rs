@@ -9,7 +9,7 @@ use serenity::model::id::{CommandId, GuildId, UserId};
 use serenity::model::prelude::User;
 
 use crate::db;
-use crate::db::model::{CompletedPug, PickingSession, TeamVoiceChat};
+use crate::db::model::{CompletedPug, GameModeJoin, PickingSession, TeamVoiceChat};
 
 /// A convenience method to transfor [`Player`]s to [`User`]s.
 pub async fn players_to_users<P>(ctx: &Context, players: P) -> anyhow::Result<Vec<User>>
@@ -26,6 +26,23 @@ where
         players_as_users.push(user_object);
     }
     Ok(players_as_users)
+}
+
+/// A convenience method to transfor [`GameModeJoin`]s to [`String`]s (names of users).
+pub async fn queue_to_list_of_names(
+    ctx: &Context,
+    queue: &Vec<GameModeJoin>,
+) -> anyhow::Result<Vec<String>> {
+    let mut users_in_queue = Vec::default();
+    for join_record in queue.iter() {
+        let player_user_id = UserId(join_record.player_user_id.parse::<u64>().unwrap());
+        let player_user_object = player_user_id
+            .to_user(&ctx)
+            .await
+            .context("Something went wrong when converting queue players' `UserId`s to `User`s")?;
+        users_in_queue.push(player_user_object.name);
+    }
+    Ok(users_in_queue)
 }
 
 // FIXME: this helper function is an undesireable result of the picking and player tracking design in db::model.Now that I understand
