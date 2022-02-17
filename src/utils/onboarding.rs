@@ -1,9 +1,10 @@
 use futures::future::join_all;
+use itertools::Itertools;
 use mongodb::Client;
 use std::sync::Arc;
 
 use serenity::client::Context;
-use serenity::model::id::GuildId;
+use serenity::model::id::{CommandId, GuildId};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, Duration};
 use tracing::{error, info, instrument, warn};
@@ -80,18 +81,26 @@ pub async fn inspect_and_maybe_update_db(
     // We do this because it suggests the arrangement of registered commands in the database
     // has grown apart from what the code expects.
     // Thus the code is likely faulty and should not be allowed to quietly continue corrupting data
-    // info!("SAVED COMMANDS: {:#?}", &saved_commands);
-    // info!("CURRENT COMMANDS: {:#?}", &current_commands);
     let commands_match = saved_commands.len() == current_commands.len()
         && current_commands
             .iter()
             .all(|current| saved_commands.iter().any(|saved| saved.eq(current)));
 
     if !commands_match {
-        warn!(
-            "Guild command mismatch for {:?}. Clearing all existing from guild and database...",
-            &guild_id
+        let a_c = current_commands
+            .iter()
+            .format_with(", ", |cmd, f| f(&format_args!("{} {}", cmd.name, cmd.id)));
+        let s_c = saved_commands.iter().format_with(", ", |cmd, f| {
+            f(&format_args!("{} {}", cmd.name, CommandId(cmd.command_id)))
+        });
+        let output = format!(
+            "Mismatch in command set for {:?}\n\
+            Current Guild Commands: {}\n\
+            Application Commands: {}\n\
+            Clearing all existing commands from guild and database...",
+            &guild_id, a_c, s_c
         );
+        warn!("{}", output);
         // clear guild commands
         guild_id.set_application_commands(&ctx.http, |c| c).await?;
         // clear db also
