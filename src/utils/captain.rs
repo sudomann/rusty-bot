@@ -250,10 +250,7 @@ pub async fn captain_helper(
             .await
             .context("Database write operation failed when trying to set user as captain")?;
 
-        match team {
-            Team::Blue => PostSetCaptainAction::NeedRedCaptain,
-            Team::Red => PostSetCaptainAction::NeedBlueCaptain,
-        }
+        PostSetCaptainAction::StartPicking
     } else if available_captain_spots.len() == 2 {
         match maybe_user_id {
             Some(user_id) => {
