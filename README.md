@@ -50,6 +50,7 @@ Show available game modes and queued players
 /autocaptain
 /pick
 /reset
+Available from creation of picking session up till conversion to completed pug
 
 /last
 View info about previous pugs
@@ -86,6 +87,26 @@ Some commands have options which need to be updated in response to database reco
 
 Since /captain and /randomcaptain can result in the last captain slot getting filled up, they both have the capability to handle 2 player game modes such as *duel*, which do not have a picking process.
 
+/captain, /autocaptain
+Tthese invoke picking if they result in filled captain slots - they
+- Create /pick
+
+/join, /addplayer
+When running either of these results in a filled pug, they 
+- Create /autocaptain, /captain, /nocapt and /reset
+
+/reset
+- Deletes /pick and /teams
+- Creates /autocaptain, /captain and /nocapt
+
+/leave
+If called during a picking session, causes all players to be returned to the queue, discarding anyone who was in the queue. As a result, any of the following commands will be removed if found:
+- /teams
+- /pick
+- /reset
+- /captain
+- /autocaptain
+- /nocapt
 
 ## Extra
 
