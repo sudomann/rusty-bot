@@ -7,8 +7,11 @@ use serenity::utils::MessageBuilder;
 use serenity::{
     client::Context, model::interactions::application_command::ApplicationCommandInteraction,
 };
+use tracing::{info, instrument};
 
-use crate::command_builder::{build_pick, build_teams};
+use crate::command_builder::{
+    build_autocaptain, build_captain, build_nocaptain, build_pick, build_reset, build_teams,
+};
 use crate::db::model::{GuildCommand, PickingSession, Player, Team};
 use crate::db::read::{get_current_picking_session, get_picking_session_members};
 use crate::error::SetCaptainErr;
@@ -225,8 +228,10 @@ pub async fn auto_captain(
         Ok(result) => match result {
             PostSetCaptainAction::NeedBlueCaptain | PostSetCaptainAction::NeedRedCaptain => {
                 bail!(
-                    "Failed to perform random captain assignment(s).\n
-                    The helper returned an unacceptable value: `{:?}`.\n
+                    "Failed to perform random captain assignment(s).\
+                    \
+                    The helper returned an unacceptable value: `{:?}`.\
+                    \
                     `{:?}` is the only valid variant, as there should be no captain spots remaining \
                     after automatic captain selection takes place.",
                     result,
@@ -235,7 +240,6 @@ pub async fn auto_captain(
             }
             PostSetCaptainAction::StartPicking => {
                 "Sorry, I can't yet declare which captain picks first. For now, use trial and error to figure out."
-                "!FIXME announce teams and first picking captain"
             }
         },
         Err(err) => {
@@ -530,22 +534,172 @@ pub async fn pick(
     Ok("Okay".to_string())
 }
 
+#[instrument(skip(ctx))]
 pub async fn reset(
-    _ctx: &Context,
-    _interaction: &ApplicationCommandInteraction,
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
 ) -> anyhow::Result<String> {
-    // validate this channel is a GuildChannel
-    // with kind PublicThread
+    // =====================================================================
+    // copied
+    // =====================================================================
 
-    // check for an active pug
+    let guild_id = interaction.guild_id.unwrap();
 
-    // Clear all captains and picks
+    let client = {
+        let data = ctx.data.read().await;
+        data.get::<DbClientRef>()
+            .expect("Expected MongoDB's `Client` to be available for use")
+            .clone()
+    };
+    let db = client.database(&guild_id.to_string());
+
+    let guild_channel = match interaction
+        .channel_id
+        .to_channel(&ctx)
+        .await
+        .context("Tried to obtain `Channel` from a ChannelId")?
+    {
+        Channel::Guild(channel) => {
+            if let ChannelType::PublicThread = channel.kind {
+                channel
+            } else {
+                return Ok("You cannot use this command here".to_string());
+            }
+        }
+        _ => return Ok("You cannot use this command here".to_string()),
+    };
+
+    // ===== modified below=========
+    // ensure this command is being used in the right thread
+    let maybe_current_picking_session: Option<PickingSession> =
+        get_current_picking_session(db.clone())
+            .await
+            .context("Tried to fetch current picking session (if any)")?;
+    if maybe_current_picking_session.is_none() {
+        // ideally, the random captain slash command should've been
+        // removed along with the last picking session that completed,
+        // so this case never happens
+        return Ok("No filled pug available".to_string());
+    }
+    let picking_session = maybe_current_picking_session.unwrap();
+    let picking_session_thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
+    if !is_pug_thread {
+        let mut response = MessageBuilder::default();
+        response
+            .push_line("This command cannot be used in this thread.")
+            .push("Perhaps you are looking for ")
+            .mention(&ChannelId(picking_session_thread_channel_id));
+        return Ok(response.build());
+    }
+
+    // =====================================================================
+
+    db::write::reset_pug(db.clone(), &picking_session_thread_channel_id)
+        .await
+        .context(format!(
+            "Failed to reset the pug involved with the thread ChannelId({})",
+            picking_session_thread_channel_id
+        ))?;
 
     // Delete /pick and /teams
+    let pick_cmd_search_result = db::read::find_command(db.clone(), "pick")
+        .await
+        .context("Failed to search for a saved /pick command in database")?;
+
+    let saved_pick_cmd = match pick_cmd_search_result {
+        Some(c) => c,
+        None => {
+            info!("No /pick command found in database");
+            // This case probably happens when there's been a recent reset
+            // and the countdown is ongoing.
+            return Ok(
+                "Cannot reset right now. There might be an autocaptain countdown in progress."
+                    .to_string(),
+            );
+        }
+    };
+
+    let pick_cmd_id = CommandId(saved_pick_cmd.command_id);
+
+    guild_id
+        .delete_application_command(&ctx.http, pick_cmd_id)
+        .await
+        .context(format!(
+            "Attempted and failed to delete pick command in guild: {:?}",
+            guild_id.name(&ctx.cache).await
+        ))?;
+
+    let teams_cmd_search_result = db::read::find_command(db.clone(), "teams")
+        .await
+        .context("Failed to search for a saved /teams command in database")?;
+
+    let saved_teams_cmd = teams_cmd_search_result.context(
+        "There should be a /teams command saved in the database, but one was not found.",
+    )?;
+    let teams_cmd_id = CommandId(saved_teams_cmd.command_id);
+    guild_id
+        .delete_application_command(&ctx.http, teams_cmd_id)
+        .await
+        .context(format!(
+            "Attempted and failed to delete teams command in guild: {:?}",
+            guild_id.name(&ctx.cache).await
+        ))?;
+
+    db::write::find_and_delete_guild_commands(db.clone(), vec!["teams", "pick"])
+        .await
+        .context(
+            "There was an issue when trying to delete /teams and /pick commands from the database",
+        )?;
 
     // Restart autocap timer
+    let ctx_clone = ctx.clone();
+    let db_clone = db.clone();
+    tokio::spawn(async move {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        crate::utils::captain::autopick_countdown(
+            ctx_clone,
+            db_clone,
+            ChannelId(picking_session_thread_channel_id),
+            guild_id,
+        )
+        .await;
+    });
 
-    Ok("Sorry, this feature is incomplete".to_string())
+    // Create captain-related guild commands: /captain, /nocapt and /autocaptain
+    // TODO: improvement?: this code is repeated near the end of queue::join_helper()
+    let autocaptain_cmd = guild_id
+        .create_application_command(&ctx.http, |c| {
+            *c = build_autocaptain();
+            c
+        })
+        .await?;
+    let captain_cmd = guild_id
+        .create_application_command(&ctx.http, |c| {
+            *c = build_captain();
+            c
+        })
+        .await?;
+    let nocaptain_cmd = guild_id
+        .create_application_command(&ctx.http, |c| {
+            *c = build_nocaptain();
+            c
+        })
+        .await?;
+    let reset_cmd = guild_id
+        .create_application_command(&ctx.http, |c| {
+            *c = build_reset();
+            c
+        })
+        .await?;
+
+    db::write::save_guild_commands(
+        db.clone(),
+        vec![autocaptain_cmd, captain_cmd, nocaptain_cmd, reset_cmd],
+    )
+    .await?;
+
+    Ok("Preparing for countdown".to_string())
 }
 
 pub async fn teams(

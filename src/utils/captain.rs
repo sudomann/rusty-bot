@@ -2,7 +2,7 @@ use std::array::IntoIter;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use crate::command_builder::{build_pick, build_teams};
+use crate::command_builder::{build_pick, build_reset, build_teams};
 use crate::db::model::{GuildCommand, PickingSession, Player, Team};
 use crate::db::read::get_picking_session_members;
 use crate::db::read::{get_current_picking_session, is_captain_position_available};
@@ -348,7 +348,10 @@ pub async fn captain_helper(
             .await
             .context("Attempted and failed to delete captain-related commands from database")?;
 
-            // create /pick
+            // Perform a set of command creation steps. These steps should
+            // occur after both teams are assigned captains and it is time to pick players.
+            // 1. Create application commands: /pick and /teams
+            // 2. Add database records for the commands
             // !FIXME: for the sake of performance, try filtering and reusing existing participant
             // list from above
             let participants: Vec<Player> =
@@ -361,31 +364,32 @@ pub async fn captain_helper(
             let pick_list_as_users = super::transform::players_to_users(&ctx, pick_list)
                 .await
                 .context("Failed to convert pick list `Player`s to `User`s")?;
-            let pick_command = build_pick(&pick_list_as_users);
-            let teams_command = build_teams();
-            let created_pick_command = guild_id
+
+            let pick_command = guild_id
                 .create_application_command(&ctx.http, |c| {
-                    *c = pick_command;
+                    *c = build_pick(&pick_list_as_users);
                     c
                 })
                 .await
                 .context("Failed to create pick command for guild")?;
-            let created_teams_command = guild_id
+            let teams_command = guild_id
                 .create_application_command(&ctx.http, |c| {
-                    *c = teams_command;
+                    *c = build_teams();
                     c
                 })
                 .await
                 .context("Failed to create teams command for guild")?;
             db::write::save_guild_commands(
                 db.clone(),
-                vec![created_pick_command, created_teams_command],
+                vec![pick_command, teams_command],
             )
             .await
-            .context("Failed to save a record of a newly created pick command")?;
+            .context(
+                "Failure when writing records for newly created /pick, /reset and /teams commands",
+            )?;
         }
         PostSetCaptainAction::NeedBlueCaptain | PostSetCaptainAction::NeedRedCaptain => {
-            // just return - callers should handle these cases completely
+            // just continue on to return - callers should handle these cases completely
         }
     };
     Ok(operation_outcome)

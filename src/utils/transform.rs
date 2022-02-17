@@ -104,8 +104,7 @@ pub async fn resolve_to_completed_pug(
 
         let saved_teams_cmd = teams_cmd_search_result.context(
             "It appears the current pug involves more than two players, \
-        which means there should be a /pick command saved in the database \
-        which would be used for advancing the picking session, \
+        which means there should be a /teams command saved in the database, \
         but one was not found.",
         )?;
         let teams_cmd_id = CommandId(saved_teams_cmd.command_id);
@@ -113,9 +112,30 @@ pub async fn resolve_to_completed_pug(
             .delete_application_command(&ctx.http, teams_cmd_id)
             .await
             .context(format!(
-                "Attempted and failed to delete pick command in guild: {:?}",
+                "Attempted and failed to delete teams command in guild: {:?}",
                 guild_id.name(&ctx.cache).await
             ))?;
+
+        let reset_cmd_search_result = db::read::find_command(db.clone(), "reset")
+            .await
+            .context("Failed to search for a saved /reset command in database")?;
+
+        let saved_reset_cmd = reset_cmd_search_result.context(
+            "Since there was a picking session, there should be a /reset command saved in the database \
+            for resetting the picking session but one was not found.",
+        )?;
+        let reset_cmd_id = CommandId(saved_reset_cmd.command_id);
+        guild_id
+            .delete_application_command(&ctx.http, reset_cmd_id)
+            .await
+            .context(format!(
+                "Attempted and failed to delete reset command in guild: {:?}",
+                guild_id.name(&ctx.cache).await
+            ))?;
+
+        db::write::find_and_delete_guild_commands(db.clone(), vec!["teams", "reset", "pick"])
+            .await
+            .context("There was an issue when trying to delete /teams, /reset and /pick commands from the database")?;
     }
 
     let category = guild_id
