@@ -234,36 +234,7 @@ pub async fn auto_captain(
                 );
             }
             PostSetCaptainAction::StartPicking => {
-                let all_players: Vec<Player> = crate::db::read::get_picking_session_members(
-                    db.clone(),
-                    &picking_session_thread_channel_id,
-                )
-                .await
-                .context("Try to get players in picking session, to build /pick list ")?;
-
-                let non_captain_players = all_players
-                    .into_iter()
-                    .filter(|p| p.is_captain == false && p.team.is_none());
-                let pickable_users =
-                    crate::utils::transform::players_to_users(&ctx, non_captain_players).await?;
-
-                let pick_command = guild_id
-                    .create_application_command(&ctx.http, |c| {
-                        *c = build_pick(&pickable_users);
-                        c
-                    })
-                    .await?;
-                let teams_command = guild_id
-                    .create_application_command(&ctx.http, |c| {
-                        *c = build_teams();
-                        c
-                    })
-                    .await?;
-                db::write::save_guild_commands(db.clone(), vec![pick_command, teams_command])
-                    .await
-                    .context(
-                        "Tried to write a db record of just-now created /pick and /teams commands",
-                    )?;
+                "Sorry, I can't yet declare which captain picks first. For now, use trial and error to figure out."
                 "!FIXME announce teams and first picking captain"
             }
         },

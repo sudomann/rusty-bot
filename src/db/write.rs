@@ -13,18 +13,6 @@ use super::collection_name::{
 };
 use super::model::*;
 
-/// The "policy" or "method" to use when writing to the database.
-pub enum Method {
-    /// If a document in a given collection exists with a matching
-    /// guild id, it is replaced with the incoming one.
-    REPLACE,
-    /// If a document in a given collection exists with a matching
-    /// guild id, it is left in place and the incoming one added.
-    INSERT,
-}
-
-// can these be combined with the picking_session module?
-
 pub async fn write_new_game_mode(
     db: Database,
     label: String,
@@ -184,8 +172,18 @@ pub async fn pick_player_for_team(
     collection.find_one_and_update(filter, update, None).await
 }
 
-pub async fn reset_pug() -> Result<(), ()> {
-    todo!();
+pub async fn reset_pug(db: Database, &thread_channel_id: &u64) -> Result<UpdateResult, Error> {
+    let collection = db.collection::<Player>(PLAYER_ROSTER);
+    let query = doc! {"channel_id_for_picking_session": thread_channel_id.to_string()};
+    let update = doc! {
+        "$set": {
+            "is_captain": false,
+            "exclude_from_random_captaining": false,
+            "team": Bson::Null,
+            "pick_position": Bson::Null
+        }
+    };
+    collection.update_many(query, update, None).await
 }
 
 pub async fn exclude_player_from_random_captaining() -> Result<(), ()> {
