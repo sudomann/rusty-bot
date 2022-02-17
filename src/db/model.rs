@@ -73,6 +73,16 @@ pub struct PickingSession {
     /// Timestamp for tracking latest reset if any. This is useful for
     /// the auto captain countdown to also reset if this value changes.
     pub last_reset: Option<DateTime<Utc>>,
+    // !TODO: for tracking resets/countdowns
+    // When adding this field, ensure you set to null on
+    // all existing records
+    // pub auto_captain_countdown: Option<AutoCaptainCountDown>
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct AutoCaptainCountDown {
+    started_time: DateTime<Utc>,
+    message_id: String,
 }
 
 /// A model that represents a participant/player
