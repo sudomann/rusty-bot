@@ -1,7 +1,7 @@
 use chrono::Utc;
 use mongodb::bson::{doc, Bson};
 use mongodb::error::Error;
-use mongodb::options::{FindOneAndReplaceOptions, FindOneAndUpdateOptions};
+use mongodb::options::{FindOneAndReplaceOptions, FindOneAndUpdateOptions, ReturnDocument};
 use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
@@ -65,7 +65,10 @@ pub async fn add_player_to_game_mode_queue(
         joined: Utc::now(),
     };
     // create document if no existing
-    let options = FindOneAndReplaceOptions::builder().upsert(true).build();
+    let options = FindOneAndReplaceOptions::builder()
+        .upsert(true)
+        .return_document(Some(ReturnDocument::After))
+        .build();
     collection
         .find_one_and_replace(filter, join_record, options)
         .await
