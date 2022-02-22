@@ -42,7 +42,7 @@ impl EventHandler for Handler {
                         let event_id = nanoid!(6);
                         error!("Error Event [{}]\n{:#?}", event_id, err);
                         format!(
-                        "Sorry, something went wrong and this incident has been logged. Incident ID: {}",
+                        "Sorry, something went wrong and this incident has been logged.\nIncident ID: `{}`",
                         event_id
                     )
                     }
@@ -151,20 +151,22 @@ impl EventHandler for Handler {
             let ctx1 = Arc::clone(&ctx);
             let ctx2 = Arc::clone(&ctx);
             let ctx3 = Arc::clone(&ctx);
+            let two_minutes = 120;
+            let five_minutes = 300;
 
             tokio::spawn(async move {
                 loop {
                     // We clone Context again here, because Arc is owned, so it moves to the
                     // new function.
                     log_system_load(Arc::clone(&ctx1)).await;
-                    tokio::time::sleep(Duration::from_secs(120)).await;
+                    tokio::time::sleep(Duration::from_secs(two_minutes)).await;
                 }
             });
 
             tokio::spawn(async move {
                 loop {
                     clear_out_stale_joins(Arc::clone(&ctx2)).await;
-                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    tokio::time::sleep(Duration::from_secs(two_minutes)).await;
                 }
             });
 
@@ -172,7 +174,7 @@ impl EventHandler for Handler {
             tokio::spawn(async move {
                 loop {
                     remove_stale_team_voice_channels(&ctx3, &copy_of_guilds).await;
-                    tokio::time::sleep(Duration::from_secs(3600)).await;
+                    tokio::time::sleep(Duration::from_secs(five_minutes)).await;
                 }
             });
 

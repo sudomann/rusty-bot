@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
 use mongodb::bson::doc;
 use mongodb::error::Error;
@@ -8,7 +9,9 @@ use mongodb::Database;
 
 use crate::db::collection_name::PLAYER_ROSTER;
 
-use super::collection_name::{COMMANDS, GAME_MODES, GAME_MODE_JOINS, PICKING_SESSIONS};
+use super::collection_name::{
+    COMMANDS, COMPLETED_PUGS, GAME_MODES, GAME_MODE_JOINS, PICKING_SESSIONS,
+};
 use super::model::*;
 
 /// Get added game modes
@@ -131,4 +134,29 @@ pub async fn get_captain_related_guild_commands(db: Database) -> Result<Vec<Guil
 
     let cursor = collection.find(filter, None).await?;
     cursor.try_collect().await
+}
+
+pub async fn get_voice_channels_pending_deletion(
+    db: Database,
+    max_age: chrono::Duration,
+) -> Result<Vec<TeamVoiceChat>, Error> {
+    let collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
+    let filter = doc! {
+        "voice_chat": {
+            "is_deleted_from_guild_channel_list": {
+                "$eq": false
+            }
+        }
+    };
+
+    let cursor = collection.find(filter, None).await?;
+    let results: Vec<CompletedPug> = cursor.try_collect().await?;
+
+    let mut voice_channels = Vec::default();
+    for completed_pug in results {
+        if Utc::now() - completed_pug.created > max_age {
+            voice_channels.push(completed_pug.voice_chat);
+        }
+    }
+    Ok(voice_channels)
 }
