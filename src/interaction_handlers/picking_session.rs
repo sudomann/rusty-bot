@@ -126,14 +126,14 @@ pub async fn captain(
                     .await
                     .context("Tried to write a db record of just-now created /pick command")?;
                 response
-                    .push("Red Team :red_circle: ")
+                    .push("Red Team 🔴: ")
                     .push_bold("<red_capt> ")
                     .push_line("<red_team>")
-                    .push("Blue Team :blue_circle: ")
+                    .push("Blue Team 🔵: ")
                     .push_bold("<blue_capt> ")
                     .push_line("<blue_team>")
                     .push_line("")
-                    .push("<@blue_capt> :blue_circle: picks first <-- sample");
+                    .push("<@todo_capt> 🔵🔴 picks first <-- sample");
             }
         },
         Err(err) => {

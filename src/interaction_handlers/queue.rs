@@ -243,10 +243,10 @@ pub async fn join_helper(
         // then announce auto-picked team colors in pug thread
         let response = MessageBuilder::new()
             .push_line("Randomly assigned team colors:")
-            .push("Red :red_circle: ")
+            .push("Red 🔴: ")
             .mention(&red_player)
             .push_line("")
-            .push("Blue: :blue_circle: ")
+            .push("Blue 🔵: ")
             .mention(&blue_player)
             .build();
 

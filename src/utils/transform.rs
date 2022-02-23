@@ -154,7 +154,7 @@ pub async fn resolve_to_completed_pug(
     let blue_team_voice_channel = guild_id
         .create_channel(&ctx.http, |c| {
             c.kind(ChannelType::Voice)
-                .name("Blue :blue_circle:")
+                .name("Blue 🔵")
                 .category(category.id.0)
         })
         .await
@@ -166,7 +166,7 @@ pub async fn resolve_to_completed_pug(
     let red_team_voice_channel = guild_id
         .create_channel(&ctx.http, |c| {
             c.kind(ChannelType::Voice)
-                .name("Red :red_circle:")
+                .name("Red 🔴")
                 .category(category.id.0)
         })
         .await
