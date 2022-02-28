@@ -81,10 +81,12 @@ pub async fn inspect_and_maybe_update_db(
     // We do this because it suggests the arrangement of registered commands in the database
     // has grown apart from what the code expects.
     // Thus the code is likely faulty and should not be allowed to quietly continue corrupting data
-    let commands_match = saved_commands.len() == current_commands.len()
-        && current_commands
+    // !FIXME: the bot saves duplicate records of the same command for some reason
+
+    let commands_match = /* saved_commands.len() == current_commands.len()
+        && */ current_commands
             .iter()
-            .all(|current| saved_commands.iter().any(|saved| saved.eq(current)));
+            .all(|current| saved_commands.iter().any(|saved| saved.command_id == current.application_id.0));
 
     if !commands_match {
         let a_c = current_commands
@@ -95,8 +97,8 @@ pub async fn inspect_and_maybe_update_db(
         });
         let output = format!(
             "Mismatch in command set for {:?}\n\
-            Current Guild Commands: {}\n\
-            Application Commands: {}\n\
+            Current Guild Application Commands: {}\n\
+            Commands Saved in DB: {}\n\
             Clearing all existing commands from guild and database...",
             &guild_id, a_c, s_c
         );
