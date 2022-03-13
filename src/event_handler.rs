@@ -170,10 +170,9 @@ impl EventHandler for Handler {
                 }
             });
 
-            let copy_of_guilds = guilds.clone();
             tokio::spawn(async move {
                 loop {
-                    remove_stale_team_voice_channels(&ctx3, &copy_of_guilds).await;
+                    remove_stale_team_voice_channels(Arc::clone(&ctx3)).await;
                     tokio::time::sleep(Duration::from_secs(five_minutes)).await;
                 }
             });
