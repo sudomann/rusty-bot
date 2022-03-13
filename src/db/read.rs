@@ -10,7 +10,7 @@ use mongodb::Database;
 use crate::db::collection_name::PLAYER_ROSTER;
 
 use super::collection_name::{
-    COMMANDS, COMPLETED_PUGS, GAME_MODES, GAME_MODE_JOINS, PICKING_SESSIONS,
+    COMMANDS, COMPLETED_PUGS, GAME_MODES, GAME_MODE_JOINS, PICKING_SESSIONS, PUG_CHANNELS,
 };
 use super::model::*;
 
@@ -157,4 +157,28 @@ pub async fn get_voice_channels_pending_deletion(
         }
     }
     Ok(voice_channels)
+}
+
+pub async fn get_stale_game_mode_joins(
+    db: Database,
+    max_age: chrono::Duration,
+) -> Result<Vec<GameModeJoin>, Error> {
+    let collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
+    let oldest_created_datetime = Utc::now() - max_age;
+    let filter = doc! {
+        "joined": {
+            "$lt": oldest_created_datetime
+        }
+    };
+
+    let cursor = collection.find(filter, None).await?;
+    let results = cursor.try_collect().await?;
+    Ok(results)
+}
+
+pub async fn get_pug_channel(db: Database) -> Result<Option<PugChannel>, Error> {
+    let collection = db.collection::<PugChannel>(PUG_CHANNELS);
+    let filter = doc! {};
+
+    collection.find_one(filter, None).await
 }
