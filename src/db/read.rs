@@ -142,10 +142,8 @@ pub async fn get_voice_channels_pending_deletion(
 ) -> Result<Vec<TeamVoiceChat>, Error> {
     let collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
     let filter = doc! {
-        "voice_chat": {
-            "is_deleted_from_guild_channel_list": {
-                "$eq": false
-            }
+        "voice_chat.is_deleted_from_guild_channel_list": {
+            "$eq": false
         }
     };
 
