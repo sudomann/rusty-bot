@@ -83,10 +83,12 @@ pub async fn inspect_and_maybe_update_db(
     // Thus the code is likely faulty and should not be allowed to quietly continue corrupting data
     // !FIXME: the bot saves duplicate records of the same command for some reason
 
-    let commands_match = /* saved_commands.len() == current_commands.len()
-        && */ current_commands
-            .iter()
-            .all(|current| saved_commands.iter().any(|saved| saved.command_id == current.application_id.0));
+    let commands_match = saved_commands.len() == current_commands.len()
+        && current_commands.iter().all(|current| {
+            saved_commands
+                .iter()
+                .any(|saved| saved.command_id == current.id.0)
+        });
 
     if !commands_match {
         let a_c = current_commands
