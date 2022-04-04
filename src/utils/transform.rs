@@ -1,15 +1,18 @@
 use std::convert::TryInto;
+use std::fmt;
 
 use anyhow::Context as AnyhowContext;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use mongodb::Database;
 use serenity::client::Context;
 use serenity::model::channel::ChannelType;
-use serenity::model::id::{CommandId, GuildId, UserId};
+use serenity::model::id::{ChannelId, CommandId, GuildId, UserId};
 use serenity::model::prelude::User;
 
 use crate::db;
 use crate::db::model::{CompletedPug, GameModeJoin, PickingSession, TeamVoiceChat};
+
+use super::time::{Accuracy, HumanTime, Tense};
 
 /// A convenience method to transfor [`Player`]s to [`User`]s.
 pub async fn players_to_users<P>(ctx: &Context, players: P) -> anyhow::Result<Vec<User>>
@@ -28,21 +31,37 @@ where
     Ok(players_as_users)
 }
 
-/// A convenience method to transfor [`GameModeJoin`]s to [`String`]s (names of users).
-pub async fn queue_to_list_of_names(
-    ctx: &Context,
-    queue: &Vec<GameModeJoin>,
-) -> anyhow::Result<Vec<String>> {
-    let mut users_in_queue = Vec::default();
-    for join_record in queue.iter() {
-        let player_user_id = UserId(join_record.player_user_id.parse::<u64>().unwrap());
-        let player_user_object = player_user_id
-            .to_user(&ctx)
-            .await
-            .context("Something went wrong when converting queue players' `UserId`s to `User`s")?;
-        users_in_queue.push(player_user_object.name);
+pub struct QueuedPlayerInfo {
+    pub name: String,
+    pub joined: DateTime<Utc>,
+}
+
+impl QueuedPlayerInfo {
+    pub fn time_elapsed_since_join(&self) -> String {
+        let ht = HumanTime::from(self.joined);
+        ht.to_text_en(Accuracy::RoughShort, Tense::Present)
     }
-    Ok(users_in_queue)
+}
+
+impl fmt::Display for QueuedPlayerInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} [{}]", self.name, self.time_elapsed_since_join())
+    }
+}
+
+pub async fn join_record_to_player_info(
+    ctx: &Context,
+    join_record: &GameModeJoin,
+) -> anyhow::Result<QueuedPlayerInfo> {
+    let player_user_id = UserId(join_record.player_user_id.parse::<u64>().unwrap());
+    let player_as_user = player_user_id
+        .to_user(&ctx)
+        .await
+        .context("Error encountered while converting `UserId` to `User`")?;
+    Ok(QueuedPlayerInfo {
+        name: player_as_user.name,
+        joined: join_record.joined,
+    })
 }
 
 // FIXME: this helper function is an undesireable result of the picking and player tracking design in db::model.Now that I understand
@@ -63,7 +82,6 @@ pub async fn resolve_to_completed_pug(
     ctx: &Context,
     db: Database,
     picking_session: PickingSession,
-    channel_position: i64,
     blue_team_captain: String,
     blue_team: Vec<String>,
     red_team_captain: String,
@@ -137,6 +155,15 @@ pub async fn resolve_to_completed_pug(
             .await
             .context("There was an issue when trying to delete /teams, /reset and /pick commands from the database")?;
     }
+
+    let thread_channel_id = ChannelId(picking_session.thread_channel_id.parse::<u64>()?);
+
+    let thread_channel = thread_channel_id
+        .to_channel(&ctx)
+        .await
+        .context("Failed to upgrade a ChannelId to Channel")?;
+
+    let channel_position = thread_channel.position().unwrap() + 1;
 
     let category = guild_id
         .create_channel(&ctx.http, |c| {

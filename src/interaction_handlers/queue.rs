@@ -142,16 +142,14 @@ pub async fn join_helper(
                 .unwrap(),
         );
 
-        let users_in_queue = transform::queue_to_list_of_names(&ctx, &queue)
-            .await
-            .context("Something went wrong when converting queue players' `UserId`s to `User`s")?;
+        let mut users_in_queue = Vec::default();
+        for join_record in queue.iter() {
+            users_in_queue.push(transform::join_record_to_player_info(&ctx, join_record).await?);
+        }
 
         let queue_names = users_in_queue
             .iter()
-            .format_with(" :small_blue_diamond: ", |name, f| {
-                // let ht = HumanTime::from(player.time_elapsed_since_join());
-                f(&format_args!("{} [{}]", name, "_m",))
-            });
+            .format_with(" :small_blue_diamond: ", |player_info, f| f(player_info));
 
         let response = MessageBuilder::new()
             .push_line("Successfully added to the waiting queue")
@@ -440,26 +438,17 @@ pub async fn list(
     let mut response = MessageBuilder::default();
 
     for (game_mode, game_mode_queue) in queues.drain() {
-        let mut participant_names = Vec::default();
+        let mut participant_data = Vec::default();
         for join_record in game_mode_queue.iter() {
-            let player_user_id = UserId(join_record.player_user_id.parse::<u64>().unwrap());
-            let player_as_user = player_user_id
-                .to_user(&ctx)
-                .await
-                .context("An issue occurred when trying to convert `UserIds` to `User`s")?;
-            participant_names.push(player_as_user.name);
+            participant_data.push(transform::join_record_to_player_info(&ctx, &join_record).await?);
         }
 
-        let formatted_names =
-            participant_names
-                .iter()
-                .format_with(" :small_blue_diamond: ", |name, f| {
-                    // let ht = HumanTime::from(player.time_elapsed_since_join());
-                    f(&format_args!("{} [{}]", name, "_m",))
-                });
+        let formatted_names = participant_data
+            .iter()
+            .format_with(" :small_blue_diamond: ", |player_info, f| f(player_info));
 
         response.push_line(format!(
-            "**{}** [{}/{}]: {}",
+            "**{}** ({}/{}): {}",
             game_mode.label,
             game_mode_queue.len(),
             game_mode.player_count,
