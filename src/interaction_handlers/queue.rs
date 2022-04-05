@@ -438,6 +438,10 @@ pub async fn list(
     let mut response = MessageBuilder::default();
 
     for (game_mode, game_mode_queue) in queues.drain() {
+        if game_mode_queue.is_empty() {
+            // Don't clutter the output by listing empty queues
+            continue;
+        }
         let mut participant_data = Vec::default();
         for join_record in game_mode_queue.iter() {
             participant_data.push(transform::join_record_to_player_info(&ctx, &join_record).await?);
@@ -456,7 +460,12 @@ pub async fn list(
         ));
     }
 
-    Ok(response.build())
+    let response_text: String = response.build();
+    if response_text.is_empty() {
+        Ok("All pug queues are empty".to_string())
+    } else {
+        Ok(response_text)
+    }
 }
 
 // if `verbose` argument is true, this player output text
