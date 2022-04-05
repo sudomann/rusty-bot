@@ -1,5 +1,3 @@
-use std::panic;
-use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -177,7 +175,7 @@ impl EventHandler for Handler {
                 }
             });
 
-            // Now that the loop is running, we set the bool to true
+            // Now that the loops are running, we set the bool to true
             self.is_loop_running.swap(true, Ordering::Relaxed);
         }
 
