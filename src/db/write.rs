@@ -1,7 +1,9 @@
 use chrono::Utc;
 use mongodb::bson::{doc, Bson};
 use mongodb::error::Error;
-use mongodb::options::{FindOneAndReplaceOptions, FindOneAndUpdateOptions, ReturnDocument};
+use mongodb::options::{
+    FindOneAndReplaceOptions, FindOneAndUpdateOptions, ReplaceOptions, ReturnDocument,
+};
 use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
 use serenity::model::interactions::application_command::ApplicationCommand;
@@ -204,8 +206,10 @@ pub async fn set_pug_channel(
 
     // since we currently only permit one pug channel at a time
     let any = doc! {};
-
-    collection.replace_one(any, desired_pug_channel, None).await
+    let options = ReplaceOptions::builder().upsert(true).build();
+    collection
+        .replace_one(any, desired_pug_channel, options)
+        .await
 }
 
 pub async fn register_guild_command(
