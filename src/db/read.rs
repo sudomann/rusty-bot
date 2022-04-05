@@ -164,7 +164,7 @@ pub async fn get_stale_game_mode_joins(
     max_age: chrono::Duration,
 ) -> Result<Vec<GameModeJoin>, Error> {
     let collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
-    let oldest_created_datetime = Utc::now() - max_age;
+    let oldest_created_datetime = (Utc::now() - max_age).to_rfc3339();
     let filter = doc! {
         "joined": {
             "$lt": oldest_created_datetime
