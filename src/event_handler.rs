@@ -171,7 +171,7 @@ impl EventHandler for Handler {
             tokio::spawn(async move {
                 loop {
                     remove_stale_team_voice_channels(Arc::clone(&ctx3)).await;
-                    tokio::time::sleep(Duration::from_secs(five_minutes)).await;
+                    tokio::time::sleep(Duration::from_secs(10 /*five_minutes*/)).await;
                 }
             });
 

@@ -3,7 +3,6 @@ use chrono::Datelike;
 use chrono::Utc;
 use itertools::Itertools;
 use mongodb::Database;
-use rand::seq::SliceRandom;
 use serenity::client::Context;
 use serenity::model::channel::{Channel, ChannelType, GuildChannel};
 use serenity::model::id::{GuildId, UserId};
@@ -215,16 +214,19 @@ pub async fn join_helper(
 
         // players assigned to random team,
         // with empty team lists
-        let first_random_player = players.choose(&mut rand::thread_rng()).unwrap();
-        let remaining_player = players.last().unwrap();
+        let (first_random_player, remaining_player) = match rand::Rng::gen(&mut rand::thread_rng())
+        {
+            true => (players.last(), players.first()),
+            false => (players.first(), players.last()),
+        };
+
         let completed_pug = transform::resolve_to_completed_pug(
             &ctx,
             db.clone(),
             autocompleted_picking_session,
-            guild_channel.position,
-            first_random_player.to_string(),
+            first_random_player.unwrap().to_string(),
             vec![],
-            remaining_player.to_string(),
+            remaining_player.unwrap().to_string(),
             vec![],
         )
         .await

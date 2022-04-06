@@ -470,7 +470,6 @@ pub async fn pick(
             &ctx,
             db.clone(),
             picking_session,
-            guild_channel.position,
             blue_team_captain.user_id.to_string(),
             blue_team,
             red_team_captain.user_id.to_string(),

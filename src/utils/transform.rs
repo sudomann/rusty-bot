@@ -164,13 +164,15 @@ pub async fn resolve_to_completed_pug(
         .context("Failed to upgrade a ChannelId to Channel")?;
 
     let channel_position = thread_channel.position().unwrap() + 1;
+    tracing::info!("picking_session.thread_channel_id: {}", channel_position);
 
     let category = guild_id
         .create_channel(&ctx.http, |c| {
             c.kind(ChannelType::Category)
                 .name(picking_session.game_mode.as_str())
-                .position(channel_position.try_into().expect("Could not convert channel position from i64 to u32. \
-                This should not happen, as there cannot be so many channels in a guild the count doesn't fit u32."))
+                .position(5)
+            //.position(channel_position.try_into().expect("Could not convert channel position from i64 to u32. \
+            //This should not happen, as there cannot be so many channels in a guild the count doesn't fit u32."))
         })
         .await
         .context(format!(

@@ -73,17 +73,20 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
 
         match guild_id.name(&ctx).await {
             Some(name) => {
-                job_log.push(name).push_line(":");
+                job_log.push(name);
             }
             None => {
-                job_log.push(guild_id).push_line(":");
+                job_log.push(guild_id);
             }
         }
-        job_log.push_line("==============");
+        job_log.push_line(":").push_line("==============");
 
         match crate::db::read::get_stale_game_mode_joins(guild_db.clone(), Duration::hours(4)).await
         {
             Ok(game_mode_joins) => {
+                if game_mode_joins.is_empty() {
+                    continue;
+                }
                 match crate::db::read::get_pug_channel(guild_db.clone()).await {
                     Ok(maybe_pug_channel) => {
                         let mut removed_users: Vec<UserId> = Vec::default();
@@ -104,7 +107,7 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                                 let mut msg = MessageBuilder::default();
                                 msg.push_line("Players removed due to timeout:");
                                 for user in removed_users {
-                                    msg.push(user).push(" ");
+                                    msg.mention(&user).push(" ");
                                 }
 
                                 let _ = ChannelId(pug_channel.channel_id).say(&ctx.http, msg).await;
@@ -186,7 +189,8 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
         };
         match crate::db::read::get_voice_channels_pending_deletion(
             guild_db,
-            chrono::Duration::hours(2),
+            //chrono::Duration::hours(2),
+            Duration::seconds(5),
         )
         .await
         {
