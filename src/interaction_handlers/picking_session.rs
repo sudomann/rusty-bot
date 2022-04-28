@@ -457,6 +457,8 @@ pub async fn pick(
             }
         }
 
+        // Convert to vec of UserId's which we can "mention()"
+
         let blue_team_captain = participants
             .iter()
             .find(|p| p.is_captain && p.team == Some(Team::Blue))
@@ -466,6 +468,7 @@ pub async fn pick(
             .find(|p| p.is_captain && p.team == Some(Team::Red))
             .unwrap();
 
+        // !FIXME Pass teams by reference
         let completed_pug = transform::resolve_to_completed_pug(
             &ctx,
             db.clone(),
@@ -507,6 +510,7 @@ pub async fn pick(
             .build();
 
         // !FIXME: delete /captain, /pick and /reset and /teams
+        // commands seem to be assigned/deleted accordingly - why?
         return Ok(response);
     }
 

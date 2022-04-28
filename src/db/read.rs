@@ -149,6 +149,7 @@ pub async fn get_voice_channels_pending_deletion(
 
     let cursor = collection.find(filter, None).await?;
     let results: Vec<CompletedPug> = cursor.try_collect().await?;
+    tracing::info!("voice channels result: {:#?}", results);
 
     let mut voice_channels = Vec::default();
     for completed_pug in results {
