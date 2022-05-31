@@ -6,6 +6,8 @@ use serenity::prelude::*;
 use serenity::utils::MessageBuilder;
 use tracing::{error, info, instrument};
 
+use crate::db::write::mark_voice_channels_deleted;
+
 #[instrument(skip(ctx))]
 pub async fn log_system_load(ctx: Arc<Context>) {
     let cpu_load = sys_info::loadavg().unwrap();
@@ -187,6 +189,7 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
             Some(guild_name) => job_log.push_line(guild_name),
             None => job_log.push_line(guild_id),
         };
+
         match crate::db::read::get_voice_channels_pending_deletion(
             guild_db,
             //chrono::Duration::hours(2),
@@ -199,70 +202,45 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
                     job_log.push_line("No stale voice channels found");
                     break;
                 }
+                let mut deleted: Vec<String> = Vec::default();
                 for channel_set in team_voice_channels {
                     // gather list of all those channel ids that were either deleted/unkown
                     // FIXME: make db request to flip booleans to true (mark as deleted)
                     // for documents where at least 1/3 of its voice channel ids are in the list
 
-                    match ctx_clone
-                        .http
-                        .delete_channel(channel_set.category_id.parse::<u64>().unwrap())
-                        .await
-                    {
-                        Ok(channel) => {
-                            let category = channel.category().unwrap();
-                            job_log.push_line(format!(
-                                "Successfully deleted the {} category",
-                                category.name
-                            ));
-                        }
-                        Err(err) => {
-                            has_error = true;
-                            job_log
-                                .push_line("Failed to delete an item:")
-                                .push_line(err);
-                        }
-                    }
-
-                    match ctx_clone
-                        .http
-                        .delete_channel(channel_set.blue_channel_id.parse::<u64>().unwrap())
-                        .await
-                    {
-                        Ok(channel) => {
-                            let blue_team_voice_channel = channel.guild().unwrap();
-                            job_log.push_line(format!(
-                                "Successfully deleted the {} channel",
-                                blue_team_voice_channel.name
-                            ));
-                        }
-                        Err(err) => {
-                            has_error = true;
-                            job_log
-                                .push_line("Failed to delete an item:")
-                                .push_line(err);
+                    for id in vec![
+                        channel_set.category.id,
+                        channel_set.blue_channel.id,
+                        channel_set.red_channel.id,
+                    ] {
+                        match ctx_clone
+                            .http
+                            .delete_channel(id.parse::<u64>().unwrap())
+                            .await
+                        {
+                            Ok(channel) => {
+                                let guild_channel = channel.guild().unwrap();
+                                let kind = match guild_channel.kind {
+                                    serenity::model::channel::ChannelType::Category => "category",
+                                    _ => "channel",
+                                };
+                                job_log.push_line(format!(
+                                    "Successfully deleted {} - {}",
+                                    kind, guild_channel.name
+                                ));
+                                deleted.push(id);
+                            }
+                            Err(err) => {
+                                has_error = true;
+                                job_log
+                                    .push(format!("Failed to delete channel/category {}: ", id))
+                                    .push_line(err);
+                            }
                         }
                     }
-
-                    match ctx_clone
-                        .http
-                        .delete_channel(channel_set.red_channel_id.parse::<u64>().unwrap())
-                        .await
-                    {
-                        Ok(channel) => {
-                            let red_team_voice_channel = channel.guild().unwrap();
-                            job_log.push_line(format!(
-                                "Successfully deleted the {} channel",
-                                red_team_voice_channel.name
-                            ));
-                        }
-                        Err(err) => {
-                            has_error = true;
-                            job_log
-                                .push_line("Failed to delete an item:")
-                                .push_line(err);
-                        }
-                    }
+                }
+                if !deleted.is_empty() {
+                    mark_voice_channels_deleted(guild_db, deleted).await;
                 }
             }
             Err(err) => {

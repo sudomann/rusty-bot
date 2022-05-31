@@ -10,7 +10,7 @@ use serenity::model::id::{ChannelId, CommandId, GuildId, UserId};
 use serenity::model::prelude::User;
 
 use crate::db;
-use crate::db::model::{CompletedPug, GameModeJoin, PickingSession, TeamVoiceChat};
+use crate::db::model::{ChannelState, CompletedPug, GameModeJoin, PickingSession, TeamVoiceChat};
 
 use super::time::{Accuracy, HumanTime, Tense};
 
@@ -214,10 +214,18 @@ pub async fn resolve_to_completed_pug(
         red_team,
         // !FIXME: currently voice channels are created for 2 player game modes as well. They should be exempted.
         voice_chat: TeamVoiceChat {
-            category_id: category.id.0.to_string(),
-            blue_channel_id: blue_team_voice_channel.id.0.to_string(),
-            red_channel_id: red_team_voice_channel.id.0.to_string(),
-            is_deleted_from_guild_channel_list: false,
+            category: ChannelState {
+                id: category.id.0.to_string(),
+                is_deleted_from_guild_channel_list: false,
+            },
+            blue_channel: ChannelState {
+                id: blue_team_voice_channel.id.0.to_string(),
+                is_deleted_from_guild_channel_list: false,
+            },
+            red_channel: ChannelState {
+                id: red_team_voice_channel.id.0.to_string(),
+                is_deleted_from_guild_channel_list: false,
+            },
         },
     };
 

@@ -487,14 +487,16 @@ pub async fn pick(
         let red_team_voice_channel = ChannelId(
             completed_pug
                 .voice_chat
-                .red_channel_id
+                .red_channel
+                .id
                 .parse::<u64>()
                 .unwrap(),
         );
         let blue_team_voice_channel = ChannelId(
             completed_pug
                 .voice_chat
-                .blue_channel_id
+                .blue_channel
+                .id
                 .parse::<u64>()
                 .unwrap(),
         );

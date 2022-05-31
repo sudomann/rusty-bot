@@ -106,9 +106,14 @@ pub struct Player {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct TeamVoiceChat {
-    pub category_id: String,
-    pub blue_channel_id: String,
-    pub red_channel_id: String,
+    pub category: ChannelState,
+    pub blue_channel: ChannelState,
+    pub red_channel: ChannelState,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct ChannelState {
+    pub id: String,
     pub is_deleted_from_guild_channel_list: bool,
 }
 

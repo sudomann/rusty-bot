@@ -367,3 +367,41 @@ pub async fn set_both_captains(
 
     Ok(CaptainPair { blue, red })
 }
+
+// !FIXME: this is horribly inefficient, but might be fine for relatively
+// small quantities of data
+pub async fn mark_voice_channels_deleted(
+    db: Database,
+    channel_ids: Vec<String>,
+) -> Result<UpdateResult, Error> {
+    let collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
+    let b = channel_ids.clone();
+    let c = channel_ids.clone();
+    let query = doc! {
+        "$or": [
+            {
+                "voice_chat.category.id": {
+                    "$in": channel_ids.clone()
+                }
+            },
+            {
+                "voice_chat.blue_channel.id": {
+                    "$in": channel_ids.clone()
+                }
+            },
+            {
+                "voice_chat.red_channel.id": {
+                    "$in": channel_ids
+                }
+            }
+        ]
+    };
+
+    let update = doc! {
+        "voice_chat.category.is_deleted_from_guild_channel_list": true,
+        "voice_chat.blue_channel.is_deleted_from_guild_channel_list": true,
+        "voice_chat.red_channel.is_deleted_from_guild_channel_list": true
+    };
+
+    collection.update_many(query, update, None).await
+}
