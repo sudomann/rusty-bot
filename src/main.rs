@@ -55,7 +55,7 @@ async fn main() {
         .await
         .expect("Could not access application info: {:?}");
 
-    let mut discord_client = Client::builder(&token, GatewayIntents::default())
+    let mut discord_client = Client::builder(&token, GatewayIntents::all())
         .event_handler(Handler {
             is_loop_running: AtomicBool::new(false),
         })
