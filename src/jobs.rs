@@ -66,14 +66,14 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
         }
     };
 
-    let guilds = ctx.cache.guilds().await;
+    let guilds = ctx.cache.guilds();
     let mut has_error = false;
     let mut job_log = MessageBuilder::default();
     for guild_id in guilds {
         let client = db_client.clone();
         let guild_db = client.database(guild_id.0.to_string().as_str());
 
-        match guild_id.name(&ctx).await {
+        match guild_id.name(&ctx) {
             Some(name) => {
                 job_log.push(name);
             }
@@ -177,7 +177,7 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
         }
     };
 
-    let guilds = ctx.cache.guilds().await;
+    let guilds = ctx.cache.guilds();
 
     for guild_id in guilds {
         let ctx_clone = ctx.clone();
@@ -185,13 +185,13 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
         let guild_db = db_client.database(guild_id.0.to_string().as_str());
         let mut has_error = false;
         let mut job_log = MessageBuilder::default();
-        match guild_id.name(&ctx.cache).await {
+        match guild_id.name(&ctx.cache) {
             Some(guild_name) => job_log.push_line(guild_name),
             None => job_log.push_line(guild_id),
         };
 
         match crate::db::read::get_voice_channels_pending_deletion(
-            guild_db,
+            guild_db.clone(),
             //chrono::Duration::hours(2),
             Duration::seconds(5),
         )

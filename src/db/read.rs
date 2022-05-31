@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use futures::stream::TryStreamExt;
 use mongodb::bson::doc;
 use mongodb::error::Error;

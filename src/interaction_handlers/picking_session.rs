@@ -632,7 +632,7 @@ pub async fn reset(
         .await
         .context(format!(
             "Attempted and failed to delete pick command in guild: {:?}",
-            guild_id.name(&ctx.cache).await
+            guild_id.name(&ctx.cache)
         ))?;
 
     let teams_cmd_search_result = db::read::find_command(db.clone(), "teams")
@@ -648,7 +648,7 @@ pub async fn reset(
         .await
         .context(format!(
             "Attempted and failed to delete teams command in guild: {:?}",
-            guild_id.name(&ctx.cache).await
+            guild_id.name(&ctx.cache)
         ))?;
 
     db::write::find_and_delete_guild_commands(db.clone(), vec!["teams", "pick"])

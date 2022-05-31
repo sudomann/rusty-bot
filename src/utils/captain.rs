@@ -1,4 +1,3 @@
-use std::array::IntoIter;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
@@ -9,7 +8,7 @@ use crate::db::read::{get_current_picking_session, is_captain_position_available
 use crate::error::SetCaptainErr;
 use crate::{db, DbClientRef};
 use anyhow::{bail, Context as AnyhowContext};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use mongodb::Database;
 use rand::prelude::{IteratorRandom, SliceRandom};
 use serenity::model::id::GuildId;
@@ -39,11 +38,13 @@ pub async fn autopick_countdown(
         .expect("Auto captain alert to send successfully");
     let mut last_known_reset: Option<DateTime<Utc>> = None;
 
+    let countdown_message_timestamp: DateTime<Utc> = *countdown_message.timestamp;
+
     loop {
         interval.tick().await;
 
         seconds_elapsed = Utc::now()
-            .signed_duration_since(countdown_message.timestamp)
+            .signed_duration_since(countdown_message_timestamp)
             .num_seconds();
 
         let new_update = format!(
@@ -202,7 +203,7 @@ pub async fn captain_helper(
     }
 
     let mut available_captain_spots =
-        HashSet::<_>::from_iter(IntoIter::new([Team::Blue, Team::Red]));
+        HashSet::<_>::from_iter(IntoIterator::into_iter([Team::Blue, Team::Red]));
 
     for p in &participants {
         if p.is_captain {

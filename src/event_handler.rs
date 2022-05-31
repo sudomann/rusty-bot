@@ -116,7 +116,7 @@ impl EventHandler for Handler {
             {
                 error!("Cannot update initial interaction response: {}", why);
             }
-            _working
+            let _ = _working
                 .expect(
                     "Expected typing to have begun successfully - so that it could now be stopped",
                 )

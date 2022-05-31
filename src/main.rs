@@ -51,11 +51,11 @@ async fn main() {
     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
 
     // Fetch bot id and superusers' ids
-    let important_user_ids = crucial_user_ids::obtain(Http::new_with_token(token.as_str()))
+    let important_user_ids = crucial_user_ids::obtain(Http::new(token.as_str()))
         .await
         .expect("Could not access application info: {:?}");
 
-    let mut discord_client = Client::builder(&token)
+    let mut discord_client = Client::builder(&token, GatewayIntents::default())
         .event_handler(Handler {
             is_loop_running: AtomicBool::new(false),
         })
