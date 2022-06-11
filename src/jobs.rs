@@ -163,7 +163,6 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
 #[instrument(skip(ctx))]
 pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
     // !TODO: make sure to skip deleting a voice channel if it's not empty??
-
     let db_client = {
         let data = ctx.data.read().await;
         match data.get::<crate::DbClientRef>() {

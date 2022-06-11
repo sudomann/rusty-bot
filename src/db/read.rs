@@ -144,16 +144,15 @@ pub async fn get_voice_channels_pending_deletion(
     let filter = doc! {
         "voice_chat.is_deleted_from_guild_channel_list": {
             "$or": [
-                { "voice_chat.category.is_deleted_from_guild_channel_list": true },
-                { "voice_chat.blue_channel.is_deleted_from_guild_channel_list": true },
-                { "voice_chat.red_channel.is_deleted_from_guild_channel_list": true }
+                { "voice_chat.category.is_deleted_from_guild_channel_list": false },
+                { "voice_chat.blue_channel.is_deleted_from_guild_channel_list": false },
+                { "voice_chat.red_channel.is_deleted_from_guild_channel_list": false }
             ]
         }
     };
 
     let cursor = collection.find(None, None).await?;
     let results: Vec<CompletedPug> = cursor.try_collect().await?;
-    tracing::info!("voice channels result: {:#?}", results);
 
     let mut voice_channels = Vec::default();
     for completed_pug in results {
