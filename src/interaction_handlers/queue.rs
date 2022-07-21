@@ -259,7 +259,7 @@ pub async fn join_helper(
             .mention(&blue_player)
             .build();
 
-        guild_channel.say(&ctx.http, response).await?;
+        pug_thread.say(&ctx.http, response).await?;
     } else {
         // write picking session with these players in it
         register_picking_session(
