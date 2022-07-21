@@ -23,7 +23,7 @@ pub async fn write_new_game_mode(
     let collection = db.collection(GAME_MODES);
     let game_mode = GameMode {
         label,
-        player_count,
+        player_count: player_count as i64,
     };
     collection.insert_one(game_mode, None).await
 }
@@ -51,7 +51,7 @@ pub async fn add_player_to_game_mode_queue(
     };
     let join_record = GameModeJoin {
         game_mode_label: game_mode_label.clone(),
-        player_user_id: player_user_id.to_string(),
+        player_user_id: *player_user_id as i64,
         joined: Utc::now(),
     };
     // create document if no existing
@@ -114,10 +114,10 @@ pub async fn register_picking_session(
         .iter()
         .map(|user_id| Player {
             is_captain: false,
-            user_id: user_id.to_string(),
+            user_id: *user_id as i64,
             team: None,
             exclude_from_random_captaining: false,
-            channel_id_for_picking_session: pug_thread_channel_id.to_string(),
+            channel_id_for_picking_session: *pug_thread_channel_id as i64,
             pick_position: None,
         })
         .collect::<Vec<Player>>();
@@ -127,7 +127,7 @@ pub async fn register_picking_session(
     let picking_session = PickingSession {
         created: Utc::now(),
         game_mode: game_mode_label.to_string(),
-        thread_channel_id: pug_thread_channel_id.to_string(),
+        thread_channel_id: *pug_thread_channel_id as i64,
         pick_sequence,
         last_reset: None,
     };
@@ -208,7 +208,7 @@ pub async fn set_pug_channel(
     let collection = db.collection(PUG_CHANNELS);
 
     let desired_pug_channel = PugChannel {
-        channel_id,
+        channel_id: channel_id as i64,
         name: channel_name,
     };
 
@@ -227,7 +227,7 @@ pub async fn register_guild_command(
     db.collection(COMMANDS)
         .insert_one(
             GuildCommand {
-                command_id: guild_command.id.0,
+                command_id: guild_command.id.0 as i64,
                 name: guild_command.name.clone(),
             },
             None,
@@ -274,7 +274,7 @@ pub async fn save_guild_commands(
     let commands_to_save: Vec<GuildCommand> = commands
         .iter()
         .map(|c| GuildCommand {
-            command_id: c.id.0,
+            command_id: c.id.0 as i64,
             name: c.name.clone(),
         })
         .collect();
