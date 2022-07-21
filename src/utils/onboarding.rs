@@ -36,7 +36,7 @@ pub async fn inspect_guild_commands(ctx: Arc<Context>, guild_ids: Vec<GuildId>) 
 
     info!("Launching one task per connected guild for conducting inspection");
     for guild_id in guild_ids {
-        let guild_name = match guild_id.to_guild_cached(&ctx.cache).await {
+        let guild_name = match guild_id.to_guild_cached(&ctx.cache) {
             Some(guild) => guild.name,
             None => "<guild_name_unavailable>".to_string(),
         };

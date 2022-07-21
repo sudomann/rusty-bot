@@ -457,6 +457,8 @@ pub async fn pick(
             }
         }
 
+        // Convert to vec of UserId's which we can "mention()"
+
         let blue_team_captain = participants
             .iter()
             .find(|p| p.is_captain && p.team == Some(Team::Blue))
@@ -466,11 +468,11 @@ pub async fn pick(
             .find(|p| p.is_captain && p.team == Some(Team::Red))
             .unwrap();
 
+        // !FIXME Pass teams by reference
         let completed_pug = transform::resolve_to_completed_pug(
             &ctx,
             db.clone(),
             picking_session,
-            guild_channel.position,
             blue_team_captain.user_id.to_string(),
             blue_team,
             red_team_captain.user_id.to_string(),
@@ -485,14 +487,16 @@ pub async fn pick(
         let red_team_voice_channel = ChannelId(
             completed_pug
                 .voice_chat
-                .red_channel_id
+                .red_channel
+                .id
                 .parse::<u64>()
                 .unwrap(),
         );
         let blue_team_voice_channel = ChannelId(
             completed_pug
                 .voice_chat
-                .blue_channel_id
+                .blue_channel
+                .id
                 .parse::<u64>()
                 .unwrap(),
         );
@@ -508,6 +512,7 @@ pub async fn pick(
             .build();
 
         // !FIXME: delete /captain, /pick and /reset and /teams
+        // commands seem to be assigned/deleted accordingly - why?
         return Ok(response);
     }
 
@@ -627,7 +632,7 @@ pub async fn reset(
         .await
         .context(format!(
             "Attempted and failed to delete pick command in guild: {:?}",
-            guild_id.name(&ctx.cache).await
+            guild_id.name(&ctx.cache)
         ))?;
 
     let teams_cmd_search_result = db::read::find_command(db.clone(), "teams")
@@ -643,7 +648,7 @@ pub async fn reset(
         .await
         .context(format!(
             "Attempted and failed to delete teams command in guild: {:?}",
-            guild_id.name(&ctx.cache).await
+            guild_id.name(&ctx.cache)
         ))?;
 
     db::write::find_and_delete_guild_commands(db.clone(), vec!["teams", "pick"])

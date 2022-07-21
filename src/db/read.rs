@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use futures::stream::TryStreamExt;
 use mongodb::bson::doc;
 use mongodb::error::Error;
@@ -143,11 +143,15 @@ pub async fn get_voice_channels_pending_deletion(
     let collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
     let filter = doc! {
         "voice_chat.is_deleted_from_guild_channel_list": {
-            "$eq": false
+            "$or": [
+                { "voice_chat.category.is_deleted_from_guild_channel_list": false },
+                { "voice_chat.blue_channel.is_deleted_from_guild_channel_list": false },
+                { "voice_chat.red_channel.is_deleted_from_guild_channel_list": false }
+            ]
         }
     };
 
-    let cursor = collection.find(filter, None).await?;
+    let cursor = collection.find(None, None).await?;
     let results: Vec<CompletedPug> = cursor.try_collect().await?;
 
     let mut voice_channels = Vec::default();

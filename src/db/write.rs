@@ -77,12 +77,29 @@ pub async fn remove_player_from_game_mode_queue(
     collection.find_one_and_delete(filter, None).await
 }
 
+pub async fn remove_players_from_all_queues(
+    db: Database,
+    players_user_ids: &Vec<u64>
+) -> Result<DeleteResult, Error> {
+    let collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
+
+    let participants = players_user_ids.iter().map(|id|*id as i64).collect::<Vec<i64>>();
+
+    let filter = doc! {
+        "player_user_id": {
+            "$in": participants
+        }
+    };
+
+    collection.delete_many(filter, None).await
+
+}
+
 /// Remove players from the queue of the specified game mode and put them on
 /// a roster for a picking session.
-/// Players are also removed from the queue of any other game mode they had joined.
 ///
 /// Uses mongodb session feature for atomicity.
-pub async fn create_picking_session(
+pub async fn register_picking_session(
     db: Database,
     pug_thread_channel_id: &u64,
     game_mode_label: &String,
@@ -90,7 +107,6 @@ pub async fn create_picking_session(
     pick_sequence: Vec<Team>,
 ) -> Result<InsertOneResult, Error> {
     // FIXME: use session for atomicity!
-    let game_mode_join_collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
     let picking_session_collection = db.collection(PICKING_SESSIONS);
     let player_roster_collection = db.collection(PLAYER_ROSTER);
 
@@ -107,14 +123,6 @@ pub async fn create_picking_session(
         .collect::<Vec<Player>>();
 
     player_roster_collection.insert_many(roster, None).await?;
-
-    let all_joins_for_game_mode = doc! {
-        "game_mode_label": game_mode_label
-    };
-
-    game_mode_join_collection
-        .delete_many(all_joins_for_game_mode, None)
-        .await?;
 
     let picking_session = PickingSession {
         created: Utc::now(),
@@ -366,4 +374,42 @@ pub async fn set_both_captains(
         .await?;
 
     Ok(CaptainPair { blue, red })
+}
+
+// !FIXME: this is horribly inefficient, but might be fine for relatively
+// small quantities of data
+pub async fn mark_voice_channels_deleted(
+    db: Database,
+    channel_ids: Vec<String>,
+) -> Result<UpdateResult, Error> {
+    let collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
+    let b = channel_ids.clone();
+    let c = channel_ids.clone();
+    let query = doc! {
+        "$or": [
+            {
+                "voice_chat.category.id": {
+                    "$in": channel_ids.clone()
+                }
+            },
+            {
+                "voice_chat.blue_channel.id": {
+                    "$in": channel_ids.clone()
+                }
+            },
+            {
+                "voice_chat.red_channel.id": {
+                    "$in": channel_ids
+                }
+            }
+        ]
+    };
+
+    let update = doc! {
+        "voice_chat.category.is_deleted_from_guild_channel_list": true,
+        "voice_chat.blue_channel.is_deleted_from_guild_channel_list": true,
+        "voice_chat.red_channel.is_deleted_from_guild_channel_list": true
+    };
+
+    collection.update_many(query, update, None).await
 }

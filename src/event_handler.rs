@@ -116,7 +116,7 @@ impl EventHandler for Handler {
             {
                 error!("Cannot update initial interaction response: {}", why);
             }
-            _working
+            let _ = _working
                 .expect(
                     "Expected typing to have begun successfully - so that it could now be stopped",
                 )
@@ -171,7 +171,7 @@ impl EventHandler for Handler {
             tokio::spawn(async move {
                 loop {
                     remove_stale_team_voice_channels(Arc::clone(&ctx3)).await;
-                    tokio::time::sleep(Duration::from_secs(five_minutes)).await;
+                    tokio::time::sleep(Duration::from_secs(10 /*five_minutes*/)).await;
                 }
             });
 

@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::fmt;
 
 use anyhow::Context as AnyhowContext;
@@ -10,7 +9,7 @@ use serenity::model::id::{ChannelId, CommandId, GuildId, UserId};
 use serenity::model::prelude::User;
 
 use crate::db;
-use crate::db::model::{CompletedPug, GameModeJoin, PickingSession, TeamVoiceChat};
+use crate::db::model::{ChannelState, CompletedPug, GameModeJoin, PickingSession, TeamVoiceChat};
 
 use super::time::{Accuracy, HumanTime, Tense};
 
@@ -113,7 +112,7 @@ pub async fn resolve_to_completed_pug(
             .await
             .context(format!(
                 "Attempted and failed to delete pick command in guild: {:?}",
-                guild_id.name(&ctx.cache).await
+                guild_id.name(&ctx.cache)
             ))?;
 
         let teams_cmd_search_result = db::read::find_command(db.clone(), "teams")
@@ -131,7 +130,7 @@ pub async fn resolve_to_completed_pug(
             .await
             .context(format!(
                 "Attempted and failed to delete teams command in guild: {:?}",
-                guild_id.name(&ctx.cache).await
+                guild_id.name(&ctx.cache)
             ))?;
 
         let reset_cmd_search_result = db::read::find_command(db.clone(), "reset")
@@ -148,7 +147,7 @@ pub async fn resolve_to_completed_pug(
             .await
             .context(format!(
                 "Attempted and failed to delete reset command in guild: {:?}",
-                guild_id.name(&ctx.cache).await
+                guild_id.name(&ctx.cache)
             ))?;
 
         db::write::find_and_delete_guild_commands(db.clone(), vec!["teams", "reset", "pick"])
@@ -164,13 +163,15 @@ pub async fn resolve_to_completed_pug(
         .context("Failed to upgrade a ChannelId to Channel")?;
 
     let channel_position = thread_channel.position().unwrap() + 1;
+    tracing::info!("picking_session.thread_channel_id: {}", channel_position);
 
     let category = guild_id
         .create_channel(&ctx.http, |c| {
             c.kind(ChannelType::Category)
                 .name(picking_session.game_mode.as_str())
-                .position(channel_position.try_into().expect("Could not convert channel position from i64 to u32. \
-                This should not happen, as there cannot be so many channels in a guild the count doesn't fit u32."))
+                .position(5)
+            //.position(channel_position.try_into().expect("Could not convert channel position from i64 to u32. \
+            //This should not happen, as there cannot be so many channels in a guild the count doesn't fit u32."))
         })
         .await
         .context(format!(
@@ -212,10 +213,18 @@ pub async fn resolve_to_completed_pug(
         red_team,
         // !FIXME: currently voice channels are created for 2 player game modes as well. They should be exempted.
         voice_chat: TeamVoiceChat {
-            category_id: category.id.0.to_string(),
-            blue_channel_id: blue_team_voice_channel.id.0.to_string(),
-            red_channel_id: red_team_voice_channel.id.0.to_string(),
-            is_deleted_from_guild_channel_list: false,
+            category: ChannelState {
+                id: category.id.0.to_string(),
+                is_deleted_from_guild_channel_list: false,
+            },
+            blue_channel: ChannelState {
+                id: blue_team_voice_channel.id.0.to_string(),
+                is_deleted_from_guild_channel_list: false,
+            },
+            red_channel: ChannelState {
+                id: red_team_voice_channel.id.0.to_string(),
+                is_deleted_from_guild_channel_list: false,
+            },
         },
     };
 

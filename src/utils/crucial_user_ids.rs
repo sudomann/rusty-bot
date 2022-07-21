@@ -3,17 +3,17 @@ use std::env;
 use std::str::FromStr;
 
 use serenity::http::Http;
-use serenity::model::id::UserId;
+use serenity::model::id::{ApplicationId, UserId};
 use serenity::Error;
 use tracing::{info, instrument, warn};
 
-pub struct CrucialUserIds {
-    bot: UserId,
+pub struct CrucialIds {
+    bot: ApplicationId,
     superusers: HashSet<UserId>,
 }
 
-impl CrucialUserIds {
-    pub fn get_bot(&self) -> &UserId {
+impl CrucialIds {
+    pub fn get_bot(&self) -> &ApplicationId {
         &self.bot
     }
 
@@ -22,11 +22,11 @@ impl CrucialUserIds {
     }
 }
 
-/// Get the Bot/Application's [`UserId`] along with those provided to the environment
+/// Get the Bot/Application's [`ApplicationId`] along with any other [`UserId`]'s provided via the environment
 /// variable `SUPERUSERS` (provided they are correctly formatted - if not, they are ignored).
 
 #[instrument]
-pub async fn obtain(http: Http) -> Result<CrucialUserIds, Error> {
+pub async fn obtain(http: Http) -> Result<CrucialIds, Error> {
     match http.get_current_application_info().await {
         Ok(info) => {
             let mut superusers: HashSet<UserId> = match env::var("SUPERUSERS") {
@@ -44,7 +44,7 @@ pub async fn obtain(http: Http) -> Result<CrucialUserIds, Error> {
             };
             superusers.insert(info.owner.id);
             info!("Superusers: {:?}", superusers);
-            Ok(CrucialUserIds {
+            Ok(CrucialIds {
                 bot: info.id,
                 superusers,
             })

@@ -3,7 +3,6 @@ use chrono::Datelike;
 use chrono::Utc;
 use itertools::Itertools;
 use mongodb::Database;
-use rand::seq::SliceRandom;
 use serenity::client::Context;
 use serenity::model::channel::{Channel, ChannelType, GuildChannel};
 use serenity::model::id::{GuildId, UserId};
@@ -15,7 +14,7 @@ use crate::command_builder::{build_autocaptain, build_captain, build_nocaptain, 
 use crate::db::model::{GameMode, GameModeJoin, PickingSession};
 use crate::db::read::{find_game_mode, get_game_mode_queue};
 use crate::db::write::{
-    add_player_to_game_mode_queue, create_picking_session, save_guild_commands,
+    add_player_to_game_mode_queue, register_picking_session, save_guild_commands,
 };
 use crate::utils::{captain, transform};
 use crate::{db, DbClientRef};
@@ -118,8 +117,11 @@ pub async fn join_helper(
         return Ok("No game mode found with this name".to_string());
     }
     let game_mode = maybe_game_mode.unwrap();
+    
+    let mut all_queues = db::read::get_all_queues(db.clone()).await?;
+    let queue = all_queues.get_mut(&game_mode).unwrap();
 
-    let mut queue = get_game_mode_queue(db.clone(), &game_mode.label).await?;
+    // let mut queue = get_game_mode_queue(db.clone(), &game_mode.label).await?;
     let user_is_in_queue = queue
         .iter()
         .any(|join_record| join_record.player_user_id == user_to_add.to_string());
@@ -161,7 +163,7 @@ pub async fn join_helper(
         return Ok(response);
     }
 
-    let mut players = queue
+    let mut players = queue.clone()
         .iter_mut()
         .map(|j| {
             j.player_user_id
@@ -198,8 +200,16 @@ pub async fn join_helper(
         })
         .await?;
 
-    // We need to generate a pick sequence first
+
+    let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
+
+    // generate a pick sequence
     let pick_sequence = crate::utils::pick_sequence::generate(&game_mode.player_count);
+
+    // remove participants from all queues
+    db::write::remove_players_from_all_queues(db.clone(), &players)
+    .await
+    .context("A pug filled and the db request to remove participants from all queues failed")?;
 
     if game_mode.player_count == 2 {
         // two-player game modes do not undergo a picking process,
@@ -215,16 +225,19 @@ pub async fn join_helper(
 
         // players assigned to random team,
         // with empty team lists
-        let first_random_player = players.choose(&mut rand::thread_rng()).unwrap();
-        let remaining_player = players.last().unwrap();
+        let (first_random_player, remaining_player) = match rand::Rng::gen(&mut rand::thread_rng())
+        {
+            true => (players.last(), players.first()),
+            false => (players.first(), players.last()),
+        };
+
         let completed_pug = transform::resolve_to_completed_pug(
             &ctx,
             db.clone(),
             autocompleted_picking_session,
-            guild_channel.position,
-            first_random_player.to_string(),
+            first_random_player.unwrap().to_string(),
             vec![],
-            remaining_player.to_string(),
+            remaining_player.unwrap().to_string(),
             vec![],
         )
         .await
@@ -250,10 +263,8 @@ pub async fn join_helper(
 
         guild_channel.say(&ctx.http, response).await?;
     } else {
-        let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
-
-        // create picking session with these players in it
-        create_picking_session(
+        // write picking session with these players in it
+        register_picking_session(
             db.clone(),
             &pug_thread.id.0,
             &game_mode.label,
@@ -306,6 +317,11 @@ pub async fn join_helper(
             guild_id,
         ));
     }
+
+
+    // TODO: announce participants' removal from queues
+    // let mut announcement = MessageBuilder::default();
+
 
     return Ok(
         "If any of the following users were in the queue of any other game mode, \
