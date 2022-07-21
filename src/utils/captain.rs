@@ -74,7 +74,7 @@ pub async fn autopick_countdown(
 
         let current_picking_session = maybe_picking_session.unwrap();
 
-        if current_picking_session.thread_channel_id == pug_thread_channel_id.0.to_string() {
+        if current_picking_session.thread_channel_id as u64 == pug_thread_channel_id.0 {
             if last_known_reset.is_none() {
                 // assign it the latest reset value and proceed with loop
                 last_known_reset = current_picking_session.last_reset;
@@ -222,10 +222,9 @@ pub async fn captain_helper(
 
     let operation_outcome = if available_captain_spots.len() == 1 {
         let player = match maybe_user_id {
-            Some(_provided_user_id) => {
-                let provided_user_id = _provided_user_id.to_string();
+            Some(provided_user_id) => {
                 // check whether user is in pug
-                let is_a_participant = participants.iter().any(|p| p.user_id == provided_user_id);
+                let is_a_participant = participants.iter().any(|p| p.user_id as u64 == provided_user_id);
                 if !is_a_participant {
                     bail!(SetCaptainErr::ForeignUser);
                 }
@@ -233,12 +232,12 @@ pub async fn captain_helper(
                 // check whether user is captain already
                 let is_a_captain = participants
                     .iter()
-                    .any(|p| p.user_id == provided_user_id && p.is_captain);
+                    .any(|p| p.user_id as u64 == provided_user_id && p.is_captain);
                 if is_a_captain {
                     bail!(SetCaptainErr::IsCaptainAlready);
                 }
                 potential_captains
-                    .find(|p| p.user_id == provided_user_id)
+                    .find(|p| p.user_id as u64 == provided_user_id)
                     .unwrap()
             }
             None => potential_captains.choose(&mut rand::thread_rng()).unwrap(),
@@ -246,7 +245,7 @@ pub async fn captain_helper(
 
         let team = *available_captain_spots.iter().next().unwrap();
 
-        let player_user_id = player.user_id.parse::<u64>()?;
+        let player_user_id = player.user_id as u64;
         db::write::set_one_captain(db.clone(), &thread_channel_id, &player_user_id, team)
             .await
             .context("Database write operation failed when trying to set user as captain")?;
@@ -277,8 +276,8 @@ pub async fn captain_helper(
                 let blue_captain = two_random_players.pop().unwrap();
                 let red_captain = two_random_players.pop().unwrap();
 
-                let blue_captain_user_id = blue_captain.user_id.parse::<u64>()?;
-                let red_captain_user_id = red_captain.user_id.parse::<u64>()?;
+                let blue_captain_user_id = blue_captain.user_id as u64;
+                let red_captain_user_id = red_captain.user_id as u64;
                 db::write::set_both_captains(
                     db.clone(),
                     &thread_channel_id,
@@ -331,7 +330,7 @@ pub async fn captain_helper(
                 .filter(|c| {
                     saved_captain_commands
                         .iter()
-                        .any(|saved_cmd| saved_cmd.command_id == c.id.0)
+                        .any(|saved_cmd| saved_cmd.command_id as u64 == c.id.0)
                 })
                 .collect::<Vec<ApplicationCommand>>();
 

@@ -87,7 +87,7 @@ pub async fn inspect_and_maybe_update_db(
         && current_commands.iter().all(|current| {
             saved_commands
                 .iter()
-                .any(|saved| saved.command_id == current.id.0)
+                .any(|saved| saved.command_id as u64 == current.id.0)
         });
 
     if !commands_match {
@@ -95,7 +95,7 @@ pub async fn inspect_and_maybe_update_db(
             .iter()
             .format_with(", ", |cmd, f| f(&format_args!("{} {}", cmd.name, cmd.id)));
         let s_c = saved_commands.iter().format_with(", ", |cmd, f| {
-            f(&format_args!("{} {}", cmd.name, CommandId(cmd.command_id)))
+            f(&format_args!("{} {}", cmd.name, CommandId(cmd.command_id as u64)))
         });
         let output = format!(
             "Mismatch in command set for {:?}\n\

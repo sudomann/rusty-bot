@@ -380,11 +380,10 @@ pub async fn set_both_captains(
 // small quantities of data
 pub async fn mark_voice_channels_deleted(
     db: Database,
-    channel_ids: Vec<String>,
+    channel_ids: Vec<i64>,
 ) -> Result<UpdateResult, Error> {
     let collection = db.collection::<CompletedPug>(COMPLETED_PUGS);
-    let b = channel_ids.clone();
-    let c = channel_ids.clone();
+
     let query = doc! {
         "$or": [
             {
