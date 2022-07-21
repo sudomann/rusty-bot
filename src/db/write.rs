@@ -77,6 +77,24 @@ pub async fn remove_player_from_game_mode_queue(
     collection.find_one_and_delete(filter, None).await
 }
 
+pub async fn remove_players_from_all_queues(
+    db: Database,
+    players_user_ids: &Vec<u64>
+) -> Result<DeleteResult, Error> {
+    let collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
+
+    let participants = players_user_ids.iter().map(|id|*id as i64).collect::<Vec<i64>>();
+
+    let filter = doc! {
+        "player_user_id": {
+            "$in": participants
+        }
+    };
+
+    collection.delete_many(filter, None).await
+
+}
+
 /// Remove players from the queue of the specified game mode and put them on
 /// a roster for a picking session.
 ///

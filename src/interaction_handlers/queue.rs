@@ -117,8 +117,11 @@ pub async fn join_helper(
         return Ok("No game mode found with this name".to_string());
     }
     let game_mode = maybe_game_mode.unwrap();
+    
+    let mut all_queues = db::read::get_all_queues(db.clone()).await?;
+    let queue = all_queues.get_mut(&game_mode).unwrap();
 
-    let mut queue = get_game_mode_queue(db.clone(), &game_mode.label).await?;
+    // let mut queue = get_game_mode_queue(db.clone(), &game_mode.label).await?;
     let user_is_in_queue = queue
         .iter()
         .any(|join_record| join_record.player_user_id == user_to_add.to_string());
@@ -160,7 +163,7 @@ pub async fn join_helper(
         return Ok(response);
     }
 
-    let mut players = queue
+    let mut players = queue.clone()
         .iter_mut()
         .map(|j| {
             j.player_user_id
@@ -197,8 +200,16 @@ pub async fn join_helper(
         })
         .await?;
 
-    // We need to generate a pick sequence first
+
+    let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
+
+    // generate a pick sequence
     let pick_sequence = crate::utils::pick_sequence::generate(&game_mode.player_count);
+
+    // remove participants from all queues
+    db::write::remove_players_from_all_queues(db.clone(), &players)
+    .await
+    .context("A pug filled and the db request to remove participants from all queues failed")?;
 
     if game_mode.player_count == 2 {
         // two-player game modes do not undergo a picking process,
@@ -252,8 +263,6 @@ pub async fn join_helper(
 
         guild_channel.say(&ctx.http, response).await?;
     } else {
-        let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
-
         // write picking session with these players in it
         register_picking_session(
             db.clone(),
@@ -308,6 +317,11 @@ pub async fn join_helper(
             guild_id,
         ));
     }
+
+
+    // TODO: announce participants' removal from queues
+    // let mut announcement = MessageBuilder::default();
+
 
     return Ok(
         "If any of the following users were in the queue of any other game mode, \
