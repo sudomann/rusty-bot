@@ -91,10 +91,10 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                 }
                 match crate::db::read::get_pug_channel(guild_db.clone()).await {
                     Ok(maybe_pug_channel) => {
-                        let mut removed_users: Vec<UserId> = Vec::default();
+                        let mut removed_users: HashSet<UserId> = HashSet::default();
                         for join in game_mode_joins {
                             let u_id = join.player_user_id.parse::<u64>().unwrap();
-                            removed_users.push(UserId(u_id));
+                            removed_users.insert(UserId(u_id));
                             tokio::spawn(crate::db::write::remove_player_from_game_mode_queue(
                                 guild_db.clone(),
                                 join.game_mode_label,
