@@ -14,7 +14,7 @@ use crate::command_builder::{build_autocaptain, build_captain, build_nocaptain, 
 use crate::db::model::{GameMode, GameModeJoin, PickingSession};
 use crate::db::read::{find_game_mode, get_game_mode_queue};
 use crate::db::write::{
-    add_player_to_game_mode_queue, create_picking_session, save_guild_commands,
+    add_player_to_game_mode_queue, register_picking_session, save_guild_commands,
 };
 use crate::utils::{captain, transform};
 use crate::{db, DbClientRef};
@@ -254,8 +254,8 @@ pub async fn join_helper(
     } else {
         let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
 
-        // create picking session with these players in it
-        create_picking_session(
+        // write picking session with these players in it
+        register_picking_session(
             db.clone(),
             &pug_thread.id.0,
             &game_mode.label,

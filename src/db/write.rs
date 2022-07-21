@@ -79,10 +79,9 @@ pub async fn remove_player_from_game_mode_queue(
 
 /// Remove players from the queue of the specified game mode and put them on
 /// a roster for a picking session.
-/// Players are also removed from the queue of any other game mode they had joined.
 ///
 /// Uses mongodb session feature for atomicity.
-pub async fn create_picking_session(
+pub async fn register_picking_session(
     db: Database,
     pug_thread_channel_id: &u64,
     game_mode_label: &String,
@@ -90,7 +89,6 @@ pub async fn create_picking_session(
     pick_sequence: Vec<Team>,
 ) -> Result<InsertOneResult, Error> {
     // FIXME: use session for atomicity!
-    let game_mode_join_collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
     let picking_session_collection = db.collection(PICKING_SESSIONS);
     let player_roster_collection = db.collection(PLAYER_ROSTER);
 
@@ -107,14 +105,6 @@ pub async fn create_picking_session(
         .collect::<Vec<Player>>();
 
     player_roster_collection.insert_many(roster, None).await?;
-
-    let all_joins_for_game_mode = doc! {
-        "game_mode_label": game_mode_label
-    };
-
-    game_mode_join_collection
-        .delete_many(all_joins_for_game_mode, None)
-        .await?;
 
     let picking_session = PickingSession {
         created: Utc::now(),
