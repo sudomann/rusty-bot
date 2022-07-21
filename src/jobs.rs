@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
@@ -72,16 +73,16 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
     for guild_id in guilds {
         let client = db_client.clone();
         let guild_db = client.database(guild_id.0.to_string().as_str());
-
+        let mut temp_log = MessageBuilder::default();
         match guild_id.name(&ctx) {
             Some(name) => {
-                job_log.push(name);
+                temp_log.push(name);
             }
             None => {
-                job_log.push(guild_id);
+                temp_log.push(guild_id);
             }
         }
-        job_log.push_line(":").push_line("==============");
+        temp_log.push_line(":").push_line("==============");
 
         match crate::db::read::get_stale_game_mode_joins(guild_db.clone(), Duration::hours(4)).await
         {
@@ -128,7 +129,7 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                                         }
                                         Err(err) => {
                                             has_error = true;
-                                            job_log.push_line("Expected joined player to have a valid userid for dm:")
+                                            temp_log.push_line("Expected joined player to have a valid userid for dm:")
                                                     .push_line(err);
                                         }
                                     };
@@ -138,7 +139,7 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                     }
                     Err(err) => {
                         has_error = true;
-                        job_log
+                        temp_log
                             .push_line("Failed to read pug channel")
                             .push_line(err);
                     }
@@ -146,10 +147,13 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
             }
             Err(err) => {
                 has_error = true;
-                job_log
+                temp_log
                     .push_line("Failed to read stale game mode joins")
                     .push_line(err);
             }
+        }
+        if has_error {
+            job_log.push(temp_log);
         }
     }
     let job_log_output = job_log.build();
