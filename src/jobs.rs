@@ -223,14 +223,21 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
                             .await
                         {
                             Ok(channel) => {
-                                let guild_channel = channel.guild().unwrap();
-                                let kind = match guild_channel.kind {
-                                    serenity::model::channel::ChannelType::Category => "category",
-                                    _ => "channel",
+                                let (kind , name) = match channel {
+                                    serenity::model::channel::Channel::Guild(guild_channel) => {
+                                        match guild_channel.kind {
+                                            serenity::model::channel::ChannelType::Category => ("category", guild_channel.name),
+                                            serenity::model::channel::ChannelType::Voice => ("channel", guild_channel.name),
+                                            _ => panic!("Somehow a guild channel which is not of either Category or Voice kind was being evaluted for \"if stale then delete\"")
+                                        }
+                                    },
+                                    serenity::model::channel::Channel::Category(category) => ("category", category.name),
+                                    _ => panic!("Somehow a `serenity::model::channel::Channel` which is not of either `Category` or `Guild` variant was being evaluted for \"if stale then delete\"")
                                 };
+
                                 job_log.push_line(format!(
                                     "Successfully deleted {} - {}",
-                                    kind, guild_channel.name
+                                    kind, name
                                 ));
                                 deleted.push(id as i64);
                             }
