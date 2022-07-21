@@ -61,7 +61,7 @@ pub async fn generate_and_apply_guild_command_set(
     if let Some(picking_session) = active_picking_session {
         let all_players: Vec<Player> = crate::db::read::get_picking_session_members(
             db.clone(),
-            &picking_session.thread_channel_id.parse::<u64>()?,
+            &(picking_session.thread_channel_id as u64),
         )
         .await
         .context("Failed to obtain list of players in picking session")?;

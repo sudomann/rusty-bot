@@ -65,7 +65,7 @@ pub async fn captain(
         .context("Tried to fetch current picking session (if any)")?
     {
         Some(picking_session) => {
-            let thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+            let thread_channel_id = picking_session.thread_channel_id as u64;
             let is_pug_thread = thread_channel_id == guild_channel.id.0;
             if !is_pug_thread {
                 let mut response = MessageBuilder::default();
@@ -202,7 +202,7 @@ pub async fn auto_captain(
         .context("Tried to fetch current picking session (if any)")?
     {
         Some(picking_session) => {
-            let thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+            let thread_channel_id = picking_session.thread_channel_id as u64;
             let is_pug_thread = thread_channel_id == guild_channel.id.0;
             if !is_pug_thread {
                 let mut response = MessageBuilder::default();
@@ -320,7 +320,7 @@ pub async fn pick(
         return Ok("No filled pug available".to_string());
     }
     let picking_session = maybe_current_picking_session.unwrap();
-    let picking_session_thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+    let picking_session_thread_channel_id = picking_session.thread_channel_id as u64;
     let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
     if !is_pug_thread {
         let mut response = MessageBuilder::default();
@@ -340,7 +340,7 @@ pub async fn pick(
     // check that user is a captain
     let current_user_as_captain = participants
         .iter()
-        .find(|p| p.is_captain && p.user_id == interaction.user.id.0.to_string());
+        .find(|p| p.is_captain && p.user_id as u64 == interaction.user.id.0);
     if current_user_as_captain.is_none() {
         return Ok("You cannot use this command because you are not a captain.".to_string());
     }
@@ -402,7 +402,7 @@ pub async fn pick(
     // remove player who was just picked from list
     let index = teamless_participants
         .iter()
-        .position(|p| p.user_id == user_id_for_user_to_pick.to_string())
+        .position(|p| p.user_id as u64 == user_id_for_user_to_pick)
         .unwrap();
     teamless_participants.remove(index);
 
@@ -411,7 +411,7 @@ pub async fn pick(
     // is resolved as a completed pug
     if teamless_participants.len() == 1 {
         let last_player = teamless_participants.pop().unwrap();
-        let last_player_user_id = last_player.user_id.parse::<u64>()?;
+        let last_player_user_id = last_player.user_id as u64;
 
         // Player is assigned to whatever the opposite team is
         let team_with_last_open_spot = match team_to_assign {
@@ -435,25 +435,25 @@ pub async fn pick(
             .clone()
             .into_iter()
             .filter(|p| !p.is_captain && p.team == Some(Team::Blue))
-            .map(|p| p.user_id.to_string())
-            .collect::<Vec<String>>();
+            .map(|p| p.user_id as u64)
+            .collect::<Vec<u64>>();
         let mut red_team = participants
             .clone()
             .into_iter()
             .filter(|p| !p.is_captain && p.team == Some(Team::Red))
-            .map(|p| p.user_id.to_string())
-            .collect::<Vec<String>>();
+            .map(|p| p.user_id as u64)
+            .collect::<Vec<u64>>();
 
         // add just picked player and last remaining player to these local,
         // up-to-date team lists
         match team_to_assign {
             Team::Blue => {
-                blue_team.push(user_id_for_user_to_pick.to_string());
-                red_team.push(last_player.user_id.to_string());
+                blue_team.push(user_id_for_user_to_pick);
+                red_team.push(last_player.user_id as u64);
             }
             Team::Red => {
-                blue_team.push(last_player.user_id.to_string());
-                red_team.push(user_id_for_user_to_pick.to_string());
+                blue_team.push(last_player.user_id as u64);
+                red_team.push(user_id_for_user_to_pick);
             }
         }
 
@@ -473,9 +473,9 @@ pub async fn pick(
             &ctx,
             db.clone(),
             picking_session,
-            blue_team_captain.user_id.to_string(),
+            blue_team_captain.user_id as u64,
             blue_team,
-            red_team_captain.user_id.to_string(),
+            red_team_captain.user_id as u64,
             red_team,
         )
         .await
@@ -488,17 +488,14 @@ pub async fn pick(
             completed_pug
                 .voice_chat
                 .red_channel
-                .id
-                .parse::<u64>()
-                .unwrap(),
+                .id as u64,
         );
         let blue_team_voice_channel = ChannelId(
             completed_pug
                 .voice_chat
                 .blue_channel
                 .id
-                .parse::<u64>()
-                .unwrap(),
+                 as u64,
         );
 
         let response = MessageBuilder::new()
@@ -529,7 +526,7 @@ pub async fn pick(
 
     let updated_pick_command = build_pick(&remaining_players);
     guild_id
-        .edit_application_command(&ctx.http, CommandId(saved_pick_command.command_id), |c| {
+        .edit_application_command(&ctx.http, CommandId(saved_pick_command.command_id as u64), |c| {
             *c = updated_pick_command;
             c
         })
@@ -587,7 +584,7 @@ pub async fn reset(
         return Ok("No filled pug available".to_string());
     }
     let picking_session = maybe_current_picking_session.unwrap();
-    let picking_session_thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+    let picking_session_thread_channel_id = picking_session.thread_channel_id as u64;
     let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
     if !is_pug_thread {
         let mut response = MessageBuilder::default();
@@ -625,7 +622,7 @@ pub async fn reset(
         }
     };
 
-    let pick_cmd_id = CommandId(saved_pick_cmd.command_id);
+    let pick_cmd_id = CommandId(saved_pick_cmd.command_id as u64);
 
     guild_id
         .delete_application_command(&ctx.http, pick_cmd_id)
@@ -642,7 +639,7 @@ pub async fn reset(
     let saved_teams_cmd = teams_cmd_search_result.context(
         "There should be a /teams command saved in the database, but one was not found.",
     )?;
-    let teams_cmd_id = CommandId(saved_teams_cmd.command_id);
+    let teams_cmd_id = CommandId(saved_teams_cmd.command_id as u64);
     guild_id
         .delete_application_command(&ctx.http, teams_cmd_id)
         .await
@@ -754,7 +751,7 @@ pub async fn teams(
         return Ok("No filled pug available".to_string());
     }
     let picking_session = maybe_current_picking_session.unwrap();
-    let picking_session_thread_channel_id = picking_session.thread_channel_id.parse::<u64>()?;
+    let picking_session_thread_channel_id = picking_session.thread_channel_id as u64;
     let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
     if !is_pug_thread {
         let mut response = MessageBuilder::default();
@@ -781,7 +778,7 @@ pub async fn teams(
         }
         match player.team {
             Some(team) => {
-                let player_user_id = UserId(player.user_id.parse::<u64>().unwrap());
+                let player_user_id = UserId(player.user_id as u64);
                 let player_as_user = player_user_id
                     .to_user(&ctx)
                     .await

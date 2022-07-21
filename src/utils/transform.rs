@@ -20,7 +20,7 @@ where
 {
     let mut players_as_users: Vec<User> = Vec::default();
     for player in players {
-        let user_id = player.user_id.parse::<u64>()?;
+        let user_id = player.user_id as u64;
         let user_object = UserId(user_id).to_user(&ctx).await.context(format!(
             "Failed to obtain User object for user id: {}",
             player.user_id
@@ -52,7 +52,7 @@ pub async fn join_record_to_player_info(
     ctx: &Context,
     join_record: &GameModeJoin,
 ) -> anyhow::Result<QueuedPlayerInfo> {
-    let player_user_id = UserId(join_record.player_user_id.parse::<u64>().unwrap());
+    let player_user_id = UserId(join_record.player_user_id as u64);
     let player_as_user = player_user_id
         .to_user(&ctx)
         .await
@@ -74,17 +74,17 @@ pub async fn join_record_to_player_info(
 ///
 /// Also creates the voice channels for teams.
 ///
-/// The intent is to simplify the called used in commiting a completed pug to the database.
+/// The intent is to simplify the call used in commiting a completed pug to the database.
 /// TODO: Two-player game modes do not involve a picking session and it does not make sense that
 /// one should be coerced/shoehorned (for the integrity/accuracy of stats calculated from picking history).
 pub async fn resolve_to_completed_pug(
     ctx: &Context,
     db: Database,
     picking_session: PickingSession,
-    blue_team_captain: String,
-    blue_team: Vec<String>,
-    red_team_captain: String,
-    red_team: Vec<String>,
+    blue_team_captain: u64,
+    mut blue_team: Vec<u64>,
+    red_team_captain: u64,
+    mut red_team: Vec<u64>,
 ) -> anyhow::Result<CompletedPug> {
     let guild_id = GuildId(db.name().parse::<u64>().context(
         "Database object name could not be parsed into a u64 guild ID. \
@@ -105,7 +105,7 @@ pub async fn resolve_to_completed_pug(
         but one was not found.",
         )?;
 
-        let pick_cmd_id = CommandId(saved_pick_cmd.command_id);
+        let pick_cmd_id = CommandId(saved_pick_cmd.command_id as u64);
 
         guild_id
             .delete_application_command(&ctx.http, pick_cmd_id)
@@ -124,7 +124,7 @@ pub async fn resolve_to_completed_pug(
         which means there should be a /teams command saved in the database, \
         but one was not found.",
         )?;
-        let teams_cmd_id = CommandId(saved_teams_cmd.command_id);
+        let teams_cmd_id = CommandId(saved_teams_cmd.command_id as u64);
         guild_id
             .delete_application_command(&ctx.http, teams_cmd_id)
             .await
@@ -141,7 +141,7 @@ pub async fn resolve_to_completed_pug(
             "Since there was a picking session, there should be a /reset command saved in the database \
             for resetting the picking session but one was not found.",
         )?;
-        let reset_cmd_id = CommandId(saved_reset_cmd.command_id);
+        let reset_cmd_id = CommandId(saved_reset_cmd.command_id as u64);
         guild_id
             .delete_application_command(&ctx.http, reset_cmd_id)
             .await
@@ -155,7 +155,7 @@ pub async fn resolve_to_completed_pug(
             .context("There was an issue when trying to delete /teams, /reset and /pick commands from the database")?;
     }
 
-    let thread_channel_id = ChannelId(picking_session.thread_channel_id.parse::<u64>()?);
+    let thread_channel_id = ChannelId(picking_session.thread_channel_id as u64);
 
     let thread_channel = thread_channel_id
         .to_channel(&ctx)
@@ -169,7 +169,7 @@ pub async fn resolve_to_completed_pug(
         .create_channel(&ctx.http, |c| {
             c.kind(ChannelType::Category)
                 .name(picking_session.game_mode.as_str())
-                .position(5)
+                .position(0)
             //.position(channel_position.try_into().expect("Could not convert channel position from i64 to u32. \
             //This should not happen, as there cannot be so many channels in a guild the count doesn't fit u32."))
         })
@@ -206,23 +206,23 @@ pub async fn resolve_to_completed_pug(
     let completed_pug = CompletedPug {
         created: Utc::now(),
         game_mode: picking_session.game_mode,
-        thread_channel_id: picking_session.thread_channel_id.to_string(),
-        blue_team_captain,
-        blue_team,
-        red_team_captain,
-        red_team,
+        thread_channel_id: picking_session.thread_channel_id,
+        blue_team_captain: blue_team_captain as i64,
+        blue_team: blue_team.iter_mut().map(|player_id| *player_id as i64).collect(),
+        red_team_captain: red_team_captain as i64,
+        red_team: red_team.iter_mut().map(|player_id| *player_id as i64).collect(),
         // !FIXME: currently voice channels are created for 2 player game modes as well. They should be exempted.
         voice_chat: TeamVoiceChat {
             category: ChannelState {
-                id: category.id.0.to_string(),
+                id: category.id.0 as i64,
                 is_deleted_from_guild_channel_list: false,
             },
             blue_channel: ChannelState {
-                id: blue_team_voice_channel.id.0.to_string(),
+                id: blue_team_voice_channel.id.0 as i64,
                 is_deleted_from_guild_channel_list: false,
             },
             red_channel: ChannelState {
-                id: red_team_voice_channel.id.0.to_string(),
+                id: red_team_voice_channel.id.0 as i64,
                 is_deleted_from_guild_channel_list: false,
             },
         },

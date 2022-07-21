@@ -4,11 +4,6 @@ use serde::{Deserialize, Serialize};
 use serenity::model::interactions::application_command::ApplicationCommand;
 use std::convert::From;
 
-// FIXME: type u64 is not natively supported by mongodb
-// so change all usage to String:
-// `id.to_string()` to convert u64 --> String
-// and
-// `my_string.parse::<u64>().unwrap()` to get u64 value
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub enum Team {
@@ -30,21 +25,21 @@ impl From<Team> for Bson {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PugChannel {
-    pub channel_id: u64,
+    pub channel_id: i64,
     pub name: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Hash)]
 pub struct GameMode {
     pub label: String,
-    pub player_count: u64,
+    pub player_count: i64,
 }
 
 /// A model that represents a player who has joined the waiting queue for a certain game mode
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GameModeJoin {
     pub game_mode_label: String,
-    pub player_user_id: String,
+    pub player_user_id: i64,
     pub joined: DateTime<Utc>,
 }
 
@@ -52,13 +47,13 @@ pub struct GameModeJoin {
 /// with only the field we need to check/store in the database.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct GuildCommand {
-    pub command_id: u64,
+    pub command_id: i64,
     pub name: String,
 }
 
 impl PartialEq<ApplicationCommand> for GuildCommand {
     fn eq(&self, other: &ApplicationCommand) -> bool {
-        other.id == self.command_id
+        other.id == self.command_id as u64
     }
 }
 
@@ -68,7 +63,7 @@ pub struct PickingSession {
     pub game_mode: String,
     /// Channel Id of the thread created for managing/organizing  
     /// a filled pug. This is the primary identifier of a picking session.
-    pub thread_channel_id: String,
+    pub thread_channel_id: i64,
     pub pick_sequence: Vec<Team>,
     /// Timestamp for tracking latest reset if any. This is useful for
     /// the auto captain countdown to also reset if this value changes.
@@ -82,17 +77,17 @@ pub struct PickingSession {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct AutoCaptainCountDown {
     started_time: DateTime<Utc>,
-    message_id: String,
+    message_id: i64,
 }
 
 /// A model that represents a participant/player
 /// involved with a picking session.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Player {
-    pub channel_id_for_picking_session: String,
+    pub channel_id_for_picking_session: i64,
     pub is_captain: bool,
     pub exclude_from_random_captaining: bool,
-    pub user_id: String,
+    pub user_id: i64,
     pub team: Option<Team>,
     /// The position of your being picked to a team.
     ///
@@ -101,7 +96,7 @@ pub struct Player {
     /// and picks you first. Your pick position is `1`. The last picked player in such a game mode
     /// (typically 5 players per team) would have a pick position of `4`.
     /// When a player is a captain, they do not get assigned a pick position.
-    pub pick_position: Option<String>,
+    pub pick_position: Option<i64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -113,7 +108,7 @@ pub struct TeamVoiceChat {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct ChannelState {
-    pub id: String,
+    pub id: i64,
     pub is_deleted_from_guild_channel_list: bool,
 }
 
@@ -121,12 +116,21 @@ pub struct ChannelState {
 pub struct CompletedPug {
     pub created: DateTime<Utc>,
     pub game_mode: String,
-    pub thread_channel_id: String,
-    pub blue_team_captain: String,
-    pub blue_team: Vec<String>,
-    pub red_team_captain: String,
-    pub red_team: Vec<String>,
+    pub thread_channel_id: i64,
+    pub blue_team_captain: i64,
+    pub blue_team: Vec<i64>,
+    pub red_team_captain: i64,
+    pub red_team: Vec<i64>,
     pub voice_chat: TeamVoiceChat,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct CompletedTwoPlayerPug {
+    pub created: DateTime<Utc>,
+    pub game_mode: String,
+    pub thread_channel_id: i64,
+    pub blue_player: i64,
+    pub red_player: i64,
 }
 
 // EXPERIMENT BELOW:

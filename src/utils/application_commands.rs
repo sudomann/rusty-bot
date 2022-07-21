@@ -50,7 +50,7 @@ pub async fn refresh_commands_with_game_mode_option(
         };
 
         guild_id
-            .edit_application_command(&ctx.http, CommandId(saved_guild_command.command_id), |c| {
+            .edit_application_command(&ctx.http, CommandId(saved_guild_command.command_id as u64), |c| {
                 *c = updated_command_to_apply;
                 c
             })

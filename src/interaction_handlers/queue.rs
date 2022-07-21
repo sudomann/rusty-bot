@@ -124,13 +124,13 @@ pub async fn join_helper(
     // let mut queue = get_game_mode_queue(db.clone(), &game_mode.label).await?;
     let user_is_in_queue = queue
         .iter()
-        .any(|join_record| join_record.player_user_id == user_to_add.to_string());
+        .any(|join_record| join_record.player_user_id as u64 == user_to_add);
 
     if user_is_in_queue {
         return Ok("User is already in the queue".to_string());
     }
 
-    let queue_not_yet_filled = queue.len() as u64 + 1 < game_mode.player_count;
+    let queue_not_yet_filled = queue.len() as u64 + 1 < game_mode.player_count as u64;
 
     if queue_not_yet_filled {
         // add player to game mode queue and exit
@@ -166,9 +166,7 @@ pub async fn join_helper(
     let mut players = queue.clone()
         .iter_mut()
         .map(|j| {
-            j.player_user_id
-                .parse::<u64>()
-                .expect("Expected user IDs (stored as strings in DB) to be parsable to u64")
+            j.player_user_id as u64
         })
         .collect::<Vec<u64>>();
     // no need to insert this user into the queue
@@ -204,7 +202,7 @@ pub async fn join_helper(
     let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
 
     // generate a pick sequence
-    let pick_sequence = crate::utils::pick_sequence::generate(&game_mode.player_count);
+    let pick_sequence = crate::utils::pick_sequence::generate(&(game_mode.player_count as u64));
 
     // remove participants from all queues
     db::write::remove_players_from_all_queues(db.clone(), &players)
@@ -218,7 +216,7 @@ pub async fn join_helper(
         let autocompleted_picking_session = PickingSession {
             created: now,
             game_mode: game_mode.label.clone(),
-            thread_channel_id: pug_thread.id.0.to_string(),
+            thread_channel_id: pug_thread.id.0 as i64,
             pick_sequence,
             last_reset: None,
         };
@@ -235,9 +233,9 @@ pub async fn join_helper(
             &ctx,
             db.clone(),
             autocompleted_picking_session,
-            first_random_player.unwrap().to_string(),
+            *first_random_player.unwrap(),
             vec![],
-            remaining_player.unwrap().to_string(),
+            *remaining_player.unwrap(),
             vec![],
         )
         .await
@@ -248,8 +246,8 @@ pub async fn join_helper(
 
         // Unwrapping like this is probably fine because it comes from a String
         // (which came from a proper u64) that has not been moved about or tampered with.
-        let red_player = UserId(completed_pug.red_team_captain.parse::<u64>().unwrap());
-        let blue_player = UserId(completed_pug.blue_team_captain.parse::<u64>().unwrap());
+        let red_player = UserId(completed_pug.red_team_captain as u64);
+        let blue_player = UserId(completed_pug.blue_team_captain as u64);
 
         // then announce auto-picked team colors in pug thread
         let response = MessageBuilder::new()

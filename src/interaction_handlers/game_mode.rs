@@ -63,7 +63,7 @@ pub async fn create(
     // game modes that existed before
     game_modes.push(GameMode {
         label: label.to_string(),
-        player_count: *player_count,
+        player_count: *player_count as i64,
     });
 
     // Finally, update commands which require an up-to-date game mode list
