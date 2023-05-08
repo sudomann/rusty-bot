@@ -2,7 +2,7 @@ use chrono::Utc;
 use mongodb::bson::{doc, Bson};
 use mongodb::error::Error;
 use mongodb::options::{
-    FindOneAndReplaceOptions, FindOneAndUpdateOptions, ReplaceOptions, ReturnDocument,
+    FindOneAndReplaceOptions, FindOneAndUpdateOptions, ReplaceOptions, ReturnDocument, UpdateOptions,
 };
 use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult};
 use mongodb::Database;
@@ -47,7 +47,7 @@ pub async fn add_player_to_game_mode_queue(
     let collection = db.collection(GAME_MODE_JOINS);
     let filter = doc! {
         "game_mode_label": game_mode_label.clone(),
-        "player_user_id": player_user_id.clone().to_string(), // DIGITS,
+        "player_user_id": player_user_id.clone() as i64
     };
     let join_record = GameModeJoin {
         game_mode_label: game_mode_label.clone(),
@@ -72,7 +72,7 @@ pub async fn remove_player_from_game_mode_queue(
     let collection = db.collection(GAME_MODE_JOINS);
     let filter = doc! {
         "game_mode_label": game_mode_label,
-        "player_user_id": player_user_id.to_string(), // DIGITS
+        "player_user_id": player_user_id as i64
     };
     collection.find_one_and_delete(filter, None).await
 }
@@ -184,7 +184,7 @@ pub async fn pick_player_for_team(
 
 pub async fn reset_pug(db: Database, &thread_channel_id: &u64) -> Result<UpdateResult, Error> {
     let collection = db.collection::<Player>(PLAYER_ROSTER);
-    let query = doc! {"channel_id_for_picking_session": thread_channel_id.to_string()};
+    let query = doc! {"channel_id_for_picking_session": thread_channel_id as i64};
     let update = doc! {
         "$set": {
             "is_captain": false,
@@ -270,18 +270,23 @@ where
 pub async fn save_guild_commands(
     db: Database,
     commands: Vec<ApplicationCommand>,
-) -> Result<InsertManyResult, Error> {
-    let commands_to_save: Vec<GuildCommand> = commands
-        .iter()
-        .map(|c| GuildCommand {
-            command_id: c.id.0 as i64,
-            name: c.name.clone(),
-        })
-        .collect();
+) -> Result<(), Error> {
+    for command in &commands {
+        let command_to_save = GuildCommand {
+            command_id: command.id.0 as i64,
+            name: command.name.clone(),
+        };
 
-    db.collection::<GuildCommand>(COMMANDS)
-        .insert_many(commands_to_save, None)
-        .await
+        let filter = doc! { "command_id": command_to_save.command_id };
+        let update = doc! { "$set": { "name": command_to_save.name.clone() } };
+        let options = UpdateOptions::builder().upsert(true).build();
+
+        db.collection::<GuildCommand>(COMMANDS)
+            .update_one(filter, update, options)
+            .await?;
+    }
+
+    Ok(())
 }
 
 /// Updates a [`Player`] record to grant it captaincy.
@@ -293,8 +298,8 @@ pub async fn set_one_captain(
 ) -> Result<Option<Player>, Error> {
     let collection = db.collection(PLAYER_ROSTER);
     let filter = doc! {
-        "channel_id_for_picking_session": thread_channel_id.to_string(), // DIGITS,
-        "user_id": user_id.to_string(), // DIGITS,
+        "channel_id_for_picking_session": thread_channel_id as i64,
+        "user_id": user_id as i64
     };
 
     let update = doc! {
@@ -334,8 +339,8 @@ pub async fn set_both_captains(
     // !FIXME: use sessions
     let collection = db.collection::<Player>(PLAYER_ROSTER);
     let blue_captain_filter = doc! {
-        "channel_id_for_picking_session": thread_channel_id.to_string(), // DIGITS,
-        "user_id": blue_team_captain_user_id.to_string(), // DIGITS,
+        "channel_id_for_picking_session": thread_channel_id as i64,
+        "user_id": blue_team_captain_user_id as i64
     };
 
     let blue_captain_update = doc! {
@@ -348,8 +353,8 @@ pub async fn set_both_captains(
     };
 
     let red_captain_filter = doc! {
-        "channel_id_for_picking_session": thread_channel_id.to_string(), // DIGITS
-        "user_id": red_team_captain_user_id.to_string(), // DIGITS
+        "channel_id_for_picking_session": thread_channel_id as i64,
+        "user_id": red_team_captain_user_id as i64,
     };
 
     let red_captain_update = doc! {

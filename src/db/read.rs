@@ -80,9 +80,9 @@ where
 }
 
 pub async fn get_current_picking_session(db: Database) -> Result<Option<PickingSession>, Error> {
-    // !FIXME: which direction does this sort go in
     let options = FindOneOptions::builder()
-        .sort(doc! { "created": 1 })
+        // -1 sorts them in descending order
+        .sort(doc! { "created": -1 })
         .build();
     db.collection(PICKING_SESSIONS)
         .find_one(None, options)
@@ -95,7 +95,7 @@ pub async fn is_captain_position_available(
 ) -> Result<bool, Error> {
     let collection = db.collection::<Player>(PLAYER_ROSTER);
     let filter = doc! {
-        "channel_id_for_picking_session": pug_thread_channel_id.to_string(), // DIGITS,
+        "channel_id_for_picking_session": pug_thread_channel_id as i64,
         "is_captain": true,
     };
 
@@ -112,7 +112,7 @@ pub async fn get_picking_session_members(
 ) -> Result<Vec<Player>, Error> {
     let collection = db.collection::<Player>(PLAYER_ROSTER);
     let filter = doc! {
-        "channel_id_for_picking_session": pug_thread_channel_id.to_string(), // DIGITS,
+        "channel_id_for_picking_session": pug_thread_channel_id as i64,
     };
 
     let cursor = collection.find(filter, None).await?;
