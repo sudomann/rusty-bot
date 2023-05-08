@@ -86,7 +86,7 @@ pub async fn autopick_countdown(
                     let final_update = MessageBuilder::new()
                         .push_strike_line(new_update)
                         .push_italic(
-                            "Countdown for autocaptain cancelled because the pug was reset",
+                            "Countdown cancelled because the pug was reset",
                         )
                         .build();
                     let _ = countdown_message
@@ -96,15 +96,15 @@ pub async fn autopick_countdown(
                 }
             }
 
-            let x = is_captain_position_available(db.clone(), &pug_thread_channel_id.0)
+            let captain_position_available = is_captain_position_available(db.clone(), &pug_thread_channel_id.0)
                 .await
                 .expect("Failure when checking database for players with the captain assignment");
 
             // cancel the auto captain timer when there are no longer open captain spots
-            if !x {
+            if !captain_position_available {
                 let final_update = MessageBuilder::new()
                     .push_strike_line(new_update)
-                    .push_italic("Countdown for autocaptain cancelled")
+                    .push_italic("Countdown cancelled becase there is no captain position available")
                     .build();
                 let _ = countdown_message
                     .edit(&ctx.http, |m| m.content(final_update))

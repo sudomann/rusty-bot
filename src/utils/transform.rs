@@ -6,7 +6,7 @@ use mongodb::Database;
 use serenity::client::Context;
 use serenity::model::channel::ChannelType;
 use serenity::model::id::{ChannelId, CommandId, GuildId, UserId};
-use serenity::model::prelude::User;
+use serenity::model::prelude::{User, Channel};
 
 use crate::db;
 use crate::db::model::{ChannelState, CompletedPug, GameModeJoin, PickingSession, TeamVoiceChat};
@@ -155,23 +155,62 @@ pub async fn resolve_to_completed_pug(
             .context("There was an issue when trying to delete /teams, /reset and /pick commands from the database")?;
     }
 
-    let thread_channel_id = ChannelId(picking_session.thread_channel_id as u64);
+    // create voice channels for teams
+    // The pug thread is the child of a pug channel
+    // If the pug channel is a child of a category, we use the category's position
+    // If the pug channel is not a child of a category, we use the pug channel's position
+    // TODO: does passing the same position result in the new channel being created before or after the pug channel?
+    
+    let picking_session_channel_id = ChannelId(picking_session.thread_channel_id as u64);
+    let parent_channel = match picking_session_channel_id.to_channel(&ctx)
+    .await
+    .context("Failed to upgrade a ChannelId to Channel")? {
+        Channel::Guild(picking_session_channel) => {
+            match picking_session_channel.parent_id {
+                Some(pug_channel_id) => {
+                    pug_channel_id
+                    .to_channel(&ctx)
+                    .await
+                    .context("Failed to upgrade a ChannelId to Channel")?
+                },
+                None => anyhow::bail!("The provided Channel does not have a parent channel - it is expected to be a thread, and threads ALWAYS have a parent text channel")
+            }
+        },
+        _ => {
+            anyhow::bail!("The provided thread channel id is not a GuildChannel");
+        }
+    };
 
-    let thread_channel = thread_channel_id
-        .to_channel(&ctx)
-        .await
-        .context("Failed to upgrade a ChannelId to Channel")?;
+    // Now that we have the pug channel, we can get its category's position
+    // if it has one, otherwise we just use the pug channel's position
+    
+    let channel_position = match parent_channel {
+        Channel::Guild(pug_channel) => {
+            match pug_channel.parent_id{
+                Some(pug_channel_category_id) => {
+                    pug_channel_category_id
+                    .to_channel(&ctx)
+                    .await
+                    .context("Failed to upgrade a ChannelId to Channel")?
+                    .position()
+                    .unwrap()
+                },
+                None => pug_channel.position   
+            } 
+        },
+        _ => anyhow::bail!("The provided channel is not a GuildChannel. It was expected to be the pug channel, which is always a GuildChannel"),
+    };
 
-    let channel_position = thread_channel.position().unwrap() + 1;
-    tracing::info!("picking_session.thread_channel_id: {}", channel_position);
+    tracing::info!("channel position value: {}", channel_position);
 
     let category = guild_id
         .create_channel(&ctx.http, |c| {
             c.kind(ChannelType::Category)
                 .name(picking_session.game_mode.as_str())
-                .position(0)
-            //.position(channel_position.try_into().expect("Could not convert channel position from i64 to u32. \
-            //This should not happen, as there cannot be so many channels in a guild the count doesn't fit u32."))
+                // for debugging if code misbehaves
+                // .position(0)
+            .position(channel_position.try_into().expect("Could not convert channel position from i64 to u32. \
+            // This should not happen, as there cannot be so many channels in a guild the count doesn't fit u32."))
         })
         .await
         .context(format!(
@@ -208,9 +247,15 @@ pub async fn resolve_to_completed_pug(
         game_mode: picking_session.game_mode,
         thread_channel_id: picking_session.thread_channel_id,
         blue_team_captain: blue_team_captain as i64,
-        blue_team: blue_team.iter_mut().map(|player_id| *player_id as i64).collect(),
+        blue_team: blue_team
+            .iter_mut()
+            .map(|player_id| *player_id as i64)
+            .collect(),
         red_team_captain: red_team_captain as i64,
-        red_team: red_team.iter_mut().map(|player_id| *player_id as i64).collect(),
+        red_team: red_team
+            .iter_mut()
+            .map(|player_id| *player_id as i64)
+            .collect(),
         // !FIXME: currently voice channels are created for 2 player game modes as well. They should be exempted.
         voice_chat: TeamVoiceChat {
             category: ChannelState {

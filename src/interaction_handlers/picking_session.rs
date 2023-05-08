@@ -499,11 +499,12 @@ pub async fn pick(
         );
 
         let response = MessageBuilder::new()
-            .push_line(
-                "All players have been picked. Click your team color to join the voice channel:",
-            )
+            .push_line("All players have been picked.")
+            .push_line("Join your team's voice channel:")
+            .push_line("")
             .mention(&red_team_voice_channel)
             .push_line(" player1 - player2 - TODO")
+            .push_line("")
             .mention(&blue_team_voice_channel)
             .push_line(" player1 - player2 - TODO")
             .build();
@@ -701,7 +702,7 @@ pub async fn reset(
     )
     .await?;
 
-    Ok("Preparing for countdown".to_string())
+    Ok("Starting a countdown to automatically assign captains".to_string())
 }
 
 pub async fn teams(
