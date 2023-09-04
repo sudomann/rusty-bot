@@ -8,7 +8,7 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::{Activity, Ready};
 use serenity::model::guild::Guild;
 use serenity::model::id::GuildId;
-use serenity::model::interactions::{Interaction, InteractionResponseType};
+use serenity::model::application::interaction::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
 use tracing::{error, info, instrument};
 

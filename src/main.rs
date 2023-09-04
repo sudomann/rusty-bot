@@ -16,7 +16,7 @@ use serenity::http::Http;
 use serenity::prelude::*;
 use tracing::error;
 use tracing::log::info;
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use tracing_subscriber::{FmtSubscriber};
 use utils::crucial_user_ids;
 
 pub struct ShardManagerContainer;
@@ -41,7 +41,6 @@ impl TypeMapKey for DbClientRef {
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
     let subscriber = FmtSubscriber::builder()
-        .with_env_filter(EnvFilter::from_default_env())
         .finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to start the logger");

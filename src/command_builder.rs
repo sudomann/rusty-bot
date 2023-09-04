@@ -3,6 +3,13 @@ use serenity::builder::CreateApplicationCommandOption;
 use serenity::model::interactions::application_command::ApplicationCommandOptionType;
 use serenity::model::prelude::User;
 
+pub mod name {
+    const MY_GLOBAL_STRING: &str = "My global constant string";
+
+}
+
+
+
 // -----------------
 // Base command set
 // -----------------
