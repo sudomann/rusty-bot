@@ -1,25 +1,7 @@
 steps:
-  - name: "launcher.gcr.io/google/ubuntu1604"
-    id: Create GitHub pull request
-    entrypoint: bash
-    args:
-      - -c
-      - curl -X POST -H "Authorization:Bearer $$GH_TOKEN" -H 'Accept:application/vnd.github.v3+json' https://api.github.com/repos/GITHUB_USERNAME/REPO_NAME/pulls -d '{"head":"HEAD_BRANCH","base":"BASE_BRANCH", "title":"NEW_PR"}'
-    secretEnv: ["DOTENV"]
-
-  - name: "gcr.io/cloud-builders/docker"
-    args: [
-        "build",
-        "-t",
-        "gcr.io/ut4-hubs/rusty-bot",
-        ".",
-        "--build-arg",
-        #"dotenv=.env",
-        "dotenv=$$DOTENV",
-      ]
-    env:
-      - "DOTENV"
-    images: ["gcr.io/ut4-hubs/rusty-bot"]
+- name: "gcr.io/cloud-builders/gcloud"
+  args: ["app", "deploy"]
+timeout: "1600s"
 availableSecrets:
   secretManager:
     - versionName: projects/ut4-hubs/secrets/rust-bot-dotenv/versions/latest
