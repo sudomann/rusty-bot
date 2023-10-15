@@ -2,7 +2,7 @@ steps:
 - name: "gcr.io/cloud-builders/gcloud"
   args: ["app", "deploy"]
 timeout: "1600s"
-availableSecrets:
-  secretManager:
-    - versionName: projects/ut4-hubs/secrets/rust-bot-dotenv/versions/latest
-      env: DOTENV
+# availableSecrets:
+#   secretManager:
+#     - versionName: projects/ut4-hubs/secrets/rust-bot-dotenv/versions/latest
+#       env: DOTENV
