@@ -1,15 +1,14 @@
 # Testing
 
-## Tests to Add:
+## Tests to Add
 
 Validate document structure after:
+
 - /join and /leave
 - /reset
 - /captain and /autocaptain
 
-
 How to validate timely addition and removal of picking session commands?
-
 
 Try:
 while countdown going, captain yourself then autocaptain

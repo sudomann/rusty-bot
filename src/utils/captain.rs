@@ -85,9 +85,7 @@ pub async fn autopick_countdown(
                 if last_known_reset != current_picking_session.last_reset {
                     let final_update = MessageBuilder::new()
                         .push_strike_line(new_update)
-                        .push_italic(
-                            "Countdown cancelled because the pug was reset",
-                        )
+                        .push_italic("Countdown cancelled because the pug was reset")
                         .build();
                     let _ = countdown_message
                         .edit(&ctx.http, |m| m.content(final_update))
@@ -96,15 +94,20 @@ pub async fn autopick_countdown(
                 }
             }
 
-            let captain_position_available = is_captain_position_available(db.clone(), &pug_thread_channel_id.0)
-                .await
-                .expect("Failure when checking database for players with the captain assignment");
+            let captain_position_available =
+                is_captain_position_available(db.clone(), &pug_thread_channel_id.0)
+                    .await
+                    .expect(
+                        "Failure when checking database for players with the captain assignment",
+                    );
 
             // cancel the auto captain timer when there are no longer open captain spots
             if !captain_position_available {
                 let final_update = MessageBuilder::new()
                     .push_strike_line(new_update)
-                    .push_italic("Countdown cancelled becase there is no captain position available")
+                    .push_italic(
+                        "Countdown cancelled becase there is no captain position available",
+                    )
                     .build();
                 let _ = countdown_message
                     .edit(&ctx.http, |m| m.content(final_update))
@@ -142,11 +145,16 @@ pub async fn autopick_countdown(
 
     let response = match captain_helper(&ctx, &guild_id, None, &pug_thread_channel_id.0).await {
         Ok(result) => match result {
-            PostSetCaptainAction::NeedBlueCaptain => "",
-            PostSetCaptainAction::NeedRedCaptain => "",
+            PostSetCaptainAction::NeedBlueCaptain | PostSetCaptainAction::NeedRedCaptain => {
+                // need error handling and alerting here, because this case should not happen
+                !todo!();
+            }
             PostSetCaptainAction::StartPicking => "",
         },
-        Err(_err) => "Failed to assign random captains. Sorry, try captaining yourselves.",
+        Err(_err) => {
+            // need error handling and alerting here, because this case should not happen
+            "Failed to assign random captains. Sorry, try captaining yourselves."
+        }
     };
 
     let _ = countdown_timeout_alert.reply(&ctx, response).await;
@@ -160,7 +168,14 @@ pub enum PostSetCaptainAction {
     /// Captain needed for red team
     NeedRedCaptain,
     /// Both captains have been selected
-    StartPicking,
+    StartPickingBlue {
+        blue_captain_id: u64,
+        red_captain_id: u64,
+    },
+    StartPickingRed {
+        blue_captain_id: u64,
+        red_captain_id: u64,
+    },
 }
 
 // Checks:
@@ -224,7 +239,9 @@ pub async fn captain_helper(
         let player = match maybe_user_id {
             Some(provided_user_id) => {
                 // check whether user is in pug
-                let is_a_participant = participants.iter().any(|p| p.user_id as u64 == provided_user_id);
+                let is_a_participant = participants
+                    .iter()
+                    .any(|p| p.user_id as u64 == provided_user_id);
                 if !is_a_participant {
                     bail!(SetCaptainErr::ForeignUser);
                 }
