@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
-use serenity::model::interactions::application_command::ApplicationCommand;
+use serenity::model::application::command::Command;
 use std::convert::From;
 
 
@@ -27,6 +27,8 @@ impl From<Team> for Bson {
 pub struct PugChannel {
     pub channel_id: i64,
     pub name: Option<String>,
+    // !FIXME: this new field might cause issues with existing records read from db
+    pub allowed_game_modes: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Hash)]
@@ -43,7 +45,7 @@ pub struct GameModeJoin {
     pub joined: DateTime<Utc>,
 }
 
-/// Basically a slimmed down [`serenity::model::interactions::application_command::ApplicationCommand`]
+/// Basically a slimmed down [`serenity::model::interactions::application_command::Command`]
 /// with only the field we need to check/store in the database.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct GuildCommand {
@@ -51,8 +53,8 @@ pub struct GuildCommand {
     pub name: String,
 }
 
-impl PartialEq<ApplicationCommand> for GuildCommand {
-    fn eq(&self, other: &ApplicationCommand) -> bool {
+impl PartialEq<Command> for GuildCommand {
+    fn eq(&self, other: &Command) -> bool {
         other.id == self.command_id as u64
     }
 }

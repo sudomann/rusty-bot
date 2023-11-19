@@ -204,12 +204,14 @@ pub async fn set_pug_channel(
     db: Database,
     channel_id: u64,
     channel_name: Option<String>,
+    allowed_game_modes: Vec<String>,
 ) -> Result<UpdateResult, Error> {
     let collection = db.collection(PUG_CHANNELS);
 
     let desired_pug_channel = PugChannel {
         channel_id: channel_id as i64,
         name: channel_name,
+        allowed_game_modes,
     };
 
     // since we currently only permit one pug channel at a time

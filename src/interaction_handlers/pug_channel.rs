@@ -21,7 +21,13 @@ pub async fn set(
     let guild_id = interaction.guild_id.unwrap();
     let db = client.database(guild_id.0.to_string().as_str());
 
-    set_pug_channel(db, channel_id.0, channel_id.name(&ctx.cache).await).await?;
+    set_pug_channel(
+        db,
+        channel_id.0,
+        channel_id.name(&ctx.cache).await,
+        Vec::new(),
+    )
+    .await?;
     let response = MessageBuilder::default()
         .mention(&interaction.channel_id)
         .push(" is now the designated pug channel")
