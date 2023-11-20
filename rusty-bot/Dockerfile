@@ -2,7 +2,7 @@
 #  Build image  #
 #################
 
-FROM rust:1.54.0 as build
+FROM rust:1.74.0-slim-bookworm as build
 WORKDIR /tmp/source
 # COPY Cargo.lock Cargo.toml /tmp/source/
 COPY Cargo.toml /tmp/source/
@@ -21,7 +21,7 @@ RUN find -name "*.rs" -exec touch {} \; && cargo build --release
 ##################
 #  Output image  #
 ##################
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 COPY --from=build /tmp/source/target/release/rusty-bot /usr/local/bin/
 
 ENV RUST_LOG=info
