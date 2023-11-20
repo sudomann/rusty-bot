@@ -1,3 +1,5 @@
+
+
 #[derive(Default)]
 struct ValidationConfig {
     require_pug_channel: bool,

@@ -6,9 +6,6 @@ steps:
       - '-t'
       - >-
         $_AR_HOSTNAME/$PROJECT_ID/$_AR_NAME/$_SERVICE_NAME:$COMMIT_SHA
-      - rusty-bot
-      - '-f'
-      - rusty-bot/Dockerfile
     id: Build
   - name: gcr.io/cloud-builders/docker
     args:
@@ -22,7 +19,7 @@ steps:
       - services
       - update
       - $_SERVICE_NAME
-      - '--platform=managed'
+      - '--platform=$_PLATFORM'
       - >-
         --image=$_AR_HOSTNAME/$PROJECT_ID/$_AR_NAME/$_SERVICE_NAME:$COMMIT_SHA
       - >-

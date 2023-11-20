@@ -25,4 +25,4 @@ FROM debian:bookworm-slim
 COPY --from=build /tmp/source/target/release/rusty-bot /usr/local/bin/
 
 ENV RUST_LOG=info
-CMD rusty-bot
+CMD rusty_bot
