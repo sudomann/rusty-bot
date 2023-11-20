@@ -1,0 +1,34 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: rusty-bot
+spec:
+  template:
+    spec:
+      template:
+        spec:
+          containers:
+          - image: us-docker.pkg.dev/ut4-hubs/gcr.io/rusty-bot:latest 
+            env:
+            - name: DISCORD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: discord-token
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: mongo-uri
+            - name: SUPERUSERS
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: superusers
+            - name: RUST_LOG
+              value: info
+            - name: ENV
+              value: DEV
+            - name: MONGO_READY_MAX_WAIT
+              value: "30"
+            

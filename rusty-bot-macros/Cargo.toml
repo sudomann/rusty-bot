@@ -1,0 +1,14 @@
+[package]
+name = "rusty-bot-macros"
+version = "0.1.0"
+authors = ["Will Fombin <njundongw@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+
+
+[profile.release]
+lto = true
+
+[lib]
+proc-macro = true
