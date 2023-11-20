@@ -4,7 +4,8 @@
 
 FROM rust:1.54.0 as build
 WORKDIR /tmp/source
-COPY Cargo.lock Cargo.toml /tmp/source/
+# COPY Cargo.lock Cargo.toml /tmp/source/
+COPY Cargo.toml /tmp/source/
 RUN mkdir -p /tmp/source/src && \
   echo "fn main() {}" > /tmp/source/src/main.rs
 RUN cargo fetch
