@@ -1,8 +1,45 @@
 steps:
-- name: "gcr.io/cloud-builders/gcloud"
-  args: ["app", "deploy"]
-timeout: "1600s"
-# availableSecrets:
-#   secretManager:
-#     - versionName: projects/ut4-hubs/secrets/rust-bot-dotenv/versions/latest
-#       env: DOTENV
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - '--no-cache'
+      - '-t'
+      - >-
+        $_AR_HOSTNAME/$PROJECT_ID/$_AR_NAME/$_SERVICE_NAME:$COMMIT_SHA
+      - rusty-bot
+      - '-f'
+      - rusty-bot/Dockerfile
+    id: Build
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - >-
+        $_AR_HOSTNAME/$PROJECT_ID/$_AR_NAME/$_SERVICE_NAME:$COMMIT_SHA
+    id: Push
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - run
+      - services
+      - update
+      - $_SERVICE_NAME
+      - '--platform=managed'
+      - >-
+        --image=$_AR_HOSTNAME/$PROJECT_ID/$_AR_NAME/$_SERVICE_NAME:$COMMIT_SHA
+      - >-
+        --labels=managed-by=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+    id: Deploy
+    entrypoint: gcloud
+images:
+  - >-
+    $_AR_HOSTNAME/$PROJECT_ID/$_AR_NAME/$_SERVICE_NAME:$COMMIT_SHA
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _AR_HOSTNAME: us-east1-docker.pkg.dev
+  _AR_NAME: gcr.io
+  _PLATFORM: managed
+  _SERVICE_NAME: rusty-bot
+  _DEPLOY_REGION: us-east1
