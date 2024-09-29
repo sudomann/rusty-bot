@@ -35,6 +35,8 @@ pub enum SetCaptainErr {
     IsCaptainAlready,
     #[error("There are no captain spots available")]
     CaptainSpotsFilled,
+    #[error("The captain spots availability is corrupted")]
+    CaptainSpotsAvailibilityDataCorrupt,
     #[error("User is not a participant in pug")]
     ForeignUser,
     #[error("An error occured when trying to communicate with the database")]

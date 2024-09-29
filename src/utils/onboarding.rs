@@ -37,7 +37,7 @@ pub async fn inspect_guild_commands(ctx: Arc<Context>, guild_ids: Vec<GuildId>) 
     info!("Launching one task per connected guild for conducting inspection");
     for guild_id in guild_ids {
         let guild_name = match guild_id.to_guild_cached(&ctx.cache) {
-            Some(guild) => guild.name,
+            Some(guild) => guild.name.clone(),
             None => "<guild_name_unavailable>".to_string(),
         };
         join_handles.push(tokio::spawn(inspect_and_maybe_update_db(
@@ -73,7 +73,7 @@ pub async fn inspect_and_maybe_update_db(
 ) -> Result<GuildId, crate::error::Error> {
     let db = db_client.database(&guild_id.to_string());
 
-    let current_commands = guild_id.get_application_commands(&ctx.http).await?;
+    let current_commands = guild_id.get_commands(&ctx.http).await?;
     let mut saved_commands: Vec<GuildCommand> = crate::db::read::get_commands(db.clone()).await?;
 
     // if there is a mismatch between the commands saved in the database vs the ones currently
@@ -87,7 +87,7 @@ pub async fn inspect_and_maybe_update_db(
         && current_commands.iter().all(|current| {
             saved_commands
                 .iter()
-                .any(|saved| saved.command_id as u64 == current.id.0)
+                .any(|saved| saved.command_id as u64 == current.id.get())
         });
 
     if !commands_match {
@@ -95,7 +95,11 @@ pub async fn inspect_and_maybe_update_db(
             .iter()
             .format_with(", ", |cmd, f| f(&format_args!("{} {}", cmd.name, cmd.id)));
         let s_c = saved_commands.iter().format_with(", ", |cmd, f| {
-            f(&format_args!("{} {}", cmd.name, CommandId(cmd.command_id as u64)))
+            f(&format_args!(
+                "{} {}",
+                cmd.name,
+                CommandId::from(cmd.command_id as u64)
+            ))
         });
         let output = format!(
             "Mismatch in command set for {:?}\n\
@@ -106,7 +110,7 @@ pub async fn inspect_and_maybe_update_db(
         );
         warn!("{}", output);
         // clear guild commands
-        guild_id.set_application_commands(&ctx.http, |c| c).await?;
+        guild_id.set_commands(&ctx.http, Vec::new()).await?;
         // clear db also
         clear_guild_commands(db.clone()).await?;
         // and empty the vec that might contain old results
@@ -118,10 +122,7 @@ pub async fn inspect_and_maybe_update_db(
         // create /help command
 
         let help_cmd = guild_id
-            .create_application_command(&ctx.http, |c| {
-                *c = crate::command_builder::base::build_help();
-                c
-            })
+            .create_command(&ctx.http, crate::command_builder::base::build_help())
             .await?;
 
         // save in db

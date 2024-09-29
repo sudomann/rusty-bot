@@ -42,7 +42,14 @@ pub async fn obtain(http: Http) -> Result<CrucialIds, Error> {
                     HashSet::default()
                 }
             };
-            superusers.insert(info.owner.id);
+            match info.owner {
+                Some(owner) => {
+                    superusers.insert(owner.id);
+                }
+                None => {
+                    warn!("No owner found for the bot/application");
+                }
+            }
             info!("Superusers: {:?}", superusers);
             Ok(CrucialIds {
                 bot: info.id,
