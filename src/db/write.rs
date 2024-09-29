@@ -2,11 +2,12 @@ use chrono::Utc;
 use mongodb::bson::{doc, Bson};
 use mongodb::error::Error;
 use mongodb::options::{
-    FindOneAndReplaceOptions, FindOneAndUpdateOptions, ReplaceOptions, ReturnDocument, UpdateOptions,
+    FindOneAndReplaceOptions, FindOneAndUpdateOptions, ReplaceOptions, ReturnDocument,
+    UpdateOptions,
 };
 use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult};
-use mongodb::Database;
-use serenity::model::interactions::application_command::ApplicationCommand;
+use mongodb::{Collection, Database};
+use serenity::model::application::Command;
 
 use crate::db::collection_name::PLAYER_ROSTER;
 
@@ -79,11 +80,14 @@ pub async fn remove_player_from_game_mode_queue(
 
 pub async fn remove_players_from_all_queues(
     db: Database,
-    players_user_ids: &Vec<u64>
+    players_user_ids: &Vec<u64>,
 ) -> Result<DeleteResult, Error> {
     let collection = db.collection::<GameModeJoin>(GAME_MODE_JOINS);
 
-    let participants = players_user_ids.iter().map(|id|*id as i64).collect::<Vec<i64>>();
+    let participants = players_user_ids
+        .iter()
+        .map(|id| *id as i64)
+        .collect::<Vec<i64>>();
 
     let filter = doc! {
         "player_user_id": {
@@ -92,7 +96,6 @@ pub async fn remove_players_from_all_queues(
     };
 
     collection.delete_many(filter, None).await
-
 }
 
 /// Remove players from the queue of the specified game mode and put them on
@@ -224,12 +227,12 @@ pub async fn set_pug_channel(
 
 pub async fn register_guild_command(
     db: Database,
-    guild_command: &ApplicationCommand,
+    guild_command: &Command,
 ) -> Result<InsertOneResult, Error> {
     db.collection(COMMANDS)
         .insert_one(
             GuildCommand {
-                command_id: guild_command.id.0 as i64,
+                command_id: guild_command.id.get() as i64,
                 name: guild_command.name.clone(),
             },
             None,
@@ -246,36 +249,29 @@ pub async fn clear_guild_commands(db: Database) -> Result<DeleteResult, Error> {
 }
 
 /// Delete any guild commands with names which match any in the provided iterable.
-pub async fn find_and_delete_guild_commands<C, S>(
+pub async fn find_and_delete_guild_commands<S, I>(
     db: Database,
-    command_names: C,
-) -> Result<DeleteResult, Error>
+    command_names: I,
+) -> Result<DeleteResult, mongodb::error::Error>
 where
-    C: IntoIterator<Item = S>,
-    S: Into<String>,
+    S: AsRef<str>,
+    I: IntoIterator<Item = S>,
 {
-    let v = command_names
-        .into_iter()
-        .map(|x| x.into())
-        .collect::<Vec<String>>();
-
-    let all = doc! {
+    let collection: Collection<GuildCommand> = db.collection(COMMANDS);
+    
+    let filter = doc! {
         "name": {
-            "$in": v
-        },
+            "$in": command_names.into_iter().map(|s| s.as_ref().to_string()).collect::<Vec<String>>()
+        }
     };
-    db.collection::<GuildCommand>(COMMANDS)
-        .delete_many(all, None)
-        .await
+
+    collection.delete_many(filter, None).await
 }
 
-pub async fn save_guild_commands(
-    db: Database,
-    commands: Vec<ApplicationCommand>,
-) -> Result<(), Error> {
+pub async fn save_guild_commands(db: Database, commands: Vec<Command>) -> Result<(), Error> {
     for command in &commands {
         let command_to_save = GuildCommand {
-            command_id: command.id.0 as i64,
+            command_id: command.id.get() as i64,
             name: command.name.clone(),
         };
 
