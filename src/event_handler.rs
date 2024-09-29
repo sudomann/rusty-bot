@@ -3,12 +3,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use nanoid::nanoid;
+use serenity::all::ActivityData;
 use serenity::async_trait;
+use serenity::builder::{
+    CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
+};
+use serenity::model::application::Interaction;
 use serenity::model::channel::Message;
-use serenity::model::gateway::{Activity, Ready};
+use serenity::model::gateway::Ready;
 use serenity::model::guild::Guild;
 use serenity::model::id::GuildId;
-use serenity::model::application::interaction::{Interaction, InteractionResponseType};
 use serenity::prelude::*;
 use tracing::{error, info, instrument};
 
@@ -57,25 +61,21 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = interaction {
+        if let Interaction::Command(command) = interaction {
             info!("Interaction:\n{:?}", command);
             let _working = command.channel_id.start_typing(&ctx.http);
             // Send an immediate initial response, so that the interaction token
             // does not get get invalidated after the initial time limit of 3 secs.
             // This makes the token valid for 15 mins, allowing the command handlers more than enough time to respond
-            if let Err(why) = command
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| message.content("Working on it..."))
-                })
-                .await
-            {
+            let data = CreateInteractionResponseMessage::new().content("Working on it...");
+            let builder = CreateInteractionResponse::Message(data);
+            if let Err(why) = command.create_response(&ctx.http, builder).await {
                 error!("Cannot respond to slash command: {}", why);
                 return;
             }
+
             let handler_result: anyhow::Result<String> =
-                match command.data.name.as_str().to_lowercase().as_str() {
+                match command.data.name.to_lowercase().as_str() {
                     "ping" => Ok("Pong!".to_string()),
                     "help" => Ok(meta::render_help_text()),
                     "coinflip" => Ok(gambling::coin_flip()),
@@ -96,38 +96,34 @@ impl EventHandler for Handler {
                     _ => Ok("Not usable. Sorry :(".to_string()),
                 };
 
-            let actual_response = match handler_result {
-                Ok(response) => response,
-                Err(err) => {
+            let actual_response = handler_result.map_or_else(
+                |err| {
                     let event_id = nanoid!(6);
                     error!("Error Event [{}]\n{:#?}", event_id, err);
                     format!(
                         "Sorry, something went wrong and this incident has been logged.\nIncident ID: `{}`",
                         event_id
                     )
-                }
-            };
+                },
+                |response| response,
+            );
 
             if let Err(why) = command
-                .edit_original_interaction_response(&ctx.http, |initial_response| {
-                    initial_response.content(actual_response)
-                })
+                .edit_response(
+                    &ctx.http,
+                    EditInteractionResponse::new().content(actual_response),
+                )
                 .await
             {
                 error!("Cannot update initial interaction response: {}", why);
             }
-            let _ = _working
-                .expect(
-                    "Expected typing to have begun successfully - so that it could now be stopped",
-                )
-                .stop();
+            _working.stop();
         }
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
-        ctx.set_activity(Activity::playing("Bugs? Message sudomann#9568"))
-            .await;
+        ctx.set_activity(Some(ActivityData::playing("Bugs? Message sudomann#9568")));
     }
 
     #[instrument(skip(self, ctx, guilds))]
@@ -185,18 +181,19 @@ impl EventHandler for Handler {
     }
 
     #[instrument(skip(self, ctx))]
-    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
+    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: Option<bool>) {
         // TODO: test addition of new new guild while inspect_guild_commands() is looping/waiting
         // for Client to exist. Hopefully, out of the box, this handler never fires until cache_ready completes
         // and a Client is guaranteed to be in storage
 
-        if !is_new {
+        if matches!(is_new, None | Some(false)) {
             return;
         }
 
         info!(
             "New guild (GuildId: {}) connected - {}",
-            guild.id.0, guild.name
+            guild.id.get(),
+            guild.name
         );
 
         // do onboarding for guilds added after the bot was launched
