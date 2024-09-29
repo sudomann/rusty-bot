@@ -33,7 +33,7 @@ version = "1.0"
 features = ["derive"]
 
 [dependencies.serenity]
-version = "0.11"
+version = "0.12"
 default-features = false
 features = [
   "cache",
@@ -46,7 +46,7 @@ features = [
 ]
 
 [dependencies.tokio]
-version = "1.0"
+version = "1.21.2"
 features = ["macros", "signal", "rt-multi-thread", "time"]
 
 [profile.release]

@@ -11,17 +11,17 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use event_handler::Handler;
-use serenity::client::bridge::gateway::ShardManager;
+use serenity::gateway::ShardManager;
 use serenity::http::Http;
 use serenity::prelude::*;
 use tracing::error;
 use tracing::log::info;
-use tracing_subscriber::{FmtSubscriber};
+use tracing_subscriber::FmtSubscriber;
 use utils::crucial_user_ids;
 
 pub struct ShardManagerContainer;
 impl TypeMapKey for ShardManagerContainer {
-    type Value = Arc<Mutex<ShardManager>>;
+    type Value = Arc<ShardManager>;
 }
 
 /// An object to use in reading/writing to/from the database.
@@ -40,8 +40,7 @@ impl TypeMapKey for DbClientRef {
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
-    let subscriber = FmtSubscriber::builder()
-        .finish();
+    let subscriber = FmtSubscriber::builder().finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to start the logger");
 
@@ -58,7 +57,7 @@ async fn main() {
         .event_handler(Handler {
             is_loop_running: AtomicBool::new(false),
         })
-        .application_id(*important_user_ids.get_bot().as_u64())
+        .application_id(*important_user_ids.get_bot())
         .await
         .expect("Error creating client");
     {
@@ -72,7 +71,7 @@ async fn main() {
         tokio::signal::ctrl_c()
             .await
             .expect("Could not register ctrl+c handler");
-        shard_manager.lock().await.shutdown_all().await;
+        shard_manager.shutdown_all().await;
     });
 
     info! {"Connecting to database...\n"};
