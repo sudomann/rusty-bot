@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use serenity::model::channel::GuildChannel;
+use serenity::all::{CreateEmbed, CreateMessage};
 use serenity::model::id::{ChannelId, GuildId, UserId};
 use serenity::prelude::*;
 use serenity::utils::MessageBuilder;
@@ -14,31 +14,30 @@ use crate::db::write::mark_voice_channels_deleted;
 pub async fn log_system_load(ctx: Arc<Context>) {
     let cpu_load = sys_info::loadavg().unwrap();
     let mem_use = sys_info::mem_info().unwrap();
+    let m = CreateMessage::new().add_embed(
+        CreateEmbed::new()
+            .title("System Resource Load")
+            .field(
+                "CPU Load Average",
+                format!("{:.2}%", cpu_load.one * 10.0),
+                false,
+            )
+            .field(
+                "Memory Usage",
+                format!(
+                    "{:.2} MB Free out of {:.2} MB",
+                    mem_use.free as f32 / 1000.0,
+                    mem_use.total as f32 / 1000.0
+                ),
+                false,
+            ),
+    );
 
-    if let Err(why) = UserId(209721904662183937)
+    if let Err(why) = UserId::from(209721904662183937)
         .create_dm_channel(&*ctx)
         .await
         .expect("expected opened dm channel with sudomann")
-        .send_message(&ctx, |m| {
-            m.embed(|e| {
-                e.title("System Resource Load");
-                e.field(
-                    "CPU Load Average",
-                    format!("{:.2}%", cpu_load.one * 10.0),
-                    false,
-                );
-                e.field(
-                    "Memory Usage",
-                    format!(
-                        "{:.2} MB Free out of {:.2} MB",
-                        mem_use.free as f32 / 1000.0,
-                        mem_use.total as f32 / 1000.0
-                    ),
-                    false,
-                );
-                e
-            })
-        })
+        .send_message(&ctx, m)
         .await
     {
         eprintln!("Error sending message: {:?}", why);
@@ -73,14 +72,14 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
     let mut job_log = MessageBuilder::default();
     for guild_id in guilds {
         let client = db_client.clone();
-        let guild_db = client.database(guild_id.0.to_string().as_str());
+        let guild_db = client.database(guild_id.get().to_string().as_str());
         let mut temp_log = MessageBuilder::default();
         match guild_id.name(&ctx) {
             Some(name) => {
                 temp_log.push(name);
             }
             None => {
-                temp_log.push(guild_id);
+                temp_log.push(guild_id.to_string());
             }
         }
         temp_log.push_line(":").push_line("==============");
@@ -96,7 +95,7 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                         let mut removed_users: HashSet<UserId> = HashSet::default();
                         for join in game_mode_joins {
                             let u_id = join.player_user_id as u64;
-                            removed_users.insert(UserId(u_id));
+                            removed_users.insert(UserId::from(u_id));
                             tokio::spawn(crate::db::write::remove_player_from_game_mode_queue(
                                 guild_db.clone(),
                                 join.game_mode_label,
@@ -114,7 +113,9 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                                     msg.mention(&user).push(" ");
                                 }
 
-                                let _ = ChannelId(pug_channel.channel_id as u64).say(&ctx.http, msg).await;
+                                let _ = ChannelId::from(pug_channel.channel_id as u64)
+                                    .say(&ctx.http, msg.build())
+                                    .await;
                             }
                             None => {
                                 // send dm to removed users
@@ -131,7 +132,7 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                                         Err(err) => {
                                             has_error = true;
                                             temp_log.push_line("Expected joined player to have a valid userid for dm:")
-                                                    .push_line(err);
+                                                    .push_line(err.to_string());
                                         }
                                     };
                                 }
@@ -142,7 +143,7 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                         has_error = true;
                         temp_log
                             .push_line("Failed to read pug channel")
-                            .push_line(err);
+                            .push_line(err.to_string());
                     }
                 }
             }
@@ -150,11 +151,11 @@ pub async fn clear_out_stale_joins(ctx: Arc<Context>) {
                 has_error = true;
                 temp_log
                     .push_line("Failed to read stale game mode joins")
-                    .push_line(err);
+                    .push_line(err.to_string());
             }
         }
         if has_error {
-            job_log.push(temp_log);
+            job_log.push(temp_log.build());
         }
     }
     let job_log_output = job_log.build();
@@ -186,12 +187,12 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
     for guild_id in guilds {
         let ctx_clone = ctx.clone();
 
-        let guild_db = db_client.database(guild_id.0.to_string().as_str());
+        let guild_db = db_client.database(guild_id.get().to_string().as_str());
         let mut has_error = false;
         let mut job_log = MessageBuilder::default();
         match guild_id.name(&ctx.cache) {
             Some(guild_name) => job_log.push_line(guild_name),
-            None => job_log.push_line(guild_id),
+            None => job_log.push_line(guild_id.to_string()),
         };
 
         match crate::db::read::get_voice_channels_pending_deletion(
@@ -219,7 +220,7 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
                     ] {
                         match ctx_clone
                             .http
-                            .delete_channel(id)
+                            .delete_channel(ChannelId::from(id), None)
                             .await
                         {
                             Ok(channel) => {
@@ -231,21 +232,18 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
                                             _ => panic!("Somehow a guild channel which is not of either Category or Voice kind was being evaluted for \"if stale then delete\"")
                                         }
                                     },
-                                    serenity::model::channel::Channel::Category(category) => ("category", category.name),
                                     _ => panic!("Somehow a `serenity::model::channel::Channel` which is not of either `Category` or `Guild` variant was being evaluted for \"if stale then delete\"")
                                 };
 
-                                job_log.push_line(format!(
-                                    "Successfully deleted {} - {}",
-                                    kind, name
-                                ));
+                                job_log
+                                    .push_line(format!("Successfully deleted {} - {}", kind, name));
                                 deleted.push(id as i64);
                             }
                             Err(err) => {
                                 has_error = true;
                                 job_log
                                     .push(format!("Failed to delete channel/category {}: ", id))
-                                    .push_line(err);
+                                    .push_line(err.to_string());
                             }
                         }
                     }
@@ -257,7 +255,7 @@ pub async fn remove_stale_team_voice_channels(ctx: Arc<Context>) {
             Err(err) => {
                 has_error = true;
                 job_log.push_line("Failed to read voice channels pending deletion:");
-                job_log.push(err);
+                job_log.push(err.to_string());
             }
         }
         let job_log_output = job_log.build();

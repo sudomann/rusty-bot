@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
-use serenity::model::application::command::Command;
+use serenity::model::application::Command;
 use std::convert::From;
 
 

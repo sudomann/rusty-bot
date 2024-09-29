@@ -1,10 +1,5 @@
-use serenity::{
-    client::Context, model::interactions::application_command::ApplicationCommandInteraction,
-};
+use serenity::{client::Context, model::application::CommandInteraction};
 
-pub async fn promote(
-    _ctx: &Context,
-    _interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn promote(_ctx: &Context, _interaction: &CommandInteraction) -> anyhow::Result<String> {
     Ok("Promotion".to_string())
 }

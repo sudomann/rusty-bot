@@ -1,7 +1,7 @@
 use anyhow::Context as AnyhowContext;
 use serenity::client::Context;
+use serenity::model::application::CommandInteraction;
 use serenity::model::channel::{Channel, ChannelType};
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 
 use super::IntendedGameMode;
 
@@ -9,10 +9,7 @@ use super::IntendedGameMode;
 // or a pug thread for an active picking session
 // !TODO: lots of duplicate code in this whole module
 
-pub async fn add_to_pug(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn add_to_pug(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {
@@ -52,8 +49,6 @@ pub async fn add_to_pug(
         .find(|option| option.name.eq("game_mode"))
         .context("The `game_mode` option is missing")?
         .value
-        .as_ref()
-        .context("The `game_mode` option does not have a value")?
         .as_str()
         .context("Somehow, the value of the `game_mode` option is not a string")?;
 
@@ -65,14 +60,14 @@ pub async fn add_to_pug(
         guild_channel,
         db,
         IntendedGameMode::Single(game_mode_arg),
-        target_user_id.0,
+        target_user_id.get(),
     )
     .await
 }
 
 pub async fn remove_from_pug(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
 ) -> anyhow::Result<String> {
     let guild_id = interaction.guild_id.unwrap();
 
@@ -113,8 +108,6 @@ pub async fn remove_from_pug(
         .find(|option| option.name.eq("game_mode"))
         .context("The `game_mode` option is missing")?
         .value
-        .as_ref()
-        .context("The `game_mode` option does not have a value")?
         .as_str()
         .context("Somehow, the value of the `game_mode` option is not a string")?;
 
@@ -126,7 +119,7 @@ pub async fn remove_from_pug(
         guild_channel,
         db,
         IntendedGameMode::Single(game_mode_arg),
-        target_user_id.0,
+        target_user_id.get(),
     )
     .await
 }

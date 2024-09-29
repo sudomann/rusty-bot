@@ -1,6 +1,6 @@
 use anyhow::Context as AnyhowContext;
 use serenity::client::Context;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::CommandInteraction;
 
 use crate::db;
 use crate::db::model::GameMode;
@@ -10,10 +10,7 @@ use crate::DbClientRef;
 /// Register a game mode
 ///
 /// Expects fields `label` and `player_count`
-pub async fn create(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn create(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {
@@ -80,10 +77,7 @@ pub async fn create(
 /// Delete a registered game mode.
 ///
 /// This updates the set of commands which require an up-to-date list of game modes to show as choices.
-pub async fn delete(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn delete(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {

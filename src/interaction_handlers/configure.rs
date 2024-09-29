@@ -32,7 +32,7 @@ pub async fn generate_and_apply_guild_command_set(
             .expect("Expected MongoDB's `Client` to be available for use")
             .clone()
     };
-    let db = client.database(guild_id.0.to_string().as_str());
+    let db = client.database(guild_id.get().to_string().as_str());
 
     let game_modes = crate::db::read::get_game_modes(db.clone()).await?;
 
@@ -88,12 +88,7 @@ pub async fn generate_and_apply_guild_command_set(
 
     // set (overwrite) current guild commands with the newly built set
     let created_commands = guild_id
-        .set_application_commands(&ctx.http, move |c| {
-            for command in command_set.into_iter() {
-                c.add_application_command(command);
-            }
-            c
-        })
+        .set_commands(&ctx.http, command_set)
         .await
         .context(format!(
             "Failed to overwrite guild commands for: {:?}",

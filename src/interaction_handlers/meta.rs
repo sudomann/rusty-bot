@@ -1,5 +1,5 @@
 use serenity::client::Context;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::CommandInteraction;
 use serenity::utils::MessageBuilder;
 
 pub fn render_help_text() -> String {
@@ -12,7 +12,7 @@ pub fn render_help_text() -> String {
 
 pub async fn pug_history(
     _ctx: &Context,
-    _interaction: &ApplicationCommandInteraction,
+    _interaction: &CommandInteraction,
 ) -> anyhow::Result<String> {
     // validate this channel is a GuildChannel
     // with kind PublicThread
