@@ -4,9 +4,7 @@ use itertools::Itertools;
 use serenity::model::channel::{Channel, ChannelType};
 use serenity::model::id::{ChannelId, CommandId, UserId};
 use serenity::utils::MessageBuilder;
-use serenity::{
-    client::Context, model::interactions::application_command::ApplicationCommandInteraction,
-};
+use serenity::{client::Context, model::application::CommandInteraction};
 use tracing::{info, instrument};
 
 use crate::command_builder::{
@@ -23,10 +21,7 @@ use crate::{db, DbClientRef};
 // then checks/validates the user (e.g. is part of that pug) before going into effect
 
 /// Command handler for /captain.
-pub async fn captain(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn captain(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     // =====================================================================
     // copied
     // =====================================================================
@@ -66,7 +61,7 @@ pub async fn captain(
     {
         Some(picking_session) => {
             let thread_channel_id = picking_session.thread_channel_id as u64;
-            let is_pug_thread = thread_channel_id == guild_channel.id.0;
+            let is_pug_thread = thread_channel_id == guild_channel.id.get();
             if !is_pug_thread {
                 let mut response = MessageBuilder::default();
                 response
@@ -90,8 +85,8 @@ pub async fn captain(
     match captain_helper(
         &ctx,
         &guild_id,
-        Some(interaction.user.id.0),
-        &interaction.channel_id.0,
+        Some(interaction.user.id.get()),
+        &interaction.channel_id.get(),
     )
     .await
     {
@@ -102,7 +97,10 @@ pub async fn captain(
             PostSetCaptainAction::NeedRedCaptain => {
                 response.push(" is now captain for the blue team. Need a captain for red team.");
             }
-            PostSetCaptainAction::StartPicking => {
+            PostSetCaptainAction::StartPicking {
+                blue_captain_id,
+                red_captain_id,
+            } => {
                 let all_players: Vec<Player> = crate::db::read::get_picking_session_members(
                     db.clone(),
                     &picking_session_thread_channel_id,
@@ -117,10 +115,7 @@ pub async fn captain(
                     crate::utils::transform::players_to_users(&ctx, non_captain_players).await?;
 
                 let pick_command = guild_id
-                    .create_application_command(&ctx.http, |c| {
-                        *c = build_pick(&pickable_users);
-                        c
-                    })
+                    .create_command(&ctx.http, build_pick(&pickable_users))
                     .await?;
                 db::write::register_guild_command(db.clone(), &pick_command)
                     .await
@@ -148,7 +143,8 @@ pub async fn captain(
                     SetCaptainErr::ForeignUser => {
                         response.push("You are not in this pug");
                     }
-                    SetCaptainErr::MongoError(_)
+                    SetCaptainErr::CaptainSpotsAvailibilityDataCorrupt
+                    | SetCaptainErr::MongoError(_)
                     | SetCaptainErr::InvalidCount
                     | SetCaptainErr::Unknown
                     | SetCaptainErr::NoPlayers => {
@@ -166,7 +162,7 @@ pub async fn captain(
 /// A command handler to fill any available captain spots
 pub async fn auto_captain(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
 ) -> anyhow::Result<String> {
     let guild_id = interaction.guild_id.unwrap();
 
@@ -203,7 +199,7 @@ pub async fn auto_captain(
     {
         Some(picking_session) => {
             let thread_channel_id = picking_session.thread_channel_id as u64;
-            let is_pug_thread = thread_channel_id == guild_channel.id.0;
+            let is_pug_thread = thread_channel_id == guild_channel.id.get();
             if !is_pug_thread {
                 let mut response = MessageBuilder::default();
                 response
@@ -232,14 +228,16 @@ pub async fn auto_captain(
                     \
                     The helper returned an unacceptable value: `{:?}`.\
                     \
-                    `{:?}` is the only valid variant, as there should be no captain spots remaining \
+                    There should be no captain spots remaining \
                     after automatic captain selection takes place.",
                     result,
-                    PostSetCaptainAction::StartPicking
                 );
             }
-            PostSetCaptainAction::StartPicking => {
-                "Sorry, I can't yet declare which captain picks first. For now, use trial and error to figure out."
+            PostSetCaptainAction::StartPicking {
+                blue_captain_id,
+                red_captain_id,
+            } => {
+                format!("{} is captain for the red team. {} is captain for the blue team. Red team picks first.", red_captain_id, blue_captain_id)
             }
         },
         Err(err) => {
@@ -254,13 +252,14 @@ pub async fn auto_captain(
                             set_captain_error, SetCaptainErr::CaptainSpotsFilled
                         );
                     }
-                    SetCaptainErr::MongoError(_)
+                    SetCaptainErr::CaptainSpotsAvailibilityDataCorrupt
+                    | SetCaptainErr::MongoError(_)
                     | SetCaptainErr::InvalidCount
                     | SetCaptainErr::Unknown
                     | SetCaptainErr::NoPlayers => {
-                        bail!(err);
+                        bail!(err)
                     }
-                }
+                }.to_string()
             } else {
                 bail!(err)
             }
@@ -273,10 +272,7 @@ pub async fn auto_captain(
 }
 
 // This command updates `/pick` command options.
-pub async fn pick(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn pick(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     // =====================================================================
     // copied
     // =====================================================================
@@ -321,26 +317,27 @@ pub async fn pick(
     }
     let picking_session = maybe_current_picking_session.unwrap();
     let picking_session_thread_channel_id = picking_session.thread_channel_id as u64;
-    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
+    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.get();
     if !is_pug_thread {
         let mut response = MessageBuilder::default();
         response
             .push_line("This command cannot be used in this thread.")
             .push("Perhaps you are looking for ")
-            .mention(&ChannelId(picking_session_thread_channel_id));
+            .mention(&ChannelId::from(picking_session_thread_channel_id));
         return Ok(response.build());
     }
 
     // =====================================================================
 
-    let participants: Vec<Player> = get_picking_session_members(db.clone(), &guild_channel.id.0)
-        .await
-        .context("Tried to fetch a list of `Player`s")?;
+    let participants: Vec<Player> =
+        get_picking_session_members(db.clone(), &guild_channel.id.get())
+            .await
+            .context("Tried to fetch a list of `Player`s")?;
 
     // check that user is a captain
     let current_user_as_captain = participants
         .iter()
-        .find(|p| p.is_captain && p.user_id as u64 == interaction.user.id.0);
+        .find(|p| p.is_captain && p.user_id as u64 == interaction.user.id.get());
     if current_user_as_captain.is_none() {
         return Ok("You cannot use this command because you are not a captain.".to_string());
     }
@@ -361,26 +358,17 @@ pub async fn pick(
         .get(pick_turn - 1)
         .expect("Picking is not being correctly tracked");
 
-    let player_option_value: String = interaction
+    let player_option_value = interaction
         .data
         .options
         .iter()
         .find(|option| option.name.eq("player"))
         .context("The `player` option is missing")?
         .value
-        .as_ref()
-        .context("The `player` option does not have a value")?
-        // ID is sent to discord as a string, but comes back with probably quotation
-        // marks like \"000000000000\" which derail with idiomatic conversion/parsing techniques.
-        .to_string()
-        .chars()
-        .filter(|c| c.is_digit(10))
-        .collect();
+        .as_user_id()
+        .context("The value of the `player` option could not be parsed as UserId")?;
 
-    let user_id_for_user_to_pick = player_option_value.parse::<u64>().context(format!(
-        "The value of the `player` option (should be a user id: {}) could not be parsed as u64",
-        player_option_value
-    ))?;
+    let user_id_for_user_to_pick = player_option_value.get();
 
     // The position of the player pick on their team
     let picking_position = participants
@@ -484,28 +472,19 @@ pub async fn pick(
         // Unwrapping like this is probably fine because it comes from a String
         // (which came from a proper u64) that has not been moved about (e.g. transimitted to/from db)
         // or tampered with.
-        let red_team_voice_channel = ChannelId(
-            completed_pug
-                .voice_chat
-                .red_channel
-                .id as u64,
-        );
-        let blue_team_voice_channel = ChannelId(
-            completed_pug
-                .voice_chat
-                .blue_channel
-                .id
-                 as u64,
-        );
 
         let response = MessageBuilder::new()
             .push_line("All players have been picked.")
             .push_line("Join your team's voice channel:")
             .push_line("")
-            .mention(&red_team_voice_channel)
+            .mention(&ChannelId::from(
+                completed_pug.voice_chat.red_channel.id as u64,
+            ))
             .push_line(" player1 - player2 - TODO")
             .push_line("")
-            .mention(&blue_team_voice_channel)
+            .mention(&ChannelId::from(
+                completed_pug.voice_chat.blue_channel.id as u64,
+            ))
             .push_line(" player1 - player2 - TODO")
             .build();
 
@@ -527,10 +506,11 @@ pub async fn pick(
 
     let updated_pick_command = build_pick(&remaining_players);
     guild_id
-        .edit_application_command(&ctx.http, CommandId(saved_pick_command.command_id as u64), |c| {
-            *c = updated_pick_command;
-            c
-        })
+        .edit_command(
+            &ctx.http,
+            CommandId::from(saved_pick_command.command_id as u64),
+            updated_pick_command,
+        )
         .await
         .context("Failed to submit updated pick command")?;
 
@@ -538,10 +518,7 @@ pub async fn pick(
 }
 
 #[instrument(skip(ctx))]
-pub async fn reset(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn reset(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     // =====================================================================
     // copied
     // =====================================================================
@@ -586,13 +563,13 @@ pub async fn reset(
     }
     let picking_session = maybe_current_picking_session.unwrap();
     let picking_session_thread_channel_id = picking_session.thread_channel_id as u64;
-    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
+    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.get();
     if !is_pug_thread {
         let mut response = MessageBuilder::default();
         response
             .push_line("This command cannot be used in this thread.")
             .push("Perhaps you are looking for ")
-            .mention(&ChannelId(picking_session_thread_channel_id));
+            .mention(&ChannelId::from(picking_session_thread_channel_id));
         return Ok(response.build());
     }
 
@@ -623,10 +600,10 @@ pub async fn reset(
         }
     };
 
-    let pick_cmd_id = CommandId(saved_pick_cmd.command_id as u64);
+    let pick_cmd_id = CommandId::from(saved_pick_cmd.command_id as u64);
 
     guild_id
-        .delete_application_command(&ctx.http, pick_cmd_id)
+        .delete_command(&ctx.http, pick_cmd_id)
         .await
         .context(format!(
             "Attempted and failed to delete pick command in guild: {:?}",
@@ -640,9 +617,9 @@ pub async fn reset(
     let saved_teams_cmd = teams_cmd_search_result.context(
         "There should be a /teams command saved in the database, but one was not found.",
     )?;
-    let teams_cmd_id = CommandId(saved_teams_cmd.command_id as u64);
+    let teams_cmd_id = CommandId::from(saved_teams_cmd.command_id as u64);
     guild_id
-        .delete_application_command(&ctx.http, teams_cmd_id)
+        .delete_command(&ctx.http, teams_cmd_id)
         .await
         .context(format!(
             "Attempted and failed to delete teams command in guild: {:?}",
@@ -663,7 +640,7 @@ pub async fn reset(
         crate::utils::captain::autopick_countdown(
             ctx_clone,
             db_clone,
-            ChannelId(picking_session_thread_channel_id),
+            ChannelId::from(picking_session_thread_channel_id),
             guild_id,
         )
         .await;
@@ -672,29 +649,13 @@ pub async fn reset(
     // Create captain-related guild commands: /captain, /nocapt and /autocaptain
     // TODO: improvement?: this code is repeated near the end of queue::join_helper()
     let autocaptain_cmd = guild_id
-        .create_application_command(&ctx.http, |c| {
-            *c = build_autocaptain();
-            c
-        })
+        .create_command(&ctx.http, build_autocaptain())
         .await?;
-    let captain_cmd = guild_id
-        .create_application_command(&ctx.http, |c| {
-            *c = build_captain();
-            c
-        })
-        .await?;
+    let captain_cmd = guild_id.create_command(&ctx.http, build_captain()).await?;
     let nocaptain_cmd = guild_id
-        .create_application_command(&ctx.http, |c| {
-            *c = build_nocaptain();
-            c
-        })
+        .create_command(&ctx.http, build_nocaptain())
         .await?;
-    let reset_cmd = guild_id
-        .create_application_command(&ctx.http, |c| {
-            *c = build_reset();
-            c
-        })
-        .await?;
+    let reset_cmd = guild_id.create_command(&ctx.http, build_reset()).await?;
 
     db::write::save_guild_commands(
         db.clone(),
@@ -705,10 +666,7 @@ pub async fn reset(
     Ok("Starting a countdown to automatically assign captains".to_string())
 }
 
-pub async fn teams(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn teams(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     // =====================================================================
     // copied
     // =====================================================================
@@ -753,13 +711,13 @@ pub async fn teams(
     }
     let picking_session = maybe_current_picking_session.unwrap();
     let picking_session_thread_channel_id = picking_session.thread_channel_id as u64;
-    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.0;
+    let is_pug_thread = picking_session_thread_channel_id == guild_channel.id.get();
     if !is_pug_thread {
         let mut response = MessageBuilder::default();
         response
             .push_line("This command cannot be used in this thread.")
             .push("Perhaps you are looking for ")
-            .mention(&ChannelId(picking_session_thread_channel_id));
+            .mention(&ChannelId::from(picking_session_thread_channel_id));
         return Ok(response.build());
     }
 
@@ -779,7 +737,7 @@ pub async fn teams(
         }
         match player.team {
             Some(team) => {
-                let player_user_id = UserId(player.user_id as u64);
+                let player_user_id = UserId::from(player.user_id as u64);
                 let player_as_user = player_user_id
                     .to_user(&ctx)
                     .await
@@ -796,9 +754,19 @@ pub async fn teams(
     response
         .push_bold_line(picking_session.game_mode)
         .push("Red Team: ")
-        .push_line(red_team_list.iter().format_with("sep", |name, f| f(name)))
+        .push_line(
+            red_team_list
+                .iter()
+                .format_with("sep", |name, f| f(name))
+                .to_string(),
+        )
         .push("Blue Team: ")
-        .push_line(blue_team_list.iter().format_with("sep", |name, f| f(name)));
+        .push_line(
+            blue_team_list
+                .iter()
+                .format_with("sep", |name, f| f(name))
+                .to_string(),
+        );
 
     Ok(response.build())
 }
