@@ -28,8 +28,6 @@ pub async fn create(ctx: &Context, interaction: &CommandInteraction) -> anyhow::
         .find(|option| option.name.eq("label"))
         .context("The `label` option is missing")?
         .value
-        .as_ref()
-        .context("The `label` option does not have a value")?
         .as_str()
         .context("Somehow, the value of the `label` option is not a string")?;
 
@@ -40,10 +38,8 @@ pub async fn create(ctx: &Context, interaction: &CommandInteraction) -> anyhow::
         .find(|option| option.name.eq("player_count"))
         .context("The `player_count` option is missing")?
         .value
-        .as_ref()
-        .context("The `player_count` option does not have a value")?
-        .as_u64()
-        .context("Failed to extract the value of the `player_count` option as a `u64`")?;
+        .as_i64()
+        .context("Failed to extract the value of the `player_count` option as a `i64`")?;
 
     // read existing game modes from db
     let mut game_modes = db::read::get_game_modes(db.clone()).await?;
@@ -54,7 +50,7 @@ pub async fn create(ctx: &Context, interaction: &CommandInteraction) -> anyhow::
     }
 
     // save new game mode
-    db::write::write_new_game_mode(db.clone(), label.to_string(), *player_count).await?;
+    db::write::write_new_game_mode(db.clone(), label.to_string(), *player_count as u64).await?;
 
     // Must add the desired game mode to the list since it the list only contains
     // game modes that existed before
@@ -95,8 +91,6 @@ pub async fn delete(ctx: &Context, interaction: &CommandInteraction) -> anyhow::
         .find(|option| option.name.eq("game_mode"))
         .context("The `game_mode` option is missing")?
         .value
-        .as_ref()
-        .context("The `game_mode` option does not have a value")?
         .as_str()
         .context("Somehow, the value of the `game_mode` option is not a string")?;
 

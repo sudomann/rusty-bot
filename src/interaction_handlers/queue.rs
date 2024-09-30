@@ -3,10 +3,11 @@ use chrono::Datelike;
 use chrono::Utc;
 use itertools::Itertools;
 use mongodb::Database;
+use serenity::all::CommandInteraction;
+use serenity::all::CreateThread;
 use serenity::client::Context;
 use serenity::model::channel::{Channel, ChannelType, GuildChannel};
 use serenity::model::id::{GuildId, UserId};
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use serenity::utils::MessageBuilder;
 use std::collections::HashMap;
 
@@ -24,10 +25,7 @@ use super::IntendedGameMode;
 // FIXME: add anyhow context to all ? operator usage
 // !TODO: lots of duplicate code in this whole module
 
-pub async fn join(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn join(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {
@@ -54,7 +52,7 @@ pub async fn join(
         _ => return Ok("You cannot use this command here".to_string()),
     };
 
-    let current_user_id = &interaction.user.id.0;
+    let current_user_id = &interaction.user.id.get();
 
     let game_mode_target = match &interaction
         .data
@@ -65,11 +63,6 @@ pub async fn join(
         Some(game_mode_option) => {
             let arg = game_mode_option
                 .value
-                .as_ref()
-                .expect(
-                    "Expected that when the game_mode option is present in interaction data, \
-                    it always contains a value",
-                )
                 .as_str()
                 .context("Somehow, the value of the `game_mode` option is not a string")?
                 .to_string();
@@ -117,7 +110,7 @@ pub async fn join_helper(
         return Ok("No game mode found with this name".to_string());
     }
     let game_mode = maybe_game_mode.unwrap();
-    
+
     let mut all_queues = db::read::get_all_queues(db.clone()).await?;
     let queue = all_queues.get_mut(&game_mode).unwrap();
 
@@ -157,17 +150,16 @@ pub async fn join_helper(
             .push_line("Successfully added to the waiting queue")
             .push_bold(game_mode.label)
             .push(format!(" ({}/{}) ", queue.len(), game_mode.player_count))
-            .push(queue_names)
+            .push(queue_names.to_string())
             .build();
 
         return Ok(response);
     }
 
-    let mut players = queue.clone()
+    let mut players = queue
+        .clone()
         .iter_mut()
-        .map(|j| {
-            j.player_user_id as u64
-        })
+        .map(|j| j.player_user_id as u64)
         .collect::<Vec<u64>>();
     // no need to insert this user into the queue
     // at the database level as it'll soon be cleared
@@ -178,26 +170,26 @@ pub async fn join_helper(
         .push_bold(&game_mode.label)
         .push_line(" filled!");
     for player in players.iter() {
-        announcement.mention(&UserId(*player)).push(" ");
+        announcement.mention(&UserId::from(*player)).push(" ");
     }
 
-    let m = guild_channel.say(&ctx.http, announcement).await?;
+    let m = guild_channel.say(&ctx.http, announcement.build()).await?;
 
     let now = Utc::now();
     let pug_thread = guild_channel
-        .create_public_thread(&ctx.http, m, |c| {
-            c.name(format!(
+        .create_thread(
+            &ctx.http,
+            CreateThread::new(format!(
                 "{} | {}-{}-{}",
                 &game_mode.label,
                 now.year(),
                 now.month(),
                 now.day()
             ))
-            .auto_archive_duration(60)
             .kind(ChannelType::PublicThread)
-        })
+            .auto_archive_duration(serenity::all::AutoArchiveDuration::OneHour),
+        )
         .await?;
-
 
     let _working_in_thread = pug_thread.clone().start_typing(&ctx.http);
 
@@ -206,8 +198,8 @@ pub async fn join_helper(
 
     // remove participants from all queues
     db::write::remove_players_from_all_queues(db.clone(), &players)
-    .await
-    .context("A pug filled and the db request to remove participants from all queues failed")?;
+        .await
+        .context("A pug filled and the db request to remove participants from all queues failed")?;
 
     if game_mode.player_count == 2 {
         // two-player game modes do not undergo a picking process,
@@ -216,7 +208,7 @@ pub async fn join_helper(
         let autocompleted_picking_session = PickingSession {
             created: now,
             game_mode: game_mode.label.clone(),
-            thread_channel_id: pug_thread.id.0 as i64,
+            thread_channel_id: pug_thread.id.get() as i64,
             pick_sequence,
             last_reset: None,
         };
@@ -246,8 +238,8 @@ pub async fn join_helper(
 
         // Unwrapping like this is probably fine because it comes from a String
         // (which came from a proper u64) that has not been moved about or tampered with.
-        let red_player = UserId(completed_pug.red_team_captain as u64);
-        let blue_player = UserId(completed_pug.blue_team_captain as u64);
+        let red_player = UserId::from(completed_pug.red_team_captain as u64);
+        let blue_player = UserId::from(completed_pug.blue_team_captain as u64);
 
         // then announce auto-picked team colors in pug thread
         let response = MessageBuilder::new()
@@ -264,7 +256,7 @@ pub async fn join_helper(
         // write picking session with these players in it
         register_picking_session(
             db.clone(),
-            &pug_thread.id.0,
+            &pug_thread.id.get(),
             &game_mode.label,
             &players,
             pick_sequence,
@@ -276,29 +268,13 @@ pub async fn join_helper(
         // TODO: perhaps it's a good idea to manually handle the error case here
         // i.e. attempt to delete any commands created so far?
         let autocaptain_cmd = guild_id
-            .create_application_command(&ctx.http, |c| {
-                *c = build_autocaptain();
-                c
-            })
+            .create_command(&ctx.http, build_autocaptain())
             .await?;
-        let captain_cmd = guild_id
-            .create_application_command(&ctx.http, |c| {
-                *c = build_captain();
-                c
-            })
-            .await?;
+        let captain_cmd = guild_id.create_command(&ctx.http, build_captain()).await?;
         let nocaptain_cmd = guild_id
-            .create_application_command(&ctx.http, |c| {
-                *c = build_nocaptain();
-                c
-            })
+            .create_command(&ctx.http, build_nocaptain())
             .await?;
-        let reset_cmd = guild_id
-            .create_application_command(&ctx.http, |c| {
-                *c = build_reset();
-                c
-            })
-            .await?;
+        let reset_cmd = guild_id.create_command(&ctx.http, build_reset()).await?;
 
         save_guild_commands(
             db.clone(),
@@ -316,10 +292,8 @@ pub async fn join_helper(
         ));
     }
 
-
     // TODO: announce participants' removal from queues
     // let mut announcement = MessageBuilder::default();
-
 
     return Ok(
         "If any of the following users were in the queue of any other game mode, \
@@ -330,10 +304,7 @@ pub async fn join_helper(
 
 /// Remove user from game queue. Currently, this will NOT cancel a picking session if
 /// the user was in one.
-pub async fn leave(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn leave(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     let guild_id = interaction.guild_id.unwrap();
 
     let client = {
@@ -369,11 +340,6 @@ pub async fn leave(
         Some(game_mode_option) => {
             let arg = game_mode_option
                 .value
-                .as_ref()
-                .expect(
-                    "Expected that when the game_mode option is present in interaction data, \
-                    it always contains a value",
-                )
                 .as_str()
                 .context("Somehow, the value of the `game_mode` option is not a string")?
                 .to_string();
@@ -388,7 +354,7 @@ pub async fn leave(
         guild_channel,
         db,
         game_modes_to_leave,
-        interaction.user.id.0,
+        interaction.user.id.get(),
     )
     .await
 }
@@ -415,8 +381,8 @@ pub async fn leave_helper(
         }
     };
 
-    let name_of_user = match UserId(user_to_remove).to_user_cached(&ctx.cache).await {
-        Some(user) => user.name,
+    let name_of_user = match UserId::from(user_to_remove).to_user_cached(&ctx.cache) {
+        Some(user) => user.name.clone(),
         None => "User".to_string(),
     };
     match db::write::remove_player_from_game_mode_queue(db, game_mode_label, user_to_remove).await?
@@ -430,10 +396,7 @@ pub async fn leave_helper(
 }
 
 /// Show available game modes and queued players.
-pub async fn list(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> anyhow::Result<String> {
+pub async fn list(ctx: &Context, interaction: &CommandInteraction) -> anyhow::Result<String> {
     // TODO: ensure guild channel
     let guild_id = interaction.guild_id.unwrap();
 
