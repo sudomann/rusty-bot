@@ -185,7 +185,7 @@ impl fmt::Display for PostSetCaptainAction {
         match self {
             PostSetCaptainAction::NeedBlueCaptain => write!(f, "NeedBlueCaptain"),
             PostSetCaptainAction::NeedRedCaptain => write!(f, "NeedRedCaptain"),
-            PostSetCaptainAction::StartPicking { .. } => write!(f, "StartPickingRed"),
+            PostSetCaptainAction::StartPicking { .. } => write!(f, "StartPicking"),
         }
     }
 }
