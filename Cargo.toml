@@ -42,7 +42,6 @@ features = [
   "gateway",
   "rustls_backend",
   "model",
-  "unstable_discord_api",
 ]
 
 [dependencies.tokio]
