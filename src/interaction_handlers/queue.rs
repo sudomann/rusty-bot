@@ -321,13 +321,10 @@ pub async fn leave(ctx: &Context, interaction: &CommandInteraction) -> anyhow::R
         .await
         .context("Tried to obtain `Channel` from a ChannelId")?
     {
-        Channel::Guild(channel) => {
-            if let ChannelType::Text = channel.kind {
-                channel
-            } else {
-                return Ok("You cannot use this command here".to_string());
-            }
-        }
+        Channel::Guild(channel) => match channel.kind {
+            ChannelType::Text | ChannelType::PublicThread => channel,
+            _ => return Ok("You cannot use this command here".to_string()),
+        },
         _ => return Ok("You cannot use this command here".to_string()),
     };
 
