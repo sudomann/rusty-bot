@@ -5,7 +5,7 @@ use serenity::model::channel::{Channel, ChannelType};
 use serenity::model::id::{ChannelId, CommandId, UserId};
 use serenity::utils::MessageBuilder;
 use serenity::{client::Context, model::application::CommandInteraction};
-use tracing::{info, instrument};
+use tracing::{info, instrument, warn};
 
 use crate::command_builder::{
     build_autocaptain, build_captain, build_nocaptain, build_pick, build_reset, build_teams,
@@ -575,6 +575,11 @@ pub async fn reset(ctx: &Context, interaction: &CommandInteraction) -> anyhow::R
 
     // =====================================================================
 
+
+    // !FIXME: the following code should be best-effort. If there are failures/bugs, subsequent calls to /reset should reasonably skip the reset
+    // actions that might have already been done successfully and now fail because of deleted data.
+    // Pugs should not become unrecoverable because of code bugs or intermittent backend issues.
+
     db::write::reset_pug(db.clone(), &picking_session_thread_channel_id)
         .await
         .context(format!(
@@ -590,9 +595,11 @@ pub async fn reset(ctx: &Context, interaction: &CommandInteraction) -> anyhow::R
     let saved_pick_cmd = match pick_cmd_search_result {
         Some(c) => c,
         None => {
-            info!("No /pick command found in database");
+            warn!("No /pick command found in database");
             // This case probably happens when there's been a recent reset
             // and the countdown is ongoing.
+            // !FIXME: If the countdown is interrupted e.g. by the thread or workload being stopped/killed,
+            // the pug is stuck in a state where it cannot be reset. Countdown did not complete + pick command was not created
             return Ok(
                 "Cannot reset right now. There might be an autocaptain countdown in progress."
                     .to_string(),

@@ -109,7 +109,7 @@ pub async fn autopick_countdown(
                 let final_update = MessageBuilder::new()
                     .push_strike_line(new_update)
                     .push_italic(
-                        "Countdown cancelled becase there is no captain position available",
+                        "Countdown cancelled becase captain positions have been occupied",
                     )
                     .build();
                 let _ = countdown_message
